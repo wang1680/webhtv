@@ -1,6 +1,7 @@
 package com.fongmi.android.tv.ui.fragment;
 
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -43,8 +44,13 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
     private List<Site> mSites;
 
     public static CollectFragment newInstance(String keyword) {
+        return newInstance(keyword, null);
+    }
+
+    public static CollectFragment newInstance(String keyword, String siteKey) {
         Bundle args = new Bundle();
         args.putString("keyword", keyword);
+        args.putString("siteKey", siteKey);
         CollectFragment fragment = new CollectFragment();
         fragment.setArguments(args);
         return fragment;
@@ -52,6 +58,10 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
 
     private String getKeyword() {
         return getArguments().getString("keyword");
+    }
+
+    private String getSiteKey() {
+        return getArguments().getString("siteKey");
     }
 
     @Override
@@ -106,7 +116,8 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
     }
 
     private void setSites() {
-        mSites = VodConfig.get().getSites().stream().filter(Site::isSearchable).toList();
+        String siteKey = getSiteKey();
+        mSites = VodConfig.get().getSites().stream().filter(Site::isSearchable).filter(site -> TextUtils.isEmpty(siteKey) || site.getKey().equals(siteKey)).toList();
     }
 
     private void setWidth() {

@@ -26,22 +26,27 @@
         android:orientation="horizontal">
 
         <androidx.leanback.widget.VerticalGridView
-            android:id="@+id/recycler"
-            android:layout_width="160dp"
+            android:id="@+id/collect"
+            android:layout_width="196dp"
             android:layout_height="match_parent"
             android:clipChildren="false"
             android:clipToPadding="false"
             android:paddingStart="24dp"
             android:paddingEnd="12dp"
             android:paddingBottom="24dp"
-            app:focusOutEnd="false"
+            app:focusOutEnd="true"
             app:focusOutFront="false" />
 
-        <com.fongmi.android.tv.ui.custom.CustomViewPager
-            android:id="@+id/pager"
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:clipChildren="true"
+            android:clipToPadding="true"
+            android:overScrollMode="never"
+            android:paddingEnd="24dp"
+            android:paddingBottom="24dp" />
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 

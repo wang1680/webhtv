@@ -1,9 +1,7 @@
 package com.fongmi.android.tv.ui.activity;
 
 import android.app.Activity;
-import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 
@@ -12,12 +10,11 @@ import androidx.viewbinding.ViewBinding;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.databinding.ActivitySettingEnhanceBinding;
-import com.fongmi.android.tv.server.Server;
+import com.fongmi.android.tv.setting.ProxySetting;
 import com.fongmi.android.tv.ui.base.BaseActivity;
+import com.fongmi.android.tv.ui.dialog.DebugLogDialog;
 import com.fongmi.android.tv.ui.dialog.OneKeySyncDialog;
 import com.fongmi.android.tv.ui.dialog.ShellProxyDialog;
-import com.fongmi.android.tv.utils.Notify;
-import com.github.catvod.crawler.SpiderDebug;
 
 public class SettingEnhanceActivity extends BaseActivity {
 
@@ -39,7 +36,6 @@ public class SettingEnhanceActivity extends BaseActivity {
     @Override
     protected void initView(Bundle savedInstanceState) {
         mBinding.driveCheck.requestFocus();
-        mBinding.shellProxyConfig.setVisibility(View.GONE);
         setText();
     }
 
@@ -48,15 +44,19 @@ public class SettingEnhanceActivity extends BaseActivity {
         mBinding.driveCheck.setOnClickListener(this::setDriveCheck);
         mBinding.debugLog.setOnClickListener(this::setDebugLog);
         mBinding.shellProxy.setOnClickListener(this::setShellProxy);
-        mBinding.shellProxyConfig.setOnClickListener(v -> ShellProxyDialog.show(this, this::setText));
+        mBinding.shellProxy.setOnLongClickListener(v -> {
+            ShellProxyDialog.show(this, this::setText);
+            return true;
+        });
+        mBinding.shellProxyConfig.setVisibility(View.GONE);
         mBinding.oneKeySync.setOnClickListener(v -> OneKeySyncDialog.create().show(this));
     }
 
     private void setText() {
         mBinding.driveCheckText.setText(getSwitch(Setting.isDriveCheck()));
         mBinding.debugLogText.setText(getSwitch(Setting.isDebugLog()));
-        mBinding.shellProxyText.setText(Setting.getShellProxyUrl().isEmpty() ? getString(R.string.none) : Uri.parse(Setting.getShellProxyUrl()).getScheme());
-        mBinding.shellProxyConfigText.setText(Setting.getShellProxyUrl());
+        mBinding.shellProxyText.setText(getSwitch(Setting.isShellProxy()));
+        mBinding.shellProxyConfigText.setText(getString(R.string.setting_proxy_rule_count, ProxySetting.count()));
     }
 
     private void setDriveCheck(View view) {
@@ -68,18 +68,19 @@ public class SettingEnhanceActivity extends BaseActivity {
         Setting.putDebugLog(!Setting.isDebugLog());
         mBinding.debugLogText.setText(getSwitch(Setting.isDebugLog()));
         if (!Setting.isDebugLog()) return;
-        Server.get().start();
-        String url = Server.get().getAddress("/debug/logs");
-        SpiderDebug.log("debug", "open logs url=%s lan=%s", url, Server.get().getAddress(false) + "/debug/logs");
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-        } catch (ActivityNotFoundException e) {
-            Notify.show(url);
-        }
+        DebugLogDialog.show(this);
     }
 
     private void setShellProxy(View view) {
-        ShellProxyDialog.show(this, this::setText);
+        if (!Setting.isShellProxy()) {
+            ShellProxyDialog.show(this, () -> {
+                Setting.putShellProxy(true);
+                setText();
+            });
+            return;
+        }
+        Setting.putShellProxy(false);
+        setText();
     }
 
     @Override

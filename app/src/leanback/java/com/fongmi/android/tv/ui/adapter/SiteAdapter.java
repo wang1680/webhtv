@@ -11,7 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.databinding.AdapterSiteBinding;
-import com.fongmi.android.tv.setting.Setting;
+import com.github.catvod.crawler.SpiderDebug;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +22,7 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     private final OnClickListener listener;
     private final List<Site> allItems;
     private final List<Site> mItems;
+    private boolean firstBindLogged;
     private int type;
 
     public SiteAdapter(OnClickListener listener) {
@@ -79,13 +80,19 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Site item = mItems.get(position);
+        if (!firstBindLogged) {
+            firstBindLogged = true;
+            SpiderDebug.log("site-dialog", "first bind position=%s name=%s", position, item.getName());
+        }
         holder.binding.text.setText(item.getName());
         holder.binding.check.setChecked(getChecked(item));
         holder.binding.text.setSelected(item.isSelected());
+        holder.binding.getRoot().setSelected(item.isSelected());
+        holder.binding.getRoot().setOnFocusChangeListener((v, hasFocus) -> holder.binding.text.setSelected(hasFocus || item.isSelected()));
         holder.binding.check.setVisibility(type == 0 ? View.GONE : View.VISIBLE);
         holder.binding.getRoot().setOnLongClickListener(v -> setLongListener(item));
         holder.binding.getRoot().setOnClickListener(v -> setListener(item, position));
-        holder.binding.text.setGravity(Setting.getSiteMode() == 0 ? Gravity.CENTER : Gravity.START);
+        holder.binding.text.setGravity(Gravity.CENTER);
     }
 
     private boolean getChecked(Site item) {

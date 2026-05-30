@@ -6,6 +6,7 @@ import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.api.config.LiveConfig;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.api.config.WallConfig;
+import com.fongmi.android.tv.api.loader.BaseLoader;
 import com.fongmi.android.tv.db.AppDatabase;
 import com.fongmi.android.tv.event.ConfigEvent;
 import com.fongmi.android.tv.event.RefreshEvent;
@@ -24,7 +25,7 @@ import java.util.Set;
 
 public class Backup {
 
-    private static final Set<String> APP_PREFS = Set.of("doh", "ua", "wall", "wall_type", "reset", "site_mode", "sync_mode", "incognito", "drive_check", "drive_check_cache", "shell_proxy", "shell_proxy_url", "shell_proxy_hosts", "update", "adblock", "zhuyin", "theme_color", "wall_color", "crash", "render", "size", "scale", "buffer", "background", "speed", "caption", "tunnel", "audio_prefer", "video_prefer", "prefer_aac", "subtitle_text_size", "subtitle_position", "boot_live", "across", "change", "invert", "scale_live");
+    private static final Set<String> APP_PREFS = Set.of("doh", "ua", "wall", "wall_type", "reset", "site_mode", "sync_mode", "sync_paths", "incognito", "drive_check", "drive_check_cache", "shell_proxy", "shell_proxy_rules", "shell_proxy_url", "shell_proxy_hosts", "update", "adblock", "zhuyin", "theme_color", "wall_color", "crash", "render", "size", "scale", "buffer", "background", "speed", "caption", "tunnel", "audio_prefer", "video_prefer", "prefer_aac", "subtitle_text_size", "subtitle_position", "boot_live", "across", "change", "invert", "scale_live");
 
     @SerializedName("site")
     private List<Site> site;
@@ -106,15 +107,16 @@ public class Backup {
             AppDatabase.get().getHistoryDao().insertOrUpdate(getHistory());
         }
         for (Map.Entry<String, ?> entry : filter(getPrefers(), options).entrySet()) Prefers.put(entry.getKey(), entry.getValue());
-        if (options.isConfig()) reloadConfig();
+        if (options.isSpider()) BaseLoader.get().clear();
+        if (options.isConfig() || options.isSpider()) reloadConfig();
         if (options.isKeep()) RefreshEvent.keep();
         if (options.isHistory()) RefreshEvent.history();
         RefreshEvent.home();
     }
 
     private void reloadConfig() {
-        VodConfig.get().init().load(new Callback());
-        LiveConfig.get().init().load();
+        VodConfig.get().clear().init().load(new Callback());
+        LiveConfig.get().clear().init().load();
         WallConfig.get().init().load();
         ConfigEvent.common();
     }

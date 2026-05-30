@@ -99,6 +99,7 @@ import com.fongmi.android.tv.utils.Task;
 import com.fongmi.android.tv.utils.Timer;
 import com.fongmi.android.tv.utils.Traffic;
 import com.fongmi.android.tv.utils.Util;
+import com.github.catvod.crawler.SpiderDebug;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
 import org.greenrobot.eventbus.Subscribe;
@@ -137,6 +138,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private Runnable mR4;
     private Clock mClock;
     private PiP mPiP;
+    private long detailStartTime;
+    private long playerStartTime;
 
     public static void push(FragmentActivity activity, String text) {
         if (FileChooser.isValid(activity, Uri.parse(text))) file(activity, FileChooser.getPathFromUri(Uri.parse(text)));
@@ -291,7 +294,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         ViewCompat.setOnApplyWindowInsetsListener(mBinding.getRoot(), (v, insets) -> setStatusBar(insets));
         mKeyDown = CustomKeyDown.create(this, mBinding.exo);
         mFrameParams = mBinding.video.getLayoutParams();
-        mBinding.progressLayout.showProgress();
         mBinding.swipeLayout.setEnabled(false);
         mObserveDetail = this::setDetail;
         mObservePlayer = this::setPlayer;
@@ -307,6 +309,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         setRecyclerView();
         setVideoView();
         setViewModel();
+        if (hasInitialPreview()) showInitialPreview();
+        else mBinding.progressLayout.showProgress();
         showProgress();
         setAnimator();
     }
@@ -439,6 +443,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void getDetail() {
+        detailStartTime = System.currentTimeMillis();
+        SpiderDebug.log("video-flow", "detail start key=%s id=%s name=%s", getKey(), getId(), getName());
         mViewModel.detailContent(getKey(), getId());
     }
 
@@ -458,6 +464,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setDetail(Result result) {
+        SpiderDebug.log("video-flow", "detail finish cost=%dms empty=%s msg=%s", System.currentTimeMillis() - detailStartTime, result.getList().isEmpty(), result.getMsg());
         mBinding.swipeLayout.setRefreshing(false);
         if (result.getList().isEmpty()) setEmpty(result.hasMsg());
         else setDetail(result.getVod());
@@ -540,6 +547,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void getPlayer(Flag flag, Episode episode) {
         mBinding.control.title.setText(getString(R.string.detail_title, mBinding.name.getText(), episode.getName()));
+        playerStartTime = System.currentTimeMillis();
+        SpiderDebug.log("video-flow", "player start key=%s flag=%s episode=%s url=%s", getKey(), flag.getFlag(), episode.getName(), episode.getUrl());
         mViewModel.playerContent(getKey(), flag.getFlag(), episode.getUrl());
         mBinding.control.title.setSelected(true);
         updateHistory(episode);
@@ -548,6 +557,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void setPlayer(Result result) {
         if (isFinishing() || isDestroyed()) return;
+        SpiderDebug.log("video-flow", "player finish cost=%dms useParse=%s multi=%s msg=%s", System.currentTimeMillis() - playerStartTime, result.shouldUseParse(), result.getUrl().isMulti(), result.getMsg());
         mQualityAdapter.addAll(result);
         setUseParse(result.shouldUseParse());
         mBinding.swipeLayout.setRefreshing(false);
@@ -902,6 +912,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
         setRequestedOrientation(player().isPortrait() ? ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         mBinding.control.title.setVisibility(View.VISIBLE);
+        setSizeText();
         setRotate(player().isPortrait());
         mKeyDown.resetScale();
         App.post(mR3, 2000);
@@ -915,6 +926,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         setRequestedOrientation(isPort() ? ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_FULL_USER);
         mBinding.episode.postDelayed(() -> mBinding.episode.scrollToPosition(mEpisodeAdapter.getPosition()), 100);
         mBinding.control.title.setVisibility(View.INVISIBLE);
+        setSizeText();
         mBinding.video.setLayoutParams(mFrameParams);
         mKeyDown.resetScale();
         App.post(mR3, 2000);
@@ -1017,12 +1029,17 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setArtwork(String url) {
-        mHistory.setVodPic(url);
-        setArtwork();
+        if (mHistory != null) mHistory.setVodPic(url);
+        loadArtwork(url);
     }
 
     private void setArtwork() {
-        ImgUtil.load(this, mHistory.getVodPic(), new CustomTarget<>() {
+        if (mHistory == null) return;
+        loadArtwork(mHistory.getVodPic());
+    }
+
+    private void loadArtwork(String url) {
+        ImgUtil.load(this, url, new CustomTarget<>() {
             @Override
             public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
                 mBinding.exo.setDefaultArtwork(resource);
@@ -1059,6 +1076,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         setScale(getScale());
     }
 
+    private boolean hasInitialPreview() {
+        return !getName().isEmpty() || !getPic().isEmpty();
+    }
+
+    private void showInitialPreview() {
+        mBinding.progressLayout.showContent();
+        mBinding.name.setText(getName());
+        if (!getPic().isEmpty()) setArtwork(getPic());
+    }
+
     private History createHistory(Vod item) {
         History history = new History();
         history.setKey(getHistoryKey());
@@ -1073,18 +1100,24 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void saveHistory(boolean exit) {
-        if (mHistory != null && mHistory.canSave() && !Setting.isIncognito()) Task.execute(() -> {
-            mHistory.merge().save();
+        if (mHistory == null || !mHistory.canSave() || Setting.isIncognito()) return;
+        History history = mHistory.copy();
+        Task.execute(() -> {
+            history.merge().save();
             if (exit) RefreshEvent.history();
         });
     }
 
     private void syncHistory() {
-        if (mHistory != null && !Setting.isIncognito()) Task.execute(() -> mHistory.save());
+        if (mHistory == null || Setting.isIncognito()) return;
+        History history = mHistory.copy();
+        Task.execute(history::save);
     }
 
     private void updateHistory(Episode item) {
-        mHistory.setPosition(item.matchesName(mHistory.getEpisode()) ? mHistory.getPosition() : C.TIME_UNSET);
+        boolean sameEpisode = item.matchesName(mHistory.getEpisode());
+        mHistory.setPosition(sameEpisode ? mHistory.getPosition() : C.TIME_UNSET);
+        if (!sameEpisode) mHistory.setDuration(C.TIME_UNSET);
         mHistory.setVodFlag(getFlag().getFlag());
         mHistory.setVodRemarks(item.getName());
         mHistory.setEpisodeUrl(item.getUrl());
@@ -1254,6 +1287,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected void onSizeChanged(VideoSize size) {
+        setSizeText();
         changeHeight();
         checkOrientation();
     }
@@ -1336,6 +1370,14 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void setTitleVisible() {
         mBinding.control.action.title.setVisibility(player().haveTitle() ? View.VISIBLE : View.GONE);
+    }
+
+    private void setSizeText() {
+        String text = player().getSizeText();
+        boolean hasTitle = !TextUtils.isEmpty(mBinding.control.title.getText());
+        mBinding.control.title.setVisibility(hasTitle ? View.VISIBLE : View.INVISIBLE);
+        mBinding.control.size.setText(text);
+        mBinding.control.size.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     private MediaMetadata buildMetadata() {

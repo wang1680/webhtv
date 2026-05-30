@@ -1,7 +1,16 @@
 package com.fongmi.android.tv.ui.dialog;
 
+import android.app.Dialog;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -15,20 +24,27 @@ import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.databinding.DialogSiteBinding;
 import com.fongmi.android.tv.impl.Callback;
 import com.fongmi.android.tv.impl.SiteListener;
-import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.adapter.SiteAdapter;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.utils.Notify;
+import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickListener {
 
-    private static final int GRID_COUNT = 10;
+    private static final int GRID_COUNT = 3;
+    private static final String TAG = "site_dialog";
+    private static final int ITEM_HEIGHT = 46;
+    private static final int ITEM_SPACE = 12;
+    private static final int MAX_HEIGHT = 344;
 
     private RecyclerView.ItemDecoration decoration;
     private DialogSiteBinding binding;
+    private FragmentActivity activity;
+    private Dialog directDialog;
     private SiteListener listener;
     private SiteAdapter adapter;
+    private long showStart;
     private boolean action;
     private int type;
 
@@ -47,24 +63,19 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     public void show(FragmentActivity activity) {
-        show(activity.getSupportFragmentManager(), null);
+        showStart = System.currentTimeMillis();
+        this.activity = activity;
         if (activity instanceof SiteListener) listener = (SiteListener) activity;
-    }
-
-    private boolean list() {
-        return Setting.getSiteMode() == 0 || adapter.getItemCount() < GRID_COUNT;
+        if (activity.isFinishing() || activity.isDestroyed()) return;
+        showDirect(activity);
     }
 
     private int getCount() {
-        return list() ? 1 : Math.max(2, Math.min((int) Math.ceil((double) adapter.getItemCount() / GRID_COUNT), 3));
-    }
-
-    private int getIcon() {
-        return list() ? com.fongmi.android.tv.R.drawable.ic_site_grid : com.fongmi.android.tv.R.drawable.ic_site_list;
+        return GRID_COUNT;
     }
 
     private float getWidth() {
-        return 0.4f + (getCount() - 1) * 0.2f;
+        return action ? 0.92f : 0.9f;
     }
 
     @Override
@@ -77,14 +88,49 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         return builder().setView(getBinding().getRoot());
     }
 
+    @NonNull
+    @Override
+    public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
+        Dialog dialog = new Dialog(requireActivity());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(getBinding().getRoot());
+        initView();
+        initEvent();
+        return dialog;
+    }
+
+    private void showDirect(FragmentActivity activity) {
+        binding = DialogSiteBinding.inflate(activity.getLayoutInflater());
+        directDialog = new Dialog(activity);
+        directDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        directDialog.setContentView(binding.getRoot());
+        initView();
+        initEvent();
+        if (adapter.getItemCount() == 0) {
+            directDialog = null;
+            return;
+        }
+        directDialog.setOnDismissListener(d -> {
+            directDialog = null;
+            binding = null;
+            this.activity = null;
+        });
+        directDialog.show();
+        applyWindow(directDialog.getWindow());
+    }
+
     @Override
     protected void initView() {
         adapter = new SiteAdapter(this);
-        binding.action.setVisibility(View.VISIBLE);
+        setRootWidth();
+        setRecyclerHeight();
+        binding.keyword.setVisibility(View.GONE);
+        binding.action.setVisibility(action ? View.VISIBLE : View.GONE);
         binding.search.setVisibility(action ? View.VISIBLE : View.GONE);
         binding.change.setVisibility(action ? View.VISIBLE : View.GONE);
         binding.select.setVisibility(action ? View.VISIBLE : View.GONE);
         binding.cancel.setVisibility(action ? View.VISIBLE : View.GONE);
+        binding.mode.setVisibility(View.GONE);
         setType(type);
         setRecyclerView();
         setMode();
@@ -93,7 +139,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     @Override
     protected void initEvent() {
         binding.config.setOnClickListener(v -> {
-            FragmentActivity activity = requireActivity();
+            FragmentActivity activity = getDialogActivity();
             dismiss();
             App.post(() -> HistoryDialog.create().vod().readOnly().show(activity, item -> loadConfig(activity, item)), 100);
         });
@@ -114,13 +160,26 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private void setRecyclerView() {
-        binding.recycler.setAdapter(adapter);
+        if (binding.recycler.getAdapter() == null) binding.recycler.setAdapter(adapter);
         binding.recycler.setHasFixedSize(true);
         binding.recycler.setItemAnimator(null);
-        if (decoration != null) binding.recycler.removeItemDecoration(decoration);
-        binding.recycler.addItemDecoration(decoration = new SpaceItemDecoration(getCount(), 16));
-        binding.recycler.setLayoutManager(new GridLayoutManager(requireContext(), getCount()));
-        if (!binding.mode.hasFocus()) binding.recycler.post(() -> binding.recycler.scrollToPosition(VodConfig.getHomeIndex()));
+        if (decoration == null) binding.recycler.addItemDecoration(decoration = new SpaceItemDecoration(getCount(), 16));
+        if (binding.recycler.getLayoutManager() == null) binding.recycler.setLayoutManager(new GridLayoutManager(getDialogActivity(), getCount()));
+    }
+
+    private void setRecyclerHeight() {
+        int rows = Math.max(1, (int) Math.ceil((double) adapter.getItemCount() / getCount()));
+        int height = rows * ResUtil.dp2px(ITEM_HEIGHT) + Math.max(0, rows - 1) * ResUtil.dp2px(ITEM_SPACE);
+        ViewGroup.LayoutParams params = binding.recycler.getLayoutParams();
+        params.height = Math.min(height, ResUtil.dp2px(MAX_HEIGHT));
+        binding.recycler.setLayoutParams(params);
+    }
+
+    private void setRootWidth() {
+        ViewGroup.LayoutParams params = binding.getRoot().getLayoutParams();
+        if (params == null) params = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.width = (int) (ResUtil.getScreenWidth() * getWidth());
+        binding.getRoot().setLayoutParams(params);
     }
 
     private void setType(int type) {
@@ -132,9 +191,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private void setMode() {
-        if (adapter.getItemCount() < GRID_COUNT) Setting.putSiteMode(0);
-        binding.mode.setEnabled(adapter.getItemCount() >= GRID_COUNT);
-        binding.mode.setImageResource(getIcon());
+        binding.mode.setEnabled(false);
     }
 
     private void setWidth() {
@@ -142,7 +199,6 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     private void onMode(View view) {
-        Setting.putSiteMode(Math.abs(Setting.getSiteMode() - 1));
         setRecyclerView();
         setMode();
         setWidth();
@@ -176,10 +232,31 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         });
     }
 
+    private FragmentActivity getDialogActivity() {
+        return activity != null ? activity : requireActivity();
+    }
+
+    private void applyWindow(Window window) {
+        if (window == null) return;
+        window.setWindowAnimations(0);
+        window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        WindowManager.LayoutParams params = window.getAttributes();
+        params.width = (int) (ResUtil.getScreenWidth() * getWidth());
+        params.height = WindowManager.LayoutParams.WRAP_CONTENT;
+        window.setAttributes(params);
+    }
+
+    @Override
+    public void dismiss() {
+        if (directDialog != null) directDialog.dismiss();
+        else super.dismiss();
+    }
+
     @Override
     public void onStart() {
         super.onStart();
+        Window window = getDialog() == null ? null : getDialog().getWindow();
+        applyWindow(window);
         if (adapter.getItemCount() == 0) dismiss();
-        else setWidth();
     }
 }

@@ -3,6 +3,7 @@ package com.fongmi.android.tv.bean;
 import androidx.annotation.NonNull;
 
 import com.fongmi.android.tv.App;
+import com.fongmi.android.tv.setting.Setting;
 import com.google.gson.annotations.SerializedName;
 
 public class SyncOptions {
@@ -21,6 +22,8 @@ public class SyncOptions {
     private boolean webHome = true;
     @SerializedName("settings")
     private boolean settings;
+    @SerializedName("paths")
+    private String paths = Setting.getSyncPaths();
 
     public static SyncOptions defaults() {
         return new SyncOptions();
@@ -95,6 +98,15 @@ public class SyncOptions {
 
     public SyncOptions settings(boolean settings) {
         this.settings = settings;
+        return this;
+    }
+
+    public String getPaths() {
+        return paths == null ? Setting.getSyncPaths() : paths;
+    }
+
+    public SyncOptions paths(String paths) {
+        this.paths = paths;
         return this;
     }
 

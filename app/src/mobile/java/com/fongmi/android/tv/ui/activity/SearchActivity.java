@@ -19,14 +19,24 @@ public class SearchActivity extends BaseActivity {
     }
 
     public static void start(Activity activity, String keyword) {
+        start(activity, keyword, null);
+    }
+
+    public static void start(Activity activity, String keyword, String siteKey) {
         Intent intent = new Intent(activity, SearchActivity.class);
         intent.putExtra("keyword", keyword);
+        intent.putExtra("siteKey", siteKey);
         activity.startActivity(intent);
     }
 
     public static void direct(Activity activity, String keyword) {
+        direct(activity, keyword, null);
+    }
+
+    public static void direct(Activity activity, String keyword, String siteKey) {
         Intent intent = new Intent(activity, SearchActivity.class);
         intent.putExtra("keyword", keyword);
+        intent.putExtra("siteKey", siteKey);
         intent.putExtra("direct", true);
         activity.startActivity(intent);
     }
@@ -39,6 +49,10 @@ public class SearchActivity extends BaseActivity {
         return getIntent().getBooleanExtra("direct", false);
     }
 
+    private String getSiteKey() {
+        return getIntent().getStringExtra("siteKey");
+    }
+
     @Override
     protected ViewBinding getBinding() {
         return ActivitySearchBinding.inflate(getLayoutInflater());
@@ -47,8 +61,8 @@ public class SearchActivity extends BaseActivity {
     @Override
     protected void initView(Bundle savedInstanceState) {
         if (savedInstanceState == null) {
-            if (isDirect()) getSupportFragmentManager().beginTransaction().replace(R.id.container, CollectFragment.newInstance(getKeyword()), CollectFragment.class.getSimpleName()).commit();
-            else getSupportFragmentManager().beginTransaction().replace(R.id.container, SearchFragment.newInstance(getKeyword()), SearchFragment.class.getSimpleName()).commit();
+            if (isDirect()) getSupportFragmentManager().beginTransaction().replace(R.id.container, CollectFragment.newInstance(getKeyword(), getSiteKey()), CollectFragment.class.getSimpleName()).commit();
+            else getSupportFragmentManager().beginTransaction().replace(R.id.container, SearchFragment.newInstance(getKeyword(), getSiteKey()), SearchFragment.class.getSimpleName()).commit();
         }
     }
 

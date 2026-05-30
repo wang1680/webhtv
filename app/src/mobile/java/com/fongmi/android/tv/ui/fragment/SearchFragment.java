@@ -33,6 +33,7 @@ import com.fongmi.android.tv.ui.adapter.WordAdapter;
 import com.fongmi.android.tv.ui.base.BaseFragment;
 import com.fongmi.android.tv.ui.custom.CustomTextListener;
 import com.fongmi.android.tv.ui.dialog.SiteDialog;
+import com.fongmi.android.tv.utils.SearchSuggest;
 import com.fongmi.android.tv.utils.Util;
 import com.github.catvod.net.OkHttp;
 import com.google.android.flexbox.FlexDirection;
@@ -40,7 +41,8 @@ import com.google.android.flexbox.FlexboxLayoutManager;
 import com.google.common.net.HttpHeaders;
 
 import java.io.IOException;
-import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -52,10 +54,18 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
     private FragmentSearchBinding mBinding;
     private RecordAdapter mRecordAdapter;
     private WordAdapter mWordAdapter;
+    private List<Word.Data> mIqiyiWords = new ArrayList<>();
+    private List<Word.Data> mTencentWords = new ArrayList<>();
+    private int mSuggestSeq;
 
     public static SearchFragment newInstance(String keyword) {
+        return newInstance(keyword, null);
+    }
+
+    public static SearchFragment newInstance(String keyword, String siteKey) {
         Bundle args = new Bundle();
         args.putString("keyword", keyword);
+        args.putString("siteKey", siteKey);
         SearchFragment fragment = new SearchFragment();
         fragment.setArguments(args);
         return fragment;
@@ -63,6 +73,10 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
 
     private String getKeyword() {
         return getArguments().getString("keyword");
+    }
+
+    private String getSiteKey() {
+        return getArguments().getString("siteKey");
     }
 
     private boolean empty() {
@@ -144,7 +158,7 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
         if (fm.findFragmentByTag(collectTag) != null) return;
         String searchTag = SearchFragment.class.getSimpleName();
         FragmentTransaction ft = fm.beginTransaction().setTransition(TRANSIT_FRAGMENT_OPEN);
-        ft.add(R.id.container, CollectFragment.newInstance(keyword), collectTag);
+        ft.add(R.id.container, CollectFragment.newInstance(keyword, getSiteKey()), collectTag);
         Optional.ofNullable(fm.findFragmentByTag(searchTag)).ifPresent(ft::hide);
         ft.setReorderingAllowed(true).addToBackStack(null).commit();
     }
@@ -162,7 +176,11 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
 
     private void getSuggest(String text) {
         mBinding.word.setText(R.string.search_suggest);
-        OkHttp.newCall("https://suggest.video.iqiyi.com/?if=mobile&key=" + URLEncoder.encode(text)).enqueue(getCallback(false));
+        int seq = ++mSuggestSeq;
+        mIqiyiWords = new ArrayList<>();
+        mTencentWords = new ArrayList<>();
+        OkHttp.newCall(SearchSuggest.iqiyiUrl(text)).enqueue(getSuggestCallback(seq, false));
+        OkHttp.newCall(SearchSuggest.tencentUrl(text)).enqueue(getSuggestCallback(seq, true));
     }
 
     private Callback getCallback(boolean hot) {
@@ -180,6 +198,24 @@ public class SearchFragment extends BaseFragment implements MenuProvider, WordAd
         if (!save && mBinding.keyword.getText().toString().trim().isEmpty()) return;
         mWordAdapter.setItems(Word.objectFrom(result).getData());
         if (save) Setting.putHot(result);
+    }
+
+    private Callback getSuggestCallback(int seq, boolean tencent) {
+        return new Callback() {
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                String result = response.body().string();
+                if (TextUtils.isEmpty(result)) return;
+                App.post(() -> setSuggestAdapter(seq, result, tencent));
+            }
+        };
+    }
+
+    private void setSuggestAdapter(int seq, String result, boolean tencent) {
+        if (seq != mSuggestSeq || mBinding.keyword.getText().toString().trim().isEmpty()) return;
+        if (tencent) mTencentWords = SearchSuggest.parseTencent(result);
+        else mIqiyiWords = SearchSuggest.parseIqiyi(result);
+        mWordAdapter.setItems(SearchSuggest.merge(mIqiyiWords, mTencentWords));
     }
 
     private void onReset() {

@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="40dp"
-    android:background="@drawable/selector_chip_round"
+    android:layout_height="46dp"
+    android:background="@drawable/selector_site_item"
     android:focusable="true"
     android:focusableInTouchMode="true"
     android:gravity="center_vertical"
@@ -18,9 +17,8 @@
         android:ellipsize="marquee"
         android:gravity="center"
         android:singleLine="true"
-        android:textColor="@color/text"
-        android:textSize="18sp"
-        tools:text="泥巴" />
+        android:textColor="@color/white"
+        android:textSize="18sp" />
 
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/check"

@@ -16,6 +16,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
@@ -32,6 +33,7 @@ public class ScanTask {
     private final ExecutorService executor;
     private final OkHttpClient client;
     private Listener listener;
+    private volatile boolean stopped;
 
     public ScanTask(Listener listener) {
         this.client = OkHttp.client(500);
@@ -41,8 +43,10 @@ public class ScanTask {
     }
 
     public void start() {
+        if (stopped) return;
         Server.get().start();
         Task.execute(() -> {
+            if (stopped) return;
             List<String> localIps = getLocalIps();
             List<String> localUrls = getLocalUrls(localIps);
             List<Device> devices = Device.getAll().stream().filter(device -> device.isApp() && !Device.get().equals(device)).toList();
@@ -54,11 +58,13 @@ public class ScanTask {
     }
 
     public void start(String url) {
+        if (stopped) return;
         Server.get().start();
-        Task.execute(() -> submit(url, null, null, getLocalUrls(getLocalIps())));
+        Task.execute(() -> { if (!stopped) submit(url, null, null, getLocalUrls(getLocalIps())); });
     }
 
     public void stop() {
+        stopped = true;
         listener = null;
         OkHttp.cancel(client, "scan");
         future.forEach(f -> f.cancel(true));
@@ -74,13 +80,21 @@ public class ScanTask {
     }
 
     private void submit(String url, Device source, AtomicInteger count, List<String> localUrls) {
-        future.add(executor.submit(() -> {
-            try {
-                findDevice(url, source, localUrls);
-            } finally {
-                if (count != null && count.decrementAndGet() == 0) finish();
-            }
-        }));
+        if (stopped || executor.isShutdown() || executor.isTerminated()) {
+            if (count != null && count.decrementAndGet() == 0) finish();
+            return;
+        }
+        try {
+            future.add(executor.submit(() -> {
+                try {
+                    if (!stopped) findDevice(url, source, localUrls);
+                } finally {
+                    if (count != null && count.decrementAndGet() == 0) finish();
+                }
+            }));
+        } catch (RejectedExecutionException ignored) {
+            if (count != null && count.decrementAndGet() == 0) finish();
+        }
     }
 
     private List<String> getBase(List<String> ips) {

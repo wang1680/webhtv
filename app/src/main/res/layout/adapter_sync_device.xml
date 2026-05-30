@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?attr/selectableItemBackground"
+    android:background="@drawable/selector_sync_device_item"
     android:clickable="true"
     android:focusable="true"
     android:focusableInTouchMode="false"
@@ -19,7 +19,7 @@
         android:layout_width="42dp"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:textColor="?attr/colorOnSurface"
+        android:textColor="@color/sync_device_text"
         android:textSize="13sp"
         tools:text="TV" />
 
@@ -36,7 +36,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:singleLine="true"
-            android:textColor="?attr/colorOnSurface"
+            android:textColor="@color/sync_device_text"
             android:textSize="15sp"
             tools:text="Living Room TV" />
 
@@ -47,7 +47,7 @@
             android:layout_marginTop="2dp"
             android:ellipsize="end"
             android:singleLine="true"
-            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textColor="@color/sync_device_subtext"
             android:textSize="12sp"
             tools:text="192.168.1.20:9978" />
 

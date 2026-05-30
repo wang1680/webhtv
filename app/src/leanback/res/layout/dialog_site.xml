@@ -4,8 +4,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@drawable/shape_site_dialog"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="16dp">
 
     <androidx.appcompat.widget.AppCompatEditText
         android:id="@+id/keyword"
@@ -39,7 +40,7 @@
             android:clipChildren="false"
             android:clipToPadding="false"
             android:overScrollMode="never"
-            app:maxHeight="264dp"
+            app:maxHeight="344dp"
             tools:itemCount="5"
             tools:listitem="@layout/adapter_site" />
 
@@ -56,80 +57,83 @@
                 android:id="@+id/config"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:background="@drawable/selector_chip_round"
+                android:background="@drawable/selector_site_action"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:nextFocusUp="@id/config"
                 android:nextFocusDown="@id/search"
                 android:padding="8dp"
                 android:src="@drawable/ic_site_config"
-                app:tint="@color/white" />
+                app:tint="@color/site_action_icon" />
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/search"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginTop="16dp"
-                android:background="@drawable/selector_chip_round"
+                android:background="@drawable/selector_site_action"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:nextFocusUp="@id/config"
                 android:nextFocusDown="@id/change"
                 android:padding="8dp"
                 android:src="@drawable/ic_site_search"
-                app:tint="@color/white" />
+                app:tint="@color/site_action_icon" />
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/change"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginTop="16dp"
-                android:background="@drawable/selector_chip_round"
+                android:background="@drawable/selector_site_action"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:nextFocusUp="@id/search"
                 android:nextFocusDown="@id/select"
                 android:padding="8dp"
                 android:src="@drawable/ic_site_change"
-                app:tint="@color/white" />
+                app:tint="@color/site_action_icon" />
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/select"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginTop="16dp"
-                android:background="@drawable/selector_chip_round"
+                android:background="@drawable/selector_site_action"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:nextFocusUp="@id/change"
                 android:nextFocusDown="@id/cancel"
                 android:padding="8dp"
-                android:src="@drawable/ic_site_select" />
+                android:src="@drawable/ic_site_select"
+                app:tint="@color/site_action_icon" />
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/cancel"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginTop="16dp"
-                android:background="@drawable/selector_chip_round"
+                android:background="@drawable/selector_site_action"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:nextFocusUp="@id/select"
                 android:nextFocusDown="@id/mode"
                 android:padding="8dp"
-                android:src="@drawable/ic_site_cancel" />
+                android:src="@drawable/ic_site_cancel"
+                app:tint="@color/site_action_icon" />
 
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/mode"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginTop="16dp"
-                android:background="@drawable/selector_chip_round"
+                android:background="@drawable/selector_site_action"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:nextFocusUp="@id/cancel"
                 android:nextFocusDown="@id/mode"
                 android:padding="8dp"
+                app:tint="@color/site_action_icon"
                 tools:src="@drawable/ic_site_list" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>

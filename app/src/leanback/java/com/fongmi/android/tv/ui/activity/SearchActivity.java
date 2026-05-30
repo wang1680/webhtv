@@ -26,6 +26,7 @@ import com.fongmi.android.tv.ui.custom.CustomKeyboard;
 import com.fongmi.android.tv.ui.custom.CustomTextListener;
 import com.fongmi.android.tv.ui.dialog.SiteDialog;
 import com.fongmi.android.tv.utils.KeyUtil;
+import com.fongmi.android.tv.utils.SearchSuggest;
 import com.fongmi.android.tv.utils.Util;
 import com.fongmi.android.tv.utils.ZhuToPin;
 import com.github.catvod.net.OkHttp;
@@ -34,7 +35,8 @@ import com.google.android.flexbox.FlexboxLayoutManager;
 import com.google.common.net.HttpHeaders;
 
 import java.io.IOException;
-import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import okhttp3.Call;
@@ -45,14 +47,22 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     private ActivitySearchBinding mBinding;
     private RecordAdapter mRecordAdapter;
     private WordAdapter mWordAdapter;
+    private List<Word.Data> mIqiyiWords = new ArrayList<>();
+    private List<Word.Data> mTencentWords = new ArrayList<>();
+    private int mSuggestSeq;
 
     public static void start(Activity activity) {
         activity.startActivity(new Intent(activity, SearchActivity.class));
     }
 
     public static void start(Activity activity, String keyword) {
+        start(activity, keyword, null);
+    }
+
+    public static void start(Activity activity, String keyword, String siteKey) {
         Intent intent = new Intent(activity, SearchActivity.class);
         intent.putExtra("keyword", keyword);
+        intent.putExtra("siteKey", siteKey);
         activity.startActivity(intent);
     }
 
@@ -63,6 +73,10 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     private String getKeyword() {
         String keyword = getIntent().getStringExtra("keyword");
         return keyword != null ? keyword : "";
+    }
+
+    private String getSiteKey() {
+        return getIntent().getStringExtra("siteKey");
     }
 
     private boolean empty() {
@@ -137,7 +151,12 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
 
     private void getSuggest(String text) {
         mBinding.word.setText(R.string.search_suggest);
-        OkHttp.newCall("https://suggest.video.iqiyi.com/?if=mobile&key=" + URLEncoder.encode(ZhuToPin.get(text))).enqueue(getCallback(false));
+        int seq = ++mSuggestSeq;
+        mIqiyiWords = new ArrayList<>();
+        mTencentWords = new ArrayList<>();
+        String keyword = ZhuToPin.get(text);
+        OkHttp.newCall(SearchSuggest.iqiyiUrl(keyword)).enqueue(getSuggestCallback(seq, false));
+        OkHttp.newCall(SearchSuggest.tencentUrl(keyword)).enqueue(getSuggestCallback(seq, true));
     }
 
     private Callback getCallback(boolean hot) {
@@ -155,6 +174,24 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         if (!save && empty()) return;
         if (save) Setting.putHot(result);
         mWordAdapter.setItems(Word.objectFrom(result).getData());
+    }
+
+    private Callback getSuggestCallback(int seq, boolean tencent) {
+        return new Callback() {
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                String result = response.body().string();
+                if (TextUtils.isEmpty(result)) return;
+                App.post(() -> setSuggestAdapter(seq, result, tencent));
+            }
+        };
+    }
+
+    private void setSuggestAdapter(int seq, String result, boolean tencent) {
+        if (seq != mSuggestSeq || empty()) return;
+        if (tencent) mTencentWords = SearchSuggest.parseTencent(result);
+        else mIqiyiWords = SearchSuggest.parseIqiyi(result);
+        mWordAdapter.setItems(SearchSuggest.merge(mIqiyiWords, mTencentWords));
     }
 
     @Override
@@ -175,7 +212,7 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         String keyword = mBinding.keyword.getText().toString().trim();
         App.post(() -> mRecordAdapter.add(keyword), 250);
         Util.hideKeyboard(mBinding.keyword);
-        CollectActivity.start(this, keyword);
+        CollectActivity.start(this, keyword, getSiteKey());
     }
 
     @Override

@@ -106,6 +106,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.filter.setOnClickListener(this::onFilter);
         mBinding.filter.setOnLongClickListener(this::onLink);
         mBinding.toolbar.setOnMenuItemClickListener(this::onMenuItemClick);
+        mBinding.toolbar.post(this::setSearchLongClick);
         mBinding.appBar.addOnOffsetChangedListener((appBarLayout, verticalOffset) -> {
             float factor = Math.abs(verticalOffset * 1f / appBarLayout.getTotalScrollRange());
             int padding = (int) (ResUtil.dp2px(12) * factor);
@@ -201,6 +202,15 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         else if (item.getItemId() == R.id.history) HistoryActivity.start(requireActivity());
         else if (item.getItemId() == R.id.sync) OneKeySyncDialog.create().show(requireActivity());
         return true;
+    }
+
+    private void setSearchLongClick() {
+        View search = mBinding.toolbar.findViewById(R.id.search);
+        if (search == null) return;
+        search.setOnLongClickListener(view -> {
+            SearchActivity.start(requireActivity(), "", getHome().getKey());
+            return true;
+        });
     }
 
     private void showProgress() {
@@ -375,6 +385,10 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     public void onWebError() {
         showNativeContent();
         homeContent();
+    }
+
+    @Override
+    public void setToolbar(boolean visible) {
     }
 
     private void hideNativeContent() {

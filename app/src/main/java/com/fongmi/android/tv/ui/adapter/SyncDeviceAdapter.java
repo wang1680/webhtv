@@ -1,6 +1,8 @@
 package com.fongmi.android.tv.ui.adapter;
 
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
@@ -30,6 +32,14 @@ public class SyncDeviceAdapter extends BaseDiffAdapter<Device, SyncDeviceAdapter
         holder.binding.type.setText(item.isMobile() ? R.string.sync_device_mobile : R.string.sync_device_tv);
         holder.binding.name.setText(item.getName());
         holder.binding.host.setText(item.getHost());
+        holder.binding.getRoot().setNextFocusUpId(R.id.refresh);
+        holder.binding.getRoot().setOnKeyListener((v, keyCode, event) -> {
+            if (event.getAction() != KeyEvent.ACTION_DOWN || keyCode != KeyEvent.KEYCODE_DPAD_UP || holder.getBindingAdapterPosition() != 0) return false;
+            View refresh = holder.itemView.getRootView().findViewById(R.id.refresh);
+            if (refresh == null || refresh.getVisibility() != View.VISIBLE) return false;
+            refresh.requestFocus();
+            return true;
+        });
         holder.binding.getRoot().setOnClickListener(v -> listener.onItemClick(item));
     }
 
