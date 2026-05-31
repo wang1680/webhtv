@@ -659,6 +659,19 @@
       object-fit: cover;
     }
 
+    .poster-wrap {
+      position: relative;
+      width: calc(100% + 2px);
+      max-width: calc(100% + 2px);
+      margin: -1px -1px 0;
+      overflow: hidden;
+    }
+
+    .poster-wrap .poster {
+      width: 100%;
+      max-width: 100%;
+    }
+
     .card > .poster {
       width: calc(100% + 2px);
       max-width: calc(100% + 2px);
@@ -846,15 +859,19 @@
       background: rgba(255, 255, 255, .82);
     }
 
-    .card.has-people .card-body {
-      padding-right: 42px;
-    }
-
     .card-people {
       position: absolute;
-      right: 10px;
-      bottom: 10px;
-      color: rgba(226, 234, 242, .64);
+      right: 7px;
+      bottom: 7px;
+      z-index: 2;
+      min-height: 22px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 7px;
+      border-radius: 999px;
+      background: rgba(6, 9, 12, .48);
+      border: 1px solid rgba(255, 255, 255, .16);
+      color: rgba(255, 255, 255, .88);
       font-size: 11px;
       font-weight: 760;
       line-height: 1;
@@ -2719,7 +2736,7 @@
         identity: "未就绪"
       },
       deleteState: { loaded: false, users: {} },
-      blocked: { loaded: false, items: {}, selecting: false, holdTimer: 0, holdTarget: null, longPressFired: false },
+      blocked: { loaded: false, items: {}, selecting: false, holdTimer: 0, holdTarget: null, longPressFired: false, pointer: null, suppressClickUntil: 0 },
       pan: { config: null, configDirty: false, loading: false, keyword: "", activeType: "", results: [], health: {}, pending: {}, queued: new Map(), inFlight: new Set(), observer: null, flushTimer: 0, pollTimers: [], pollRound: 0, viewToken: "", renderKeys: "", tabKeys: "", checkEnabled: false, focusKey: "", focusMode: "", playbackReturn: null },
       watch: { item: null, timer: 0, bestMs: 0, durationMs: 0, lastAt: 0, published: false, intentAction: "" },
       detailCover: { images: [], index: 0, timer: 0, token: 0, swipe: null },
@@ -4595,6 +4612,7 @@
       if (state.blocked.holdTimer) clearTimeout(state.blocked.holdTimer);
       state.blocked.holdTimer = 0;
       state.blocked.holdTarget = null;
+      state.blocked.pointer = null;
     }
 
     function armBlockLongPress(card) {
@@ -4634,6 +4652,37 @@
       }
       if (!state.blocked.selecting) card.click();
       return true;
+    }
+
+    function handleBlockPointerDown(card, event) {
+      if (!card || state.blocked.selecting) return false;
+      if (event.pointerType === "mouse" && event.button !== 0) return false;
+      state.blocked.pointer = { id: event.pointerId, x: event.clientX || 0, y: event.clientY || 0 };
+      armBlockLongPress(card);
+      return true;
+    }
+
+    function handleBlockPointerMove(event) {
+      const pointer = state.blocked.pointer;
+      if (!pointer || pointer.id !== event.pointerId) return;
+      const dx = Math.abs((event.clientX || 0) - pointer.x);
+      const dy = Math.abs((event.clientY || 0) - pointer.y);
+      if (dx > 12 || dy > 12) clearBlockLongPress();
+    }
+
+    function handleBlockPointerUp(event) {
+      const pointer = state.blocked.pointer;
+      if (!pointer || pointer.id !== event.pointerId) return false;
+      const longPressed = state.blocked.longPressFired;
+      clearBlockLongPress();
+      if (longPressed) {
+        state.blocked.longPressFired = false;
+        state.blocked.suppressClickUntil = Date.now() + 700;
+        event.preventDefault();
+        event.stopPropagation();
+        return true;
+      }
+      return false;
     }
 
     async function toggleBlockedCard(card) {
@@ -5271,15 +5320,25 @@
         </div>
         ${progress > 0 ? `<div class="recent-progress" aria-hidden="true"><span style="--recent-progress:${escapeAttr(progress + "%")}"></span></div>` : ""}
       ` : `
-        <img class="poster" alt="" ${imageAttrs(poster, imageOpt)}>
+        <div class="poster-wrap">
+          <img class="poster" alt="" ${imageAttrs(poster, imageOpt)}>
+          ${people > 0 ? `<span class="card-people">${escapeHtml(people)}人</span>` : ""}
+        </div>
         ${rating ? `<span class="rating-badge">${escapeHtml(rating)}</span>` : ""}
-        ${people > 0 ? `<span class="card-people">${escapeHtml(people)}人</span>` : ""}
         <div class="card-body">
           <div class="card-title">${escapeHtml(item.title)}</div>
           <div class="card-meta">${escapeHtml(item.remark)}</div>
         </div>
       `;
+      button.addEventListener("pointerdown", (event) => handleBlockPointerDown(blockableRecommendCard(button), event));
+      button.addEventListener("pointermove", handleBlockPointerMove);
+      button.addEventListener("pointerup", handleBlockPointerUp);
+      button.addEventListener("pointercancel", clearBlockLongPress);
+      button.addEventListener("contextmenu", (event) => {
+        if (Date.now() < Number(state.blocked.suppressClickUntil || 0)) event.preventDefault();
+      });
       button.addEventListener("click", () => {
+        if (Date.now() < Number(state.blocked.suppressClickUntil || 0)) return;
         if (state.blocked.selecting && blockableRecommendCard(button)) {
           toggleBlockedCard(button);
           return;

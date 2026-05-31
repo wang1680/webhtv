@@ -8,9 +8,11 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.LinearLayoutCompat;
@@ -112,6 +114,8 @@ public class ShellProxyDialog extends BaseAlertDialog {
         binding.defaultUrl.setSelection(binding.defaultUrl.length());
         binding.rules.setText(getRules());
         binding.rules.setSelection(binding.rules.length());
+        setupEditableText(binding.defaultUrl, false);
+        setupEditableText(binding.rules, true);
         binding.ruleRecycler.setLayoutManager(new LinearLayoutManager(requireContext()));
         binding.ruleRecycler.setItemAnimator(null);
         binding.ruleRecycler.setAdapter(adapter);
@@ -152,6 +156,30 @@ public class ShellProxyDialog extends BaseAlertDialog {
             syncTextFromRules();
             binding.ruleRecycler.scrollToPosition(adapter.getItemCount() - 1);
         });
+    }
+
+    private void setupEditableText(EditText input, boolean multiline) {
+        input.setSelectAllOnFocus(false);
+        input.setHorizontallyScrolling(true);
+        input.setHorizontalScrollBarEnabled(true);
+        input.setVerticalScrollBarEnabled(multiline);
+        input.setOnTouchListener((view, event) -> {
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                view.post(() -> disallowParentIntercept(view, false));
+            } else {
+                disallowParentIntercept(view, true);
+            }
+            return false;
+        });
+    }
+
+    private void disallowParentIntercept(View view, boolean disallow) {
+        ViewParent parent = view.getParent();
+        while (parent != null) {
+            parent.requestDisallowInterceptTouchEvent(disallow);
+            parent = parent.getParent();
+        }
     }
 
     private String getRules() {
@@ -297,7 +325,7 @@ public class ShellProxyDialog extends BaseAlertDialog {
                 if (hosts.isEmpty()) hosts = "*";
                 JsonObject object = new JsonObject();
                 object.add("hosts", array(hosts));
-                object.add("urls", array(url));
+                if (!url.isEmpty()) object.add("urls", array(url));
                 proxy.add(object);
             }
             root.add("proxy", proxy);
@@ -380,6 +408,8 @@ public class ShellProxyDialog extends BaseAlertDialog {
             ViewHolder(@NonNull AdapterShellProxyRuleBinding binding) {
                 super(binding.getRoot());
                 this.binding = binding;
+                setupEditableText(binding.hosts, false);
+                setupEditableText(binding.url, false);
                 binding.hosts.addTextChangedListener(new RuleTextListener(this, true));
                 binding.url.addTextChangedListener(new RuleTextListener(this, false));
             }

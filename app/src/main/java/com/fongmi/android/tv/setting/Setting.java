@@ -1,10 +1,15 @@
 package com.fongmi.android.tv.setting;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 import android.provider.Settings;
+
+import androidx.core.content.ContextCompat;
 import android.webkit.WebView;
 
 import com.fongmi.android.tv.App;
@@ -217,6 +222,11 @@ public class Setting {
         int color = getThemeColor();
         if (color == -1) return 0;
         return color != 0 ? color : getWallColor();
+    }
+
+    public static boolean hasFileAccess() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) return Environment.isExternalStorageManager();
+        return ContextCompat.checkSelfPermission(App.get(), Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(App.get(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
     }
 
     public static boolean hasFileManager() {

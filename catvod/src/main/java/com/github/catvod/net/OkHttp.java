@@ -83,9 +83,18 @@ public class OkHttp {
         return get().selector = new OkProxySelector();
     }
 
-    public static synchronized void closeIdleConnections() {
-        if (get().client != null) get().client.connectionPool().evictAll();
-        if (get().player != null) get().player.connectionPool().evictAll();
+    public static void closeIdleConnections() {
+        new Thread(OkHttp::evictIdleConnections, "okhttp-evict-idle").start();
+    }
+
+    private static synchronized void evictIdleConnections() {
+        try {
+            if (get().client != null) get().client.connectionPool().evictAll();
+            if (get().player != null) get().player.connectionPool().evictAll();
+            SpiderDebug.log("proxy", "connection pool evicted");
+        } catch (Throwable e) {
+            SpiderDebug.log("proxy", "connection pool evict failed error=%s", e.getMessage());
+        }
     }
 
     public static synchronized OkHttpClient client() {

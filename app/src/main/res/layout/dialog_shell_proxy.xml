@@ -50,6 +50,8 @@
                     android:imeOptions="actionNext"
                     android:importantForAutofill="no"
                     android:inputType="textUri"
+                    android:scrollHorizontally="true"
+                    android:selectAllOnFocus="false"
                     android:singleLine="true"
                     android:textColor="@color/black"
                     android:textColorHint="#666666" />
@@ -113,8 +115,11 @@
                         android:imeOptions="actionDone"
                         android:importantForAutofill="no"
                         android:hint="@string/setting_proxy_rules_hint"
+                        android:fontFamily="monospace"
                         android:inputType="textMultiLine|textNoSuggestions"
                         android:minLines="6"
+                        android:scrollHorizontally="true"
+                        android:selectAllOnFocus="false"
                         android:singleLine="false"
                         android:textColor="@color/black"
                         android:textColorHint="#666666" />

@@ -24,6 +24,8 @@
             android:imeOptions="actionNext"
             android:importantForAutofill="no"
             android:inputType="textNoSuggestions"
+            android:scrollHorizontally="true"
+            android:selectAllOnFocus="false"
             android:singleLine="true"
             android:textColor="@color/black"
             android:textColorHint="#666666" />
@@ -47,6 +49,8 @@
             android:imeOptions="actionDone"
             android:importantForAutofill="no"
             android:inputType="textUri"
+            android:scrollHorizontally="true"
+            android:selectAllOnFocus="false"
             android:singleLine="true"
             android:textColor="@color/black"
             android:textColorHint="#666666" />
