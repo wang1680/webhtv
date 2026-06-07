@@ -45,8 +45,8 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
         android:fillViewport="false"
-        android:horizontalScrollBarEnabled="true"
-        android:overScrollMode="never">
+        android:overScrollMode="never"
+        android:scrollbars="horizontal">
 
         <com.google.android.material.button.MaterialButtonToggleGroup
             android:id="@+id/tabGroup"
@@ -243,8 +243,8 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:fillViewport="false"
-        android:horizontalScrollBarEnabled="true"
-        android:overScrollMode="never">
+        android:overScrollMode="never"
+        android:scrollbars="horizontal">
 
         <androidx.appcompat.widget.LinearLayoutCompat
             android:id="@+id/actions"
