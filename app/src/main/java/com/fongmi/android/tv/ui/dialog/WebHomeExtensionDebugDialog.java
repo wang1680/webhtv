@@ -287,10 +287,7 @@ public class WebHomeExtensionDebugDialog extends BaseAlertDialog implements Home
 
     private void refreshConsole() {
         StringBuilder builder = new StringBuilder();
-        builder.append("Console\n");
-        builder.append("time          level/source message\n\n");
-        if (consoleLines.isEmpty()) builder.append("No console messages yet. Save code and preview, then use console.log(...) or GM_log(...).\n");
-        else for (String line : consoleLines) builder.append(line).append('\n');
+        for (String line : consoleLines) builder.append(line).append('\n');
         binding.consoleText.setText(builder.toString());
     }
 
