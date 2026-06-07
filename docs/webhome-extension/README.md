@@ -531,7 +531,7 @@ AI 生成脚本时必须遵守：
 
 | 文件 | 用途 |
 | --- | --- |
-| `examples/pomo.mom.js` | Pomo 实战示例：资源点击改原生播放，注入 App 播放按钮 |
+| `examples/pomo.mom.js` | Pomo 实战示例：生成“在线播放/网盘/磁力”三组播放列表，点击直接调用原生播放 |
 | `examples/pomo.manifest.json` | Pomo 示例 manifest，可作为外部扩展清单格式参考 |
 | `templates/page-analyzer.js` | 当前页面候选 DOM/资源分析器，适合半自动生成脚本前采集数据 |
 | `templates/auto-resource-router.js` | 通用资源路由：识别 DOM 里的网盘、磁力和媒体直链 |
@@ -564,10 +564,11 @@ AI 生成脚本时必须遵守：
 
 适合策略：
 
-- 保留站点原“复制”按钮。
-- 捕获 `.x-dbjs-download-link` 和 `.x-dbjs-download-btn` 的点击，改为调用 App 原生能力。
-- 给每个 `.download-item` 注入一个“App播放”按钮，避免用户不想改变原按钮时无入口。
-- 网盘链接、磁力、电驴、迅雷走 `fm.pan.play()`；直链媒体走 `fm.play()`。
+- 隐藏原详情页里分散的在线播放、下载和资源区域，减少手机端误点。
+- 从详情页资源区提取网盘、磁力、电驴、迅雷等资源。
+- 后台读取 Pomo 的在线播放页，解析 `rawData` 里的 m3u8 选集。
+- 在详情卡片下生成一个统一播放面板，按“在线播放 / 网盘 / 磁力”三组展示。
+- 点击在线播放条目调用 `fm.play()`；点击网盘、磁力、电驴、迅雷条目调用 `fm.pan.play()`。
 
 示例脚本见 [examples/pomo.mom.js](examples/pomo.mom.js)。
 
@@ -584,7 +585,7 @@ AI 生成脚本时必须遵守：
     {
       "id": "pomo-native-router",
       "name": "Pomo native router",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "runAt": "document-end",
       "js": ["https://example.com/webhome/pomo.mom.js"]
     }
