@@ -8,17 +8,27 @@ let targetName = '';
 let currentRoot = '';
 let currentParent = '';
 let currentFile = '';
+let fileTreeExpanded = new Set(['']);
+let fileTreeCache = {};
+let fileTreeLoading = new Set();
 let pendingDelFolder = null;
 let warnToastTimer = null;
 let syncPaths = [];
 let syncLoadedKey = '';
+let syncTreeExpanded = new Set(['']);
+let syncTreeCache = {};
+let syncTreeLoading = new Set();
 let loginStateLoadedKey = '';
 let loginStateData = null;
 let loginStatePaths = [];
 let currentLoginStatePath = '';
+let loginStateExpanded = new Set(['app', 'sdcard']);
+let loginStateTreeCache = {};
+let loginStateTreeLoading = new Set();
 let cspRegistry = null;
 let cspLoadedKey = '';
 let cspRawDirty = false;
+let cspMode = 'form';
 let pendingCspIndex = -1;
 let proxyLoadedKey = '';
 let dialogClosing = false;
@@ -34,6 +44,11 @@ let syncMode = 'push';
 let proxyEnabled = false;
 let proxyMode = 'form';
 let proxyRules = [];
+let proxySuggestSites = [];
+let configsLoadedKey = '';
+let configsData = [];
+let configFilter = 0;
+let editingConfig = null;
 
 const REQUEST_TIMEOUT = 12000;
 const FILE_TIMEOUT = 15000;
@@ -41,6 +56,7 @@ const UPLOAD_TIMEOUT = 60000;
 const SYNC_TIMEOUT = 600000;
 const REMOTE_HEALTH_INTERVAL = 6000;
 const REMOTE_HEALTH_BLOCK_MS = 18000;
+const CONFIG_UPLOAD_DIR = 'WebHTV/Config';
 
 function escPath(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -52,9 +68,16 @@ function activeKey() { return mode + ':' + target; }
 function healthKey(url = target) { return String(url || '').replace(/\/+$/, ''); }
 
 function fileApi(path, download = false) {
+    path = fileRequestPath(path);
     if (mode === 'remote' && target) return '/manage/remote/file?' + new URLSearchParams({ target, path, download: download ? '1' : '' }).toString();
     const encoded = path.split('/').map(encodeURIComponent).join('/');
     return '/file' + encoded + (download ? '?download=1' : '');
+}
+
+function fileRequestPath(path) {
+    const value = String(path || '').trim();
+    if (!value) return '';
+    return value.startsWith('/') ? value : '/' + value;
 }
 
 function archiveApi() {
@@ -248,12 +271,10 @@ function postAction(url, data, done, failText = '操作失败') {
 
 function setManageMode(next) {
     mode = next;
-    const fallbackView = mode === 'local' && (currentView === 'push' || currentView === 'search');
-    if (fallbackView) currentView = 'files';
     $('#modeLocal').toggleClass('active', mode === 'local');
     $('#modeRemote').toggleClass('active', mode === 'remote');
     $('body').toggleClass('remote-mode', mode === 'remote').toggleClass('local-mode', mode === 'local');
-    if (fallbackView) activateManageView('files');
+    updateActionModeText();
     updateRemotePicker();
     updateTargetText();
     resetViewState();
@@ -272,10 +293,17 @@ function updateTargetText() {
 function resetViewState() {
     currentRoot = '';
     currentParent = '';
+    fileTreeExpanded = new Set(['']);
+    fileTreeCache = {};
+    fileTreeLoading = new Set();
     syncLoadedKey = '';
     loginStateLoadedKey = '';
+    loginStateExpanded = new Set(['app', 'sdcard']);
+    loginStateTreeCache = {};
+    loginStateTreeLoading = new Set();
     cspLoadedKey = '';
     proxyLoadedKey = '';
+    configsLoadedKey = '';
     $('#file_list').html('');
     currentFiles = [];
     clearFileSelection();
@@ -326,7 +354,7 @@ function updateRemotePicker() {
     const visible = mode === 'remote' || currentView === 'sync';
     $('#remotePicker').css('display', visible ? 'grid' : 'none');
     $('#deviceList').toggle(visible && devicePanelOpen);
-    $('#changeDeviceBtn').text(target ? (devicePanelOpen ? '收起列表' : '更换设备') : (devicePanelOpen ? '收起列表' : '选择设备'));
+    $('#changeDeviceBtn').text(devicePanelOpen ? '收起列表' : '选择设备');
     updateTargetText();
 }
 
@@ -371,6 +399,8 @@ function loadCurrentView(force) {
     if (currentView === 'loginState') loadLoginStateManage(force);
     if (currentView === 'csp') loadCspManage(force);
     if (currentView === 'proxy') loadProxyManage(force);
+    if (currentView === 'configs') loadConfigsManage(force);
+    if (currentView === 'search' || currentView === 'push') updateActionModeText();
 }
 
 function formatFileSize(size, isDir) {
@@ -395,6 +425,74 @@ function renderFileBreadcrumb(path) {
     });
     $('#fileBreadcrumb').html(rows.join(''));
     $('#fileUpBtn').prop('disabled', currentParent === '.');
+}
+
+function loadFileTree(path = '') {
+    path = syncNormalize(path);
+    if (fileTreeCache[path] || fileTreeLoading.has(path)) return;
+    fileTreeLoading.add(path);
+    getJson('/manage/file/tree?' + targetQuery({ path }), data => {
+        fileTreeLoading.delete(path);
+        fileTreeCache[path] = data || { path, dirs: [] };
+        renderFileTree();
+    }, '目录树加载失败');
+}
+
+function renderFileTree() {
+    const rows = [`<div class="file-tree-root${syncNormalize(currentRoot) ? '' : ' active'}"><button type="button" onclick="listFile('')"><img class="file-icon" src="${icDir}" alt=""><span>全部文件</span></button></div>`];
+    buildFileTreeRows('', 0, rows);
+    $('#fileTree').html(rows.join('') || '<div class="empty-state compact">没有目录</div>');
+}
+
+function buildFileTreeRows(path, depth, rows) {
+    path = syncNormalize(path);
+    const tree = fileTreeCache[path];
+    if (!tree) {
+        rows.push(`<div class="file-tree-row muted" style="--depth:${depth}"><span class="sync-tree-toggle placeholder"></span><div class="file-tree-main"><span>加载中...</span><small>${escHtml(path || '/')}</small></div></div>`);
+        loadFileTree(path);
+        return;
+    }
+    (tree.dirs || []).forEach(item => {
+        const child = syncNormalize(item.path || '');
+        rows.push(buildFileTreeDir(item, depth));
+        if (fileTreeExpanded.has(child)) buildFileTreeRows(child, depth + 1, rows);
+    });
+    if (tree.truncated) rows.push(`<div class="file-tree-row muted" style="--depth:${depth}"><span class="sync-tree-toggle placeholder"></span><div class="file-tree-main"><span>当前目录过多，仅显示前 300 个目录</span><small>${escHtml(path || '/')}</small></div></div>`);
+}
+
+function buildFileTreeDir(item, depth) {
+    const path = syncNormalize(item.path || '');
+    const ep = escPath(path);
+    const expanded = fileTreeExpanded.has(path);
+    const active = syncNormalize(currentRoot) === path ? ' active' : '';
+    const hasChildren = item.children !== false;
+    const toggle = hasChildren ? `<button class="sync-tree-toggle" type="button" onclick="toggleFileTree('${ep}')" aria-label="${expanded ? '收起' : '展开'}">${expanded ? '−' : '+'}</button>` : '<span class="sync-tree-toggle placeholder"></span>';
+    return `<div class="file-tree-row${active}" style="--depth:${depth}">
+        ${toggle}
+        <button class="file-tree-main" type="button" onclick="listFile('${ep}')"><img class="file-icon" src="${icDir}" alt=""><span>${escHtml(item.name || path)}</span><small>${escHtml(path)}</small></button>
+    </div>`;
+}
+
+function expandFileTreePath(path) {
+    path = syncNormalize(path);
+    fileTreeExpanded.add('');
+    while (path) {
+        const index = path.lastIndexOf('/');
+        path = index < 0 ? '' : path.substring(0, index);
+        fileTreeExpanded.add(path);
+    }
+}
+
+function toggleFileTree(path) {
+    path = syncNormalize(path);
+    if (fileTreeExpanded.has(path)) {
+        fileTreeExpanded.delete(path);
+        renderFileTree();
+    } else {
+        fileTreeExpanded.add(path);
+        loadFileTree(path);
+        renderFileTree();
+    }
 }
 
 function buildDirItem(name, time, path, size) {
@@ -425,6 +523,7 @@ function updateFileSelection() {
 
 function listFile(path = '') {
     if (!ensureTarget()) return;
+    path = fileRequestPath(path);
     if (blockOfflineRemote(fileApi(path), null)) return;
     showLoading();
     $.ajax({ url: fileApi(path), timeout: FILE_TIMEOUT, cache: false })
@@ -434,6 +533,9 @@ function listFile(path = '') {
         catch (e) { warnToast('响应格式错误'); return; }
         currentRoot = path;
         currentParent = info.parent || '';
+        expandFileTreePath(path);
+        loadFileTree('');
+        loadFileTree(path);
         const files = info.files || [];
         currentFiles = files.map(node => node.path).filter(Boolean);
         renderFileBreadcrumb(path);
@@ -442,6 +544,7 @@ function listFile(path = '') {
         const rows = [];
         files.forEach(node => rows.push(node.dir === 1 ? buildDirItem(node.name, node.time, node.path, node.size) : buildFileItem(node.name, node.time, node.path, node.size)));
         $('#file_list').html(rows.join('') || '<div class="empty-state file-empty"><div>当前目录没有文件</div></div>');
+        renderFileTree();
     })
         .fail((xhr, status) => warnToast(requestError(xhr, status, '加载失败')))
         .always(hideLoading);
@@ -529,37 +632,100 @@ function downloadArchive(paths) {
 
 function loadSyncManage(force = false) {
     if (syncLoadedKey === activeKey() && !force) return;
-    getJson('/manage/sync/paths?' + targetQuery(), data => { syncPaths = data.paths || []; syncLoadedKey = activeKey(); renderSyncPaths(); loadSyncTree(''); });
-}
-
-function loadSyncTree(path = '') {
-    getJson('/manage/sync/tree?' + targetQuery({ path }), data => {
-        $('#syncTreePath').text(data.path || '/');
-        const rows = [];
-        if (data.parent !== '.') rows.push(`<div class="tree-row"><button class="tree-main" type="button" onclick="loadSyncTree('${escPath(data.parent || '')}')"><img class="file-icon" src="${icDir}" alt=""><span>..</span></button></div>`);
-        (data.dirs || []).forEach(item => rows.push(buildSyncDir(item)));
-        if (data.truncated) rows.push('<div class="empty-state compact">当前目录过多，仅显示前 300 个目录</div>');
-        $('#syncTree').html(rows.join('') || '<div class="empty-state">没有可选目录</div>');
+    getJson('/manage/sync/paths?' + targetQuery(), data => {
+        syncPaths = data.paths || [];
+        syncLoadedKey = activeKey();
+        syncTreeCache = {};
+        expandSyncImportantPaths();
+        loadSyncTree('');
         renderSyncPaths();
+        renderSyncTree();
     });
 }
 
-function buildSyncDir(item) {
+function loadSyncTree(path = '') {
+    path = syncNormalize(path);
+    if (syncTreeCache[path] || syncTreeLoading.has(path)) return;
+    syncTreeLoading.add(path);
+    getJson('/manage/sync/tree?' + targetQuery({ path }), data => {
+        syncTreeLoading.delete(path);
+        syncTreeCache[path] = data || { path, dirs: [] };
+        renderSyncTree();
+    });
+}
+
+function renderSyncTree() {
+    $('#syncTreePath').text('/');
+    const rows = [];
+    buildSyncTreeRows('', 0, rows);
+    $('#syncTree').html(rows.join('') || '<div class="empty-state">没有可选目录</div>');
+    renderSyncPaths();
+}
+
+function buildSyncTreeRows(path, depth, rows) {
+    path = syncNormalize(path);
+    const tree = syncTreeCache[path];
+    if (!tree) {
+        rows.push(`<div class="sync-tree-row muted" style="--depth:${depth}"><span class="sync-tree-toggle placeholder"></span><div class="sync-tree-main"><span>加载中...</span><small>${escHtml(path || '/')}</small></div></div>`);
+        loadSyncTree(path);
+        return;
+    }
+    (tree.dirs || []).forEach(item => {
+        const child = syncNormalize(item.path || '');
+        rows.push(buildSyncDir(item, depth));
+        if (syncTreeExpanded.has(child)) buildSyncTreeRows(child, depth + 1, rows);
+    });
+    if (tree.truncated) rows.push(`<div class="sync-tree-row muted" style="--depth:${depth}"><span class="sync-tree-toggle placeholder"></span><div class="sync-tree-main"><span>当前目录过多，仅显示前 300 个目录</span><small>${escHtml(path || '/')}</small></div></div>`);
+}
+
+function buildSyncDir(item, depth) {
     const path = item.path || '';
     const ep = escPath(path);
     const checked = syncPaths.includes(path) ? ' checked' : '';
-    return `<div class="tree-row"><label class="tree-check"><input id="sync_${itemId(path)}" type="checkbox" onchange="toggleSyncPath('${ep}',this.checked)"${checked}></label><button class="tree-main" type="button" onclick="loadSyncTree('${ep}')"><img class="file-icon" src="${icDir}" alt=""><span>${escHtml(item.name || path)}</span></button></div>`;
+    const expanded = syncTreeExpanded.has(path);
+    const hasChildren = item.children !== false;
+    const toggle = hasChildren ? `<button class="sync-tree-toggle" type="button" onclick="toggleSyncTree('${ep}')" aria-label="${expanded ? '收起' : '展开'}">${expanded ? '−' : '+'}</button>` : '<span class="sync-tree-toggle placeholder"></span>';
+    const click = hasChildren ? `toggleSyncTree('${ep}')` : `toggleSyncPath('${ep}',!syncPaths.includes('${ep}'))`;
+    return `<div class="sync-tree-row" style="--depth:${depth}" data-path="${escHtml(path)}">
+        ${toggle}
+        <label class="tree-check sync-tree-check"><input id="sync_${itemId(path)}" type="checkbox" onchange="toggleSyncPath('${ep}',this.checked)"${checked}></label>
+        <button class="sync-tree-main" type="button" onclick="${click}"><img class="file-icon" src="${icDir}" alt=""><span>${escHtml(item.name || path)}</span><small>${escHtml(path)}</small></button>
+    </div>`;
 }
 
-function toggleSyncPath(path, checked) { syncPaths = syncPaths.filter(item => item !== path); if (checked) syncPaths.push(path); renderSyncPaths(); }
-function removeSyncPath(path) { syncPaths = syncPaths.filter(item => item !== path); renderSyncPaths(); }
+function syncNormalize(path) { return String(path || '').replace(/^\/+|\/+$/g, ''); }
+function expandSyncPath(path) {
+    path = syncNormalize(path);
+    while (path) {
+        const index = path.lastIndexOf('/');
+        path = index < 0 ? '' : path.substring(0, index);
+        syncTreeExpanded.add(path);
+    }
+}
+function expandSyncImportantPaths() {
+    syncTreeExpanded.add('');
+    syncPaths.forEach(expandSyncPath);
+}
+function toggleSyncTree(path) {
+    path = syncNormalize(path);
+    if (syncTreeExpanded.has(path)) {
+        syncTreeExpanded.delete(path);
+        renderSyncTree();
+    } else {
+        syncTreeExpanded.add(path);
+        loadSyncTree(path);
+        renderSyncTree();
+    }
+}
+function toggleSyncPath(path, checked) { syncPaths = syncPaths.filter(item => item !== path); if (checked) { syncPaths.push(path); expandSyncPath(path); } renderSyncTree(); }
+function removeSyncPath(path) { syncPaths = syncPaths.filter(item => item !== path); renderSyncTree(); }
 function renderSyncPaths() {
     syncPaths = Array.from(new Set(syncPaths.filter(Boolean)));
     $('#syncPathChips').html(syncPaths.map(path => `<button class="path-chip" type="button" onclick="removeSyncPath('${escPath(path)}')">${escHtml(path)} ×</button>`).join('') || '<span class="empty-state compact">未选择目录</span>');
     syncPaths.forEach(path => { const el = document.getElementById('sync_' + itemId(path)); if (el) el.checked = true; });
 }
 function saveSyncPaths() { postJson('/manage/sync/paths', { paths: syncPaths.join('\n') }, data => { syncPaths = data.paths || []; renderSyncPaths(); warnToast('同步目录已保存'); }); }
-function detectSyncPaths() { postJson('/manage/sync/detect', {}, data => { syncPaths = data.paths || []; renderSyncPaths(); warnToast('已自动加入本地包目录'); }, '自动识别失败'); }
+function detectSyncPaths() { postJson('/manage/sync/detect', {}, data => { syncPaths = data.paths || []; expandSyncImportantPaths(); renderSyncPaths(); renderSyncTree(); warnToast('已自动加入本地包目录'); }, '自动识别失败'); }
 
 function loadLoginStateManage(force = false) {
     if (loginStateLoadedKey === activeKey() && !force) return;
@@ -567,20 +733,25 @@ function loadLoginStateManage(force = false) {
         loginStateData = data || {};
         loginStatePaths = data.learned || [];
         loginStateLoadedKey = activeKey();
+        expandLoginStateImportantPaths();
+        loadLoginStateTree('app');
+        loadLoginStateTree('sdcard');
         renderLoginStateManage();
     }, '登录态加载失败');
 }
 
 function renderLoginStateManage() {
     const data = loginStateData || {};
-    const pending = (data.pending || []).length;
+    const pendingItems = loginStatePendingItems();
     const findings = data.findings || [];
     const missing = ((data.states || []).filter(item => item && item.exists === false)).length;
-    $('#loginStateSummary').text(`${data.learning ? '学习中' : '未学习'} · 已确认 ${loginStatePaths.length} · 候选 ${findings.length} · 待确认 ${pending}${missing ? ` · 缺失 ${missing}` : ''}`);
+    $('#loginStateSummary').text(`${data.learning ? '学习中' : '未学习'} · 已确认 ${loginStatePaths.length} · 待确认 ${pendingItems.length} · 最近 ${findings.length}${missing ? ` · 缺失 ${missing}` : ''}`);
     $('#loginStateLearnBtn').text(data.learning ? '完成学习' : '开始学习');
-    $('#loginStateConfirmBtn').prop('disabled', pending === 0).text(pending ? `确认候选(${pending})` : '确认候选');
-    $('#loginStateLearned').html(loginStatePathStates().map(item => buildLoginStateRow(item, true)).join('') || '<div class="empty-state compact">未确认任何登录态路径</div>');
-    $('#loginStateFindings').html(findings.map(item => buildLoginStateRow(item, false)).join('') || '<div class="empty-state compact">暂无学习候选</div>');
+    $('#loginStateRevealBtn').prop('disabled', pendingItems.length === 0).text(pendingItems.length ? `显示待确认(${pendingItems.length})` : '显示待确认');
+    $('#loginStateLearned').html(loginStatePathStates().map(item => buildLoginStateRow(item, 'selected')).join('') || '<div class="empty-state compact">未确认任何登录态路径</div>');
+    $('#loginStatePending').html(pendingItems.map(item => buildLoginStateRow(item, 'pending')).join('') || '<div class="empty-state compact">暂无待确认项</div>');
+    $('#loginStateFindings').html(findings.map(item => buildLoginStateRow(item, 'finding')).join('') || '<div class="empty-state compact">暂无最近学习结果</div>');
+    renderLoginStateTrees();
 }
 
 function loginStatePathStates() {
@@ -589,26 +760,48 @@ function loginStatePathStates() {
     return loginStatePaths.map(path => byPath[path] || { path, displayPath: path, exists: true, file: true, size: 0, confidence: 'selected', reason: '已确认路径' });
 }
 
-function buildLoginStateRow(item, selected) {
+function loginStateFindingByPath(path) {
+    path = String(path || '');
+    return ((loginStateData && loginStateData.findings) || []).find(item => item && item.path === path) || null;
+}
+
+function loginStatePendingItems() {
+    const byPath = {};
+    ((loginStateData && loginStateData.findings) || []).forEach(item => { if (item && item.path) byPath[item.path] = item; });
+    return ((loginStateData && loginStateData.pending) || [])
+        .filter(path => loginStateState(path) !== 'checked')
+        .map(path => byPath[path] || { path, displayPath: path, confidence: 'pending', reason: '学习期间发生变化' });
+}
+
+function buildLoginStateRow(item, type) {
     const path = item.path || '';
     const ep = escPath(path);
-    const confidence = selected ? 'selected' : (item.confidence || 'low');
-    const title = selected ? '已确认' : confidence === 'high' ? '高置信' : confidence === 'medium' ? '中置信' : '低置信';
+    const confidence = type === 'selected' ? 'selected' : (item.confidence || (type === 'pending' ? 'pending' : 'low'));
+    const title = confidenceTitle(confidence, type);
     const size = item.size != null ? formatFileSize(Number(item.size || 0), false) : '';
-    const reason = item.reason || (selected ? '已确认路径' : '学习期间发生变化');
+    const reason = item.reason || (type === 'selected' ? '已确认路径' : '学习期间发生变化');
     const display = item.displayPath || path;
-    const action = selected
+    const missing = item.exists === false ? ' missing' : '';
+    const action = type === 'selected'
         ? `<button class="file-action danger" type="button" onclick="removeLoginStatePath('${ep}')">移除</button>`
         : `<button class="file-action" type="button" onclick="addLoginStatePath('${ep}')">确认</button>`;
-    return `<div class="login-file-row">
+    return `<div class="login-file-row ${escHtml(type)}${missing}">
         <button class="login-file-main" type="button" onclick="openLoginStateFile('${ep}')">
             <strong>${escHtml(path)}</strong>
             <span>${escHtml(reason)}${size ? ` · ${escHtml(size)}` : ''}</span>
             <small>${escHtml(display)}</small>
         </button>
-        <span class="file-tag ${confidence === 'low' ? 'muted' : ''}">${escHtml(title)}</span>
+        <span class="file-tag ${escHtml(confidence)}">${escHtml(title)}</span>
         ${action}
     </div>`;
+}
+
+function confidenceTitle(confidence, type = '') {
+    if (type === 'selected' || confidence === 'selected') return '已确认';
+    if (type === 'pending' || confidence === 'pending') return '待确认';
+    if (confidence === 'high') return '高置信';
+    if (confidence === 'medium') return '中置信';
+    return '低置信';
 }
 
 function toggleLoginStateLearning() {
@@ -617,6 +810,10 @@ function toggleLoginStateLearning() {
         loginStateData = data || {};
         loginStatePaths = data.learned || [];
         loginStateLoadedKey = activeKey();
+        loginStateTreeCache = {};
+        expandLoginStateImportantPaths();
+        loadLoginStateTree('app');
+        loadLoginStateTree('sdcard');
         renderLoginStateManage();
         warnToast(learning ? '登录态学习完成' : '已开始登录态学习');
     }, '登录态学习失败');
@@ -625,17 +822,14 @@ function toggleLoginStateLearning() {
 function addLoginStatePath(path) {
     path = String(path || '').trim();
     if (!path || loginStatePaths.includes(path)) return;
+    loginStatePaths = loginStatePaths.filter(item => !loginStateCovers(path, item) && !loginStateCovers(item, path));
     loginStatePaths.push(path);
+    expandLoginStatePath(path);
     renderLoginStateManage();
 }
 
 function removeLoginStatePath(path) {
-    loginStatePaths = loginStatePaths.filter(item => item !== path);
-    renderLoginStateManage();
-}
-
-function confirmLoginStatePending() {
-    ((loginStateData && loginStateData.pending) || []).forEach(addLoginStatePath);
+    loginStatePaths = loginStatePaths.filter(item => !loginStateCovers(item, path));
     renderLoginStateManage();
 }
 
@@ -644,6 +838,10 @@ function saveLoginStatePaths() {
         loginStateData = data || {};
         loginStatePaths = data.learned || [];
         loginStateLoadedKey = activeKey();
+        loginStateTreeCache = {};
+        expandLoginStateImportantPaths();
+        loadLoginStateTree('app');
+        loadLoginStateTree('sdcard');
         renderLoginStateManage();
         warnToast('登录态路径已保存');
     }, '登录态路径保存失败');
@@ -656,6 +854,7 @@ function openLoginStateFile(path) {
         $('#loginStatePath').text(data.displayPath || currentLoginStatePath);
         $('#loginStateContent').val(data.content || '');
         openDialog('loginStateEditorDialog');
+        setTimeout(() => $('#loginStateContent').trigger('focus'), 80);
     }, '登录态文件读取失败');
 }
 
@@ -671,13 +870,160 @@ function saveLoginStateFile() {
     closeDialog('loginStateEditorDialog');
 }
 
+function loginStateNormalize(path) { return String(path || '').replace(/^\/+|\/+$/g, ''); }
+function loginStateCovers(parent, child) {
+    parent = loginStateNormalize(parent);
+    child = loginStateNormalize(child);
+    return !!parent && (parent === child || child.startsWith(parent + '/'));
+}
+function loginStateState(path) {
+    path = loginStateNormalize(path);
+    if (loginStatePaths.some(item => loginStateCovers(item, path))) return 'checked';
+    if (loginStatePaths.some(item => loginStateCovers(path, item))) return 'partial';
+    return 'unchecked';
+}
+function loginStateHasPendingChild(path) {
+    return ((loginStateData && loginStateData.pending) || []).some(item => item !== path && loginStateCovers(path, item) && loginStateState(item) !== 'checked');
+}
+function expandLoginStatePath(path) {
+    path = loginStateNormalize(path);
+    while (path) {
+        const index = path.lastIndexOf('/');
+        if (index < 0) { loginStateExpanded.add(path); return; }
+        path = path.substring(0, index);
+        if (path) loginStateExpanded.add(path);
+    }
+}
+function expandLoginStateImportantPaths() {
+    loginStateExpanded.add('app');
+    loginStateExpanded.add('sdcard');
+    loginStatePaths.forEach(expandLoginStatePath);
+    ((loginStateData && loginStateData.pending) || []).forEach(expandLoginStatePath);
+}
+function loadLoginStateTree(path, callback) {
+    path = loginStateNormalize(path || '');
+    if (!path) path = 'app';
+    if (loginStateTreeCache[path] || loginStateTreeLoading.has(path)) {
+        if (callback) callback(loginStateTreeCache[path]);
+        return;
+    }
+    loginStateTreeLoading.add(path);
+    getJson('/manage/login-state/tree?' + targetQuery({ path }), data => {
+        loginStateTreeLoading.delete(path);
+        loginStateTreeCache[path] = data || { path, items: [] };
+        renderLoginStateManage();
+        if (callback) callback(loginStateTreeCache[path]);
+    }, '登录态目录加载失败');
+}
+function toggleLoginStateTree(path) {
+    path = loginStateNormalize(path);
+    if (!path) return;
+    if (loginStateExpanded.has(path)) {
+        loginStateExpanded.delete(path);
+        renderLoginStateManage();
+    } else {
+        loginStateExpanded.add(path);
+        loadLoginStateTree(path);
+        renderLoginStateManage();
+    }
+}
+function revealLoginStatePending() {
+    const items = loginStatePendingItems();
+    if (!items.length) {
+        warnToast('没有待确认项');
+        return;
+    }
+    items.forEach(item => expandLoginStatePath(item.path));
+    loginStateTreeCache = {};
+    loadLoginStateTree('app');
+    loadLoginStateTree('sdcard');
+    renderLoginStateManage();
+    warnToast(`已显示 ${items.length} 个待确认项`);
+}
+function renderLoginStateTrees() {
+    renderLoginStateTree('app', $('#loginStateTreeApp'));
+    renderLoginStateTree('sdcard', $('#loginStateTreeSdcard'));
+}
+function renderLoginStateTree(root, targetEl) {
+    if (!targetEl || !targetEl.length) return;
+    const rows = [];
+    buildLoginStateTreeRows(root, 0, rows);
+    appendMissingLoginStateRows(root, rows);
+    targetEl.html(rows.join('') || '<div class="empty-state compact">没有可显示的文件</div>');
+    targetEl.find('input[data-partial="1"]').each(function () { this.indeterminate = true; });
+}
+function buildLoginStateTreeRows(path, depth, rows) {
+    const tree = loginStateTreeCache[path];
+    if (!tree) {
+        rows.push(`<div class="login-tree-row muted" style="--depth:${depth}"><span class="login-tree-spacer"></span><div class="login-tree-main"><span>加载中...</span><small>${escHtml(path)}</small></div></div>`);
+        if (!loginStateTreeLoading.has(path)) loadLoginStateTree(path);
+        return;
+    }
+    (tree.items || []).forEach(item => {
+        rows.push(buildLoginStateTreeRow(item, depth));
+        if (item.dir && loginStateExpanded.has(item.path)) buildLoginStateTreeRows(item.path, depth + 1, rows);
+    });
+}
+function appendMissingLoginStateRows(root, rows) {
+    const visible = new Set();
+    const re = /data-path="([^"]*)"/g;
+    rows.forEach(row => {
+        let match;
+        while ((match = re.exec(row))) visible.add(match[1].replace(/&quot;/g, '"'));
+    });
+    const paths = [...loginStatePaths, ...((loginStateData && loginStateData.pending) || [])];
+    paths.forEach(path => {
+        if (!path.startsWith(root + '/') || visible.has(path)) return;
+        const state = ((loginStateData && loginStateData.states) || []).find(item => item && item.path === path);
+        if (state && state.exists !== false) return;
+        rows.push(buildLoginStateTreeRow({ name: path.split('/').pop(), path, dir: false, size: 0, modified: 0, selectable: true, missing: true }, loginStateDepth(path)));
+    });
+}
+function loginStateDepth(path) {
+    return Math.max(0, loginStateNormalize(path).split('/').length - 2);
+}
+function buildLoginStateTreeRow(item, depth) {
+    const path = item.path || '';
+    const ep = escPath(path);
+    const state = loginStateState(path);
+    const pending = loginStatePendingItems().some(x => x.path === path);
+    const hasPending = item.dir && loginStateHasPendingChild(path);
+    const missing = item.missing || (((loginStateData && loginStateData.states) || []).some(x => x && x.path === path && x.exists === false));
+    const checked = state === 'checked' ? ' checked' : '';
+    const partial = state === 'partial' ? ' data-partial="1"' : '';
+    const badge = missing ? '<span class="login-state-badge missing">缺失</span>' : pending ? '<span class="login-state-badge pending">待确认</span>' : hasPending ? '<span class="login-state-badge pending">含待确认</span>' : state === 'checked' ? '<span class="login-state-badge selected">已选</span>' : state === 'partial' ? '<span class="login-state-badge partial">部分</span>' : '';
+    const toggle = item.dir ? `<button class="login-tree-toggle" type="button" onclick="toggleLoginStateTree('${ep}')" aria-label="${loginStateExpanded.has(path) ? '收起' : '展开'}">${loginStateExpanded.has(path) ? '−' : '+'}</button>` : '<span class="login-tree-toggle placeholder"></span>';
+    const icon = item.dir ? icDir : icFile;
+    const meta = loginStateTreeMeta(item, pending);
+    const click = item.dir ? `toggleLoginStateTree('${ep}')` : `openLoginStateFile('${ep}')`;
+    return `<div class="login-tree-row ${item.dir ? 'dir' : 'file'} ${pending || hasPending ? 'pending' : ''} ${missing ? 'missing' : ''}" style="--depth:${depth}" data-path="${escHtml(path)}">
+        ${toggle}
+        <label class="tree-check login-tree-check"><input type="checkbox" onchange="toggleLoginStatePath('${ep}',this.checked)"${checked}${partial} aria-label="选择 ${escHtml(item.name || path)}"></label>
+        <button class="login-tree-main" type="button" onclick="${click}">
+            <img class="file-icon" src="${icon}" alt="">
+            <span>${escHtml(item.name || path)}</span>
+            ${badge}
+            <small>${escHtml(meta)}</small>
+        </button>
+    </div>`;
+}
+function loginStateTreeMeta(item, pending) {
+    const finding = loginStateFindingByPath(item.path || '');
+    if (finding && pending) return `${finding.reason || '待确认'} · ${item.path}`;
+    if (item.dir) return item.path || '';
+    const size = item.size != null ? formatFileSize(Number(item.size || 0), false) : '';
+    return [item.path || '', size].filter(Boolean).join(' · ');
+}
+function toggleLoginStatePath(path, checked) {
+    if (checked) addLoginStatePath(path);
+    else removeLoginStatePath(path);
+}
+
 function setSyncMode(next) {
     syncMode = next === 'pull' ? 'pull' : 'push';
     $('#syncModePush').toggleClass('active', syncMode === 'push');
     $('#syncModePull').toggleClass('active', syncMode === 'pull');
-    $('#syncDirectionBtn').text(syncMode === 'push' ? '推送' : '拉取');
 }
-function toggleSyncMode() { setSyncMode(syncMode === 'push' ? 'pull' : 'push'); }
 function syncOptionIds() { return ['syncOptConfig', 'syncOptSpider', 'syncOptLoginState', 'syncOptWebHome', 'syncOptSearch', 'syncOptHistory', 'syncOptKeep', 'syncOptSettings']; }
 function allSyncSelected() { return syncOptionIds().every(id => $('#' + id).prop('checked')); }
 function toggleSyncSelection() {
@@ -688,7 +1034,7 @@ function toggleSyncSelection() {
 function updateSyncPathsVisible() {
     const spider = $('#syncOptSpider').prop('checked');
     $('#syncPathsPanel').toggle(spider);
-    $('#syncSelectBtn').text(allSyncSelected() ? '取消' : '全选');
+    $('#syncSelectBtn').text(allSyncSelected() ? '取消全选' : '全选');
 }
 function syncOptionsPayload() {
     return {
@@ -753,7 +1099,7 @@ function cspKind(item = {}) {
     if (item.webHome === true) return 'webHome';
     if (item.webHome === false) return 'csp';
     const api = String(siteValue(item, 'api', ''));
-    const home = String(siteValue(item, 'homePage', siteValue(item, 'webHome', '')));
+    const home = String(siteValue(item, 'homePage', ''));
     return !api && !!home ? 'webHome' : 'csp';
 }
 function cspKindName(kind) { return kind === 'live' ? '直播' : kind === 'webHome' ? 'WebHome' : '通用 CSP'; }
@@ -774,6 +1120,11 @@ function rawObjectFromItem(item, drop = []) {
 function jsonText(value, fallback) {
     const data = value === undefined || value === null ? fallback : value;
     return JSON.stringify(data, null, 2);
+}
+function extensionText(value) {
+    if (!hasJsonValue(value)) return '';
+    if (typeof value === 'string') return value.trim();
+    return JSON.stringify(value, null, 2);
 }
 function hasJsonValue(value) {
     if (value === undefined || value === null || value === '') return false;
@@ -828,7 +1179,8 @@ function normalizeCspItem(item, index = 0) {
     item.api = inferredApi;
     item.ext = siteValue(item, 'ext', '');
     item.jar = String(siteValue(item, 'jar', ''));
-    item.homePage = String(siteValue(item, 'homePage', siteValue(item, 'webHome', '')));
+    item.homePage = String(siteValue(item, 'homePage', ''));
+    if (item.homePage === 'true' || item.homePage === 'false') item.homePage = '';
     item.click = String(siteValue(item, 'click', ''));
     item.playUrl = String(siteValue(item, 'playUrl', ''));
     item.hide = Number(siteValue(item, 'hide', 0));
@@ -840,6 +1192,10 @@ function normalizeCspItem(item, index = 0) {
     item.categories = Array.isArray(item.categories) ? item.categories : (Array.isArray(item.site.categories) ? item.site.categories : []);
     item.header = item.header || item.site.header || {};
     item.style = item.style || item.site.style || {};
+    item.extensions = item.extensions !== undefined && item.extensions !== null ? item.extensions : (item.site ? item.site.extensions : null);
+    item.extensionsText = item.extensionsText !== undefined && item.extensionsText !== null ? String(item.extensionsText) : extensionText(item.extensions);
+    item.extensionsExpanded = item.extensionsExpanded === true || !!item.extensionsText.trim();
+    item.extensionsInvalid = !!item.extensionsInvalid;
     item.headerText = JSON.stringify(item.header || {}, null, 2);
     item.styleText = JSON.stringify(item.style || {}, null, 2);
     syncCspSite(item);
@@ -902,6 +1258,8 @@ function syncCspSite(item) {
         site.jar = '';
         delete site.click;
         delete site.playUrl;
+        if (item.extensionsExpanded && hasJsonValue(item.extensions)) site.extensions = item.extensions;
+        else delete site.extensions;
     } else {
         site.api = item.api || '';
         site.ext = item.ext || '';
@@ -958,7 +1316,7 @@ function stripCspMeta(registry) {
     delete copy.active;
     delete copy.enabledCount;
     delete copy.itemsCount;
-    (copy.items || []).forEach(item => { delete item.headerText; delete item.styleText; delete item.siteText; delete item.liveText; delete item.catchupText; delete item.coreText; delete item.groupsText; });
+    (copy.items || []).forEach(item => { delete item.headerText; delete item.styleText; delete item.siteText; delete item.liveText; delete item.catchupText; delete item.coreText; delete item.groupsText; delete item.extensionsText; delete item.extensionsExpanded; delete item.extensionsInvalid; });
     return copy;
 }
 function renderCspManage() {
@@ -968,25 +1326,32 @@ function renderCspManage() {
     $('#cspList').html(cspRegistry.items.map(buildCspCard).join('') || '<div class="empty-state">还没有站点注入条目</div>');
     $('#cspRaw').val(JSON.stringify(stripCspMeta(cspRegistry), null, 2));
     cspRawDirty = false;
+    updateCspModeUi();
 }
 function cspItemValid(item) {
     if (item.kind === 'live') return !!item.name && (!!item.url || !!(Array.isArray(item.groups) && item.groups.length) || !!(item.live && Array.isArray(item.live.groups) && item.live.groups.length));
     return item.webHome ? !!item.homePage : !!item.api;
 }
 function buildCspCard(item, index) {
-    const invalid = item.enabled && !cspItemValid(item) ? ' invalid' : '';
+    const invalid = item.enabled && (!cspItemValid(item) || item.extensionsInvalid) ? ' invalid' : '';
     const title = item.name || cspKindName(item.kind);
     const source = item.webHome ? `<div class="source-actions"><button class="md-btn md-btn-tonal md-btn-compact" type="button" onclick="chooseCspFile(${index})">文件</button><button class="md-btn md-btn-tonal md-btn-compact" type="button" onclick="openCspCode(${index})">代码</button><button class="md-btn md-btn-tonal md-btn-compact" type="button" onclick="openCspLink(${index})">链接</button></div>` : '';
     const typeButtons = `<div class="segmented csp-type-toggle"><button class="segment ${item.kind === 'webHome' ? 'active' : ''}" onclick="setCspKind(${index},'webHome')" type="button">WebHome</button><button class="segment ${item.kind === 'csp' ? 'active' : ''}" onclick="setCspKind(${index},'csp')" type="button">通用 CSP</button><button class="segment ${item.kind === 'live' ? 'active' : ''}" onclick="setCspKind(${index},'live')" type="button">直播</button></div>`;
     const nameRow = item.kind === 'live'
         ? `<div class="field-row compact">${buildLiveTextField('name', '名称', item.name, '直播名称', true)}</div>`
         : `<div class="field-row compact"><input class="md-input csp-field" data-key="name" value="${escHtml(item.name)}" placeholder="名称"><input class="md-input csp-field" data-key="key" value="${escHtml(item.key)}" placeholder="Key"></div>`;
+    const extensions = item.webHome ? buildCspExtensionsFields(item, index) : '';
     const homeLine = item.kind === 'live' ? '' : `<div class="csp-home-line">${buildHomeCheck(item, index)}${source}</div>`;
     const homePage = item.kind === 'live' ? '' : `<div class="md-field"><input class="md-input csp-field" data-key="homePage" value="${escHtml(item.homePage)}" placeholder="${item.webHome ? 'WebHome 地址' : 'WebHome 首页地址，可选'}"></div>`;
     const fields = item.kind === 'live' ? buildLiveFields(item) : item.webHome ? buildAdvancedSiteFields(item) : buildCommonCspFields(item);
-    return `<div class="manage-card csp-card${invalid}" data-index="${index}"><div class="csp-head"><div class="csp-title-block"><label class="check-row"><input class="csp-field" data-key="enabled" type="checkbox" ${item.enabled ? 'checked' : ''}><span>${escHtml(title)}</span></label>${typeButtons}</div><div class="card-actions"><button class="file-action" type="button" onclick="moveCspItem(${index},-1)">上移</button><button class="file-action" type="button" onclick="moveCspItem(${index},1)">下移</button><button class="file-action danger" type="button" onclick="removeCspItem(${index})">删除</button></div></div>${nameRow}${homeLine}${homePage}${fields}</div>`;
+    return `<div class="manage-card csp-card${invalid}" data-index="${index}"><div class="csp-head"><div class="csp-title-block"><label class="check-row"><input class="csp-field" data-key="enabled" type="checkbox" ${item.enabled ? 'checked' : ''}><span>${escHtml(title)}</span></label>${typeButtons}</div><div class="card-actions"><button class="file-action" type="button" onclick="moveCspItem(${index},-1)">上移</button><button class="file-action" type="button" onclick="moveCspItem(${index},1)">下移</button><button class="file-action danger" type="button" onclick="removeCspItem(${index})">删除</button></div></div>${nameRow}${extensions}${homeLine}${homePage}${fields}</div>`;
 }
 function buildHomeCheck(item, index) { return `<label class="check-row"><input class="csp-home" type="checkbox" ${cspRegistry.homeKey === item.key ? 'checked' : ''} onchange="setCspHome(${index},this.checked)"><span>设为首页</span></label>`; }
+function buildCspExtensionsFields(item, index) {
+    const text = item.extensionsText || '';
+    const detail = item.extensionsExpanded ? `<textarea class="code-area csp-field compact-code csp-extensions-text" data-key="extensionsText" spellcheck="false" placeholder='["https://example.com/webhome/site.js"]'>${escHtml(text)}</textarea>${item.extensionsInvalid ? '<div class="field-error">extensions JSON 格式无效</div>' : ''}` : '';
+    return `<div class="csp-extensions-panel"><div class="csp-extensions-head"><button class="toggle-pill ${item.extensionsExpanded ? 'on' : 'off'}" type="button" onclick="toggleCspExtensions(${index})">扩展</button><span>填写 extensions 数组，支持 JS 链接简写或对象配置</span></div>${detail}</div>`;
+}
 function buildCommonCspFields(item) {
     return `<div class="field-row compact"><input class="md-input mini-input csp-field" data-key="type" type="number" value="${escHtml(item.type)}" placeholder="类型"><input class="md-input csp-field" data-key="api" value="${escHtml(item.api)}" placeholder="API / CSP 类名"></div><div class="field-row compact"><input class="md-input csp-field" data-key="jar" value="${escHtml(item.jar)}" placeholder="Jar"><input class="md-input csp-field" data-key="ext" value="${escHtml(typeof item.ext === 'string' ? item.ext : JSON.stringify(item.ext))}" placeholder="Ext"></div><div class="field-row compact"><input class="md-input csp-field" data-key="click" value="${escHtml(item.click)}" placeholder="点击脚本"><input class="md-input csp-field" data-key="playUrl" value="${escHtml(item.playUrl)}" placeholder="播放前缀"></div><div class="field-row compact"><input class="md-input mini-input csp-field" data-key="indexs" type="number" value="${escHtml(item.indexs)}" placeholder="索引"><input class="md-input mini-input csp-field" data-key="timeout" type="number" value="${escHtml(item.timeout)}" placeholder="超时秒"><input class="md-input csp-field" data-key="categories" value="${escHtml((item.categories || []).join(','))}" placeholder="分类，逗号分隔"></div><div class="flag-grid"><label class="check-row"><input class="csp-field" data-key="hide" type="checkbox" ${item.hide ? 'checked' : ''}><span>隐藏</span></label><label class="check-row"><input class="csp-field" data-key="searchable" type="checkbox" ${item.searchable ? 'checked' : ''}><span>搜索</span></label><label class="check-row"><input class="csp-field" data-key="changeable" type="checkbox" ${item.changeable ? 'checked' : ''}><span>换源</span></label><label class="check-row"><input class="csp-field" data-key="quickSearch" type="checkbox" ${item.quickSearch ? 'checked' : ''}><span>快搜</span></label></div><details class="advanced-panel"><summary>高级参数</summary><label class="form-label">Header JSON</label><textarea class="code-area csp-field compact-code" data-key="headerText" spellcheck="false" placeholder="Header JSON">${escHtml(item.headerText)}</textarea><label class="form-label">Style JSON</label><textarea class="code-area csp-field compact-code" data-key="styleText" spellcheck="false" placeholder="Style JSON">${escHtml(item.styleText)}</textarea>${buildAdvancedSiteFields(item, false)}</details>`;
 }
@@ -1008,12 +1373,46 @@ function updateCspGlobal() {
     $('#cspRaw').val(JSON.stringify(stripCspMeta(cspRegistry), null, 2));
 }
 function stepCspInsert(delta) { if (!cspRegistry) return; cspRegistry.insertIndex = Math.max(0, Math.min(9, Number(cspRegistry.insertIndex || 0) + delta)); updateCspGlobal(); }
-function syncCspFromCards(updateRaw = true) {
+function setCspMode(next) {
+    next = next === 'json' ? 'json' : 'form';
+    if (next === cspMode) return;
+    if (cspMode === 'form') {
+        if (!syncCspFromCards(true, true)) return;
+    } else {
+        if (!parseCspRawIntoRegistry()) return;
+    }
+    cspMode = next;
+    renderCspManage();
+}
+function updateCspModeUi() {
+    $('#cspModeForm').toggleClass('active', cspMode === 'form');
+    $('#cspModeJson').toggleClass('active', cspMode === 'json');
+    $('#cspFormPanel').toggle(cspMode === 'form');
+    $('#cspJsonPanel').toggle(cspMode === 'json');
+}
+function parseCspRawIntoRegistry() {
+    try {
+        cspRegistry = normalizeCspRegistry(JSON.parse($('#cspRaw').val().trim() || '{}'));
+        cspRawDirty = false;
+        return true;
+    } catch (e) {
+        warnToast('站点注入 JSON 格式无效');
+        return false;
+    }
+}
+function formatCspJson() {
+    if (!parseCspRawIntoRegistry()) return;
+    $('#cspRaw').val(JSON.stringify(stripCspMeta(cspRegistry), null, 2));
+    warnToast('JSON 已格式化');
+}
+function syncCspFromCards(updateRaw = true, validate = false) {
     if (!cspRegistry) return;
+    let valid = true;
     cspRegistry.enabled = $('#cspEnabled').prop('checked');
     cspRegistry.insertIndex = Math.max(0, Math.min(9, Number(cspRegistry.insertIndex || 0)));
     $('#cspList .csp-card').each(function () {
         const item = cspRegistry.items[Number($(this).data('index'))];
+        item.extensionsInvalid = false;
         $(this).find('.csp-field').each(function () {
             const key = $(this).data('key');
             if (this.type === 'checkbox') item[key] = ['enabled', 'boot', 'pass'].includes(key) ? this.checked : (this.checked ? 1 : 0);
@@ -1023,33 +1422,66 @@ function syncCspFromCards(updateRaw = true) {
             else if (key === 'headerText') item.header = parseJsonField(this.value, {});
             else if (key === 'styleText') item.style = parseJsonField(this.value, {});
             else if (key === 'siteText') item.site = parseJsonField(this.value, item.site || {});
+            else if (key === 'extensionsText') {
+                item.extensionsText = this.value.trim();
+                try { item.extensions = item.extensionsExpanded && item.extensionsText ? parseCspExtensions(item.extensionsText) : null; }
+                catch (e) { item.extensionsInvalid = true; valid = false; }
+            }
             else if (key === 'catchupText') item.catchup = parseOptionalJsonField(this.value, item.catchup || {}, {});
             else if (key === 'coreText') item.core = parseOptionalJsonField(this.value, item.core || {}, {});
             else if (key === 'groupsText') item.groups = parseOptionalJsonField(this.value, item.groups || [], []);
             else if (key === 'liveText') item.live = parseJsonField(this.value, item.live || {});
             else item[key] = this.value.trim();
         });
-        syncCspItem(item);
+        if (!item.extensionsExpanded) {
+            item.extensionsText = '';
+            item.extensions = null;
+        }
+        if (!item.extensionsInvalid) syncCspItem(item);
     });
+    if (validate && !valid) {
+        warnToast('extensions JSON 格式无效');
+        renderCspManage();
+        return false;
+    }
     if (updateRaw) {
         $('#cspRaw').val(JSON.stringify(stripCspMeta(cspRegistry), null, 2));
         cspRawDirty = false;
     }
+    return true;
 }
 function parseJsonField(text, fallback) { try { return text && text.trim() ? JSON.parse(text) : fallback; } catch (e) { warnToast('JSON 格式无效，已保留为空对象'); return fallback; } }
 function parseOptionalJsonField(text, fallback, emptyValue) {
     try { return text && text.trim() ? JSON.parse(text) : emptyValue; }
     catch (e) { warnToast('JSON 格式无效，已保留原值'); return fallback; }
 }
+function parseCspExtensions(text) {
+    const value = String(text || '').trim();
+    if (!value) return null;
+    const array = [];
+    if (!value.startsWith('[') && !value.startsWith('{') && !value.startsWith('"')) {
+        array.push(value);
+        return array;
+    }
+    const element = JSON.parse(value);
+    if (Array.isArray(element)) return element;
+    if (element && typeof element === 'object' && Array.isArray(element.extensions)) return element.extensions;
+    array.push(element);
+    return array;
+}
 function addCspItem(kind) {
     if (!cspRegistry) cspRegistry = normalizeCspRegistry({});
+    if (cspMode === 'json') {
+        if (!parseCspRawIntoRegistry()) return;
+        cspMode = 'form';
+    }
     syncCspFromCards(false);
     if (kind === true) kind = 'webHome';
     if (kind === false) kind = 'csp';
     if (!CSP_KINDS.includes(kind)) kind = 'webHome';
     const n = cspRegistry.items.filter(x => x.kind === kind).length + 1;
     const name = cspKindName(kind) + ' ' + n;
-    const seed = { kind, webHome: kind === 'webHome', name };
+    const seed = { kind, webHome: kind === 'webHome', name, homePage: '' };
     if (kind === 'live') seed.live = liveDefaultObject(name);
     cspRegistry.items.push(normalizeCspItem(seed, cspRegistry.items.length));
     renderCspManage();
@@ -1057,6 +1489,17 @@ function addCspItem(kind) {
 function removeCspItem(index) { syncCspFromCards(false); const item = cspRegistry.items[index]; if (item && item.kind !== 'live' && cspRegistry.homeKey === item.key) cspRegistry.homeKey = ''; cspRegistry.items.splice(index, 1); renderCspManage(); }
 function moveCspItem(index, delta) { syncCspFromCards(false); const targetIndex = index + delta; if (targetIndex < 0 || targetIndex >= cspRegistry.items.length) return; const item = cspRegistry.items.splice(index, 1)[0]; cspRegistry.items.splice(targetIndex, 0, item); renderCspManage(); }
 function setCspHome(index, checked) { syncCspFromCards(false); const item = cspRegistry.items[index]; if (!item || item.kind === 'live') return; cspRegistry.homeKey = checked ? item.key : ''; renderCspManage(); }
+function toggleCspExtensions(index) {
+    syncCspFromCards(false);
+    const item = cspRegistry.items[index];
+    if (!item || !item.webHome) return;
+    item.extensionsExpanded = !item.extensionsExpanded;
+    if (!item.extensionsExpanded) {
+        item.extensionsText = '';
+        item.extensions = null;
+    }
+    renderCspManage();
+}
 function setCspKind(index, kind) {
     syncCspFromCards(false);
     const item = cspRegistry.items[index];
@@ -1142,9 +1585,9 @@ function saveCspPage(index, data, message) {
     }, 'WebHome 保存失败');
 }
 function saveCspManage() {
-    if (!cspRawDirty) syncCspFromCards(true);
-    try { cspRegistry = normalizeCspRegistry(JSON.parse($('#cspRaw').val().trim() || '{}')); }
-    catch (e) { warnToast('站点注入 JSON 格式无效'); return; }
+    if (cspMode === 'form') {
+        if (!syncCspFromCards(true, true)) return;
+    } else if (!parseCspRawIntoRegistry()) return;
     cspRegistry.items.forEach(syncCspItem);
     postJson('/manage/csp', { registry: JSON.stringify(stripCspMeta(cspRegistry)) }, data => { cspRegistry = normalizeCspRegistry(data); renderCspManage(); warnToast('站点注入已保存'); });
 }
@@ -1206,6 +1649,82 @@ function addProxyRule() {
     syncProxyRulesFromForm();
     proxyRules.push(proxyRule('', cleanProxyUrl($('#proxyUrl').val())));
     renderProxyManage();
+}
+function showProxySuggestDialog() {
+    if (!ensureProxyDefaultUrl()) return;
+    getJson('/manage/proxy/suggest/sites?' + targetQuery(), data => {
+        proxySuggestSites = Array.isArray(data.sites) ? data.sites : [];
+        renderProxySuggestList();
+        openDialog('proxySuggestDialog');
+    }, '自动建议加载失败');
+}
+function renderProxySuggestList() {
+    const rows = [];
+    if (proxySuggestSites.length) rows.push(buildProxySuggestRow({ key: 'all', name: '全部站点', home: false, all: true }));
+    proxySuggestSites.forEach(site => rows.push(buildProxySuggestRow(site)));
+    $('#proxySuggestList').html(rows.length ? rows.join('') : '<div class="empty-state compact">暂无可选站点</div>');
+}
+function buildProxySuggestRow(site) {
+    const key = escPath(site.key || '');
+    const name = escHtml(site.name || site.key || '未命名站点');
+    const meta = site.all ? '扫描当前接口内所有站点' : (site.home ? '当前首页站点' : escHtml(site.key || ''));
+    return `<button class="proxy-suggest-row" onclick="applyProxySuggest('${key}',${site.all ? 'true' : 'false'})" type="button"><span>${name}</span><small>${meta}</small></button>`;
+}
+function applyProxySuggest(key, all) {
+    if (!ensureProxyDefaultUrl()) return;
+    const query = targetQuery(all ? { all: 'true' } : { key });
+    getJson('/manage/proxy/suggest?' + query, data => {
+        const hosts = Array.isArray(data.hosts) ? data.hosts : [];
+        if (!hosts.length) { warnToast('未发现可代理域名'); return; }
+        const added = appendProxyHosts(hosts, cleanProxyUrl($('#proxyUrl').val()));
+        proxyEnabled = true;
+        proxyMode = 'form';
+        renderProxyManage({ count: proxyRules.filter(rule => rule.hosts || rule.url).length });
+        closeDialog('proxySuggestDialog');
+        warnToast(`已新增 ${added} 个域名，共 ${countProxyHosts()} 个`);
+    }, '自动建议失败');
+}
+function ensureProxyDefaultUrl() {
+    if (isValidProxyUrl(cleanProxyUrl($('#proxyUrl').val()))) return true;
+    warnToast('请先填写默认代理地址');
+    return false;
+}
+function isValidProxyUrl(url) {
+    try {
+        const parsed = new URL(String(url || '').trim());
+        return /^(https?|socks)\w*$/i.test(parsed.protocol.replace(':', '')) && !!parsed.hostname && !!parsed.port;
+    } catch (e) {
+        return false;
+    }
+}
+function appendProxyHosts(hosts, url) {
+    if (proxyMode === 'text') proxyRules = parseProxyRules($('#proxyRules').val());
+    else syncProxyRulesFromForm();
+    proxyRules = proxyRules.filter(rule => rule.hosts || rule.url);
+    const exists = new Set();
+    proxyRules.forEach(rule => splitProxyValue(rule.hosts).forEach(host => exists.add(normalizeProxyHost(host))));
+    let added = 0;
+    hosts.forEach(host => {
+        const value = String(host || '').trim();
+        const key = normalizeProxyHost(value);
+        if (!value || !key || exists.has(key)) return;
+        proxyRules.push(proxyRule(value, url));
+        exists.add(key);
+        added++;
+    });
+    if (!proxyRules.length) proxyRules.push(proxyRule('', ''));
+    return added;
+}
+function normalizeProxyHost(host) {
+    return String(host || '').trim().toLowerCase();
+}
+function countProxyHosts() {
+    const hosts = new Set();
+    proxyRules.forEach(rule => splitProxyValue(rule.hosts).forEach(host => {
+        const value = normalizeProxyHost(host);
+        if (value) hosts.add(value);
+    }));
+    return hosts.size;
 }
 function removeProxyRule(index) {
     syncProxyRulesFromForm();
@@ -1283,8 +1802,144 @@ function saveProxyManage() {
     }, 'Proxy 保存失败');
 }
 
-function remoteSearch() { if (!ensureTarget()) return; postAction('/manage/action', { target, do: 'search', word: $('#remoteKeyword').val().trim() }, () => warnToast('已发送搜索'), '搜索发送失败'); }
-function remotePush() { if (!ensureTarget()) return; postAction('/manage/action', { target, do: 'push', url: $('#remotePushUrl').val().trim() }, () => warnToast('已发送推送'), '推送发送失败'); }
+function loadConfigsManage(force = false) {
+    if (configsLoadedKey === activeKey() && !force) return;
+    getJson('/manage/configs?' + targetQuery(), data => {
+        configsLoadedKey = activeKey();
+        configsData = Array.isArray(data.items) ? data.items : [];
+        renderConfigsManage();
+    }, '接口配置加载失败');
+}
+function renderConfigsManage() {
+    const filtered = configsData.filter(item => Number(item.type || 0) === Number(configFilter));
+    const active = configsData.filter(item => item.active).length;
+    $('#configsSummary').text(`${configsData.length} 个接口 · 当前启用 ${active}`);
+    $('#configFilterVod').toggleClass('active', configFilter === 0);
+    $('#configFilterLive').toggleClass('active', configFilter === 1);
+    $('#configFilterWall').toggleClass('active', configFilter === 2);
+    $('#configList').html(filtered.map(buildConfigCard).join('') || '<div class="empty-state">暂无接口配置</div>');
+}
+function setConfigFilter(type) {
+    configFilter = Number(type);
+    renderConfigsManage();
+}
+function buildConfigCard(item) {
+    const url = item.url || '';
+    const name = item.name || '';
+    const type = Number(item.type || 0);
+    const title = name || url || '未命名接口';
+    const active = item.active ? ' active' : '';
+    return `<div class="config-card${active}">
+        <div class="config-main">
+            <div class="config-title-line"><span class="config-type">${escHtml(item.typeName || configTypeName(type))}</span><strong>${escHtml(title)}</strong>${item.active ? '<em>当前</em>' : ''}</div>
+            <div class="config-url">${escHtml(url)}</div>
+        </div>
+        <div class="config-actions">
+            <button class="file-action" type="button" onclick="useConfig(${type},'${escPath(url)}')"${item.active ? ' disabled' : ''}>启用</button>
+            <button class="file-action" type="button" onclick="showConfigDialog(${type},'${escPath(url)}','${escPath(name)}')">编辑</button>
+            <button class="file-action danger" type="button" onclick="deleteConfig(${type},'${escPath(url)}')">删除</button>
+        </div>
+    </div>`;
+}
+function configTypeName(type) {
+    if (Number(type) === 1) return '直播';
+    if (Number(type) === 2) return '壁纸';
+    return '影视';
+}
+function showConfigDialog(type = 0, url = '', name = '') {
+    editingConfig = { type: Number(type || 0), oldUrl: url || '' };
+    configFilter = editingConfig.type;
+    $('#configType').val(String(editingConfig.type));
+    $('#configName').val(name || '');
+    $('#configUrl').val(url || '');
+    $('#configDialogTitle').text(url ? '编辑接口' : '新增接口');
+    openDialog('configDialog');
+}
+function chooseConfigLocalFile() {
+    if (mode === 'remote' && !target) { ensureActionTarget(); return; }
+    $('#config_file_uploader').val('').click();
+}
+function onConfigLocalFileSelected() {
+    const input = $('#config_file_uploader')[0];
+    const file = input && input.files ? input.files[0] : null;
+    if (!file) return;
+    const remote = mode === 'remote' && !!target;
+    const data = new FormData();
+    data.append('path', CONFIG_UPLOAD_DIR);
+    if (remote) data.append('target', target);
+    data.append('files-0', file);
+    const url = remote ? '/manage/remote/upload' : '/upload';
+    if (blockOfflineRemote(url, remote ? { target } : {})) return;
+    showLoading();
+    $.ajax({ url, type: 'post', data, processData: false, contentType: false, timeout: UPLOAD_TIMEOUT })
+        .done(() => {
+            const path = CONFIG_UPLOAD_DIR + '/' + file.name;
+            const prefix = Number($('#configType').val() || 0) === 2 ? 'file:/' : 'file://';
+            $('#configUrl').val(prefix + path);
+            warnToast('文件已上传并填入接口地址');
+        })
+        .fail((xhr, status) => warnToast(requestError(xhr, status, '本地文件上传失败')))
+        .always(() => { $('#config_file_uploader').val(''); hideLoading(); });
+}
+function saveConfigDialog() {
+    const type = Number($('#configType').val() || 0);
+    const name = $('#configName').val().trim();
+    const url = $('#configUrl').val().trim();
+    if (!url) { warnToast('请填写接口地址'); return; }
+    const oldUrl = editingConfig && editingConfig.oldUrl && editingConfig.oldUrl !== url ? editingConfig.oldUrl : '';
+    const save = () => postJson('/manage/configs', { type, name, url }, data => {
+        configsData = data.items || [];
+        configsLoadedKey = activeKey();
+        renderConfigsManage();
+        closeDialog('configDialog');
+        warnToast('接口已保存');
+    }, '接口保存失败');
+    if (oldUrl) postJson('/manage/config/delete', { type: editingConfig.type, url: oldUrl }, save, '旧接口移除失败');
+    else save();
+}
+function useConfig(type, url) {
+    postJson('/manage/config/use', { type, url }, data => {
+        configsData = data.items || [];
+        configsLoadedKey = activeKey();
+        renderConfigsManage();
+        warnToast('已切换接口，正在加载');
+    }, '接口启用失败');
+}
+function deleteConfig(type, url) {
+    postJson('/manage/config/delete', { type, url }, data => {
+        configsData = data.items || [];
+        configsLoadedKey = activeKey();
+        renderConfigsManage();
+        warnToast('接口已删除');
+    }, '接口删除失败');
+}
+function updateActionModeText() {
+    const remote = mode === 'remote';
+    $('#searchTitle').text(remote ? '远端搜索' : '本机搜索');
+    $('#searchSubtitle').text(remote ? '让选中设备打开搜索结果页' : '让当前 App 打开搜索结果页');
+    $('#pushTitle').text(remote ? '远端推送' : '本机推送');
+    $('#pushSubtitle').text(remote ? '把播放地址推送到选中设备' : '把播放地址推送到当前 App');
+}
+function remoteSearch() {
+    const word = $('#remoteKeyword').val().trim();
+    if (!word) { warnToast('请输入搜索关键词'); return; }
+    const payload = mode === 'remote' ? { target, do: 'search', word } : { do: 'search', word };
+    if (mode === 'remote' && !target) { ensureActionTarget(); return; }
+    postAction('/manage/action', payload, () => warnToast('已发送搜索'), '搜索发送失败');
+}
+function remotePush() {
+    const url = $('#remotePushUrl').val().trim();
+    if (!url) { warnToast('请输入播放地址'); return; }
+    const payload = mode === 'remote' ? { target, do: 'push', url } : { do: 'push', url };
+    if (mode === 'remote' && !target) { ensureActionTarget(); return; }
+    postAction('/manage/action', payload, () => warnToast('已发送推送'), '推送发送失败');
+}
+function ensureActionTarget() {
+    warnToast('请先选择远端设备');
+    devicePanelOpen = true;
+    updateRemotePicker();
+    loadDevices();
+}
 
 function openDialog(id) { $('#' + id).show(); history.pushState({ dialog: id }, ''); }
 function closeDialog(id) { dialogClosing = true; $('#' + id).hide(); history.back(); }

@@ -1,5 +1,9 @@
 package com.fongmi.android.tv.ui.dialog;
 
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -8,7 +12,10 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.EditText;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -20,8 +27,8 @@ import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
-import com.fongmi.android.tv.databinding.AdapterSyncPathDirBinding;
-import com.fongmi.android.tv.databinding.DialogSyncPathBinding;
+import com.fongmi.android.tv.databinding.AdapterLoginStateTreeBinding;
+import com.fongmi.android.tv.databinding.DialogLoginStatePathBinding;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.utils.FileUtil;
 import com.fongmi.android.tv.utils.Formatters;
@@ -31,26 +38,38 @@ import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Task;
 import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.textfield.TextInputEditText;
-import com.google.android.material.textfield.TextInputLayout;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class LoginStatePathDialog extends BaseAlertDialog {
 
-    private final Set<String> selected = new LinkedHashSet<>();
-    private final List<LoginStateSync.TreeItem> items = new ArrayList<>();
+    private static final String ROOT_APP = "app";
+    private static final String ROOT_SDCARD = "sdcard";
+    private static final int INDENT_DP = 18;
 
-    private DialogSyncPathBinding binding;
-    private ItemAdapter adapter;
+    private final Set<String> selected = new LinkedHashSet<>();
+    private final Set<String> expanded = new LinkedHashSet<>();
+    private final Set<String> pending = new LinkedHashSet<>();
+    private final Map<String, LoginStateSync.Candidate> findings = new HashMap<>();
+    private final List<Row> appRows = new ArrayList<>();
+    private final List<Row> sdcardRows = new ArrayList<>();
+
+    private DialogLoginStatePathBinding binding;
+    private TreeAdapter appAdapter;
+    private TreeAdapter sdcardAdapter;
     private Runnable callback;
-    private String current = "";
     private AlertDialog editor;
+    private boolean appPanelCollapsed;
+    private boolean sdcardPanelCollapsed;
+    private boolean appPanelTouched;
+    private boolean sdcardPanelTouched;
 
     public static void show(Fragment fragment, Runnable callback) {
         show(fragment.requireActivity(), callback);
@@ -64,31 +83,39 @@ public class LoginStatePathDialog extends BaseAlertDialog {
 
     @Override
     protected ViewBinding getBinding() {
-        return binding = DialogSyncPathBinding.inflate(getLayoutInflater());
+        return binding = DialogLoginStatePathBinding.inflate(getLayoutInflater());
     }
 
     @Override
     protected MaterialAlertDialogBuilder getBuilder() {
-        return new MaterialAlertDialogBuilder(requireActivity(), R.style.Theme_WebHTV_LightDialog).setView(getBinding().getRoot());
+        return new MaterialAlertDialogBuilder(requireActivity(), R.style.ThemeOverlay_WebHTV_LightDialog).setView(getBinding().getRoot());
     }
 
     @Override
     protected void initView() {
         selected.addAll(LoginStateSync.learnedPaths());
-        binding.title.setText(R.string.login_state_paths_title);
-        binding.selectSafe.setVisibility(View.VISIBLE);
-        binding.recycler.setHasFixedSize(false);
-        binding.recycler.addItemDecoration(new SpaceItemDecoration(1, 6));
-        binding.recycler.setAdapter(adapter = new ItemAdapter());
-        load("");
+        reloadPending();
+        expandLearnedAndPending();
+        binding.appRecycler.setHasFixedSize(false);
+        binding.sdcardRecycler.setHasFixedSize(false);
+        binding.appRecycler.addItemDecoration(new SpaceItemDecoration(1, 4));
+        binding.sdcardRecycler.addItemDecoration(new SpaceItemDecoration(1, 4));
+        binding.appRecycler.setAdapter(appAdapter = new TreeAdapter(appRows));
+        binding.sdcardRecycler.setAdapter(sdcardAdapter = new TreeAdapter(sdcardRows));
+        rebuild();
     }
 
     @Override
     protected void initEvent() {
-        binding.up.setOnClickListener(v -> up());
-        binding.refresh.setOnClickListener(v -> load(current));
+        binding.refresh.setOnClickListener(v -> {
+            reloadPending();
+            expandLearnedAndPending();
+            rebuild();
+        });
+        binding.appTitle.setOnClickListener(v -> togglePanel(ROOT_APP));
+        binding.sdcardTitle.setOnClickListener(v -> togglePanel(ROOT_SDCARD));
         binding.reset.setOnClickListener(v -> reset());
-        binding.selectSafe.setOnClickListener(v -> confirmPending());
+        binding.selectSafe.setOnClickListener(v -> revealPending());
         binding.negative.setOnClickListener(v -> dismiss());
         binding.positive.setOnClickListener(v -> onPositive());
     }
@@ -96,7 +123,27 @@ public class LoginStatePathDialog extends BaseAlertDialog {
     @Override
     public void onStart() {
         super.onStart();
-        setWidth(ResUtil.isLand(requireContext()) ? 0.58f : 0.94f);
+        if (getDialog() == null) return;
+        setCancelable(false);
+        getDialog().setCanceledOnTouchOutside(false);
+        Window window = getDialog().getWindow();
+        if (window == null) return;
+        WindowManager.LayoutParams params = window.getAttributes();
+        int screenWidth = ResUtil.getScreenWidth(requireContext());
+        int screenHeight = ResUtil.getScreenHeight(requireContext());
+        boolean land = ResUtil.isLand(requireContext());
+        window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        window.getDecorView().setPadding(0, 0, 0, 0);
+        params.width = (int) (screenWidth * (land ? 0.82f : 0.96f));
+        params.height = (int) (screenHeight * (land ? 0.96f : 0.86f));
+        window.setAttributes(params);
+        window.setLayout(params.width, params.height);
+        ViewGroup.LayoutParams rootParams = binding.getRoot().getLayoutParams();
+        rootParams.height = params.height;
+        binding.getRoot().setLayoutParams(rootParams);
+        if (!appPanelCollapsed) binding.appRecycler.requestFocus();
+        else if (!sdcardPanelCollapsed) binding.sdcardRecycler.requestFocus();
+        else binding.appTitle.requestFocus();
     }
 
     @Override
@@ -106,45 +153,119 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         super.onDestroyView();
     }
 
-    private void load(String path) {
-        LoginStateSync.Tree tree = LoginStateSync.tree(path);
-        current = tree.getPath();
-        items.clear();
-        items.addAll(tree.getItems());
-        adapter.notifyDataSetChanged();
+    private void reloadPending() {
+        pending.clear();
+        pending.addAll(LoginStateSync.pendingPaths());
+        findings.clear();
+        for (LoginStateSync.Candidate item : LoginStateSync.findings()) {
+            String path = normalize(item.getPath());
+            if (!path.isEmpty()) findings.put(path, item);
+        }
+    }
+
+    private void expandLearnedAndPending() {
+        expanded.add(ROOT_APP);
+        expanded.add(ROOT_SDCARD);
+        for (String path : selected) expandPath(path);
+        for (String path : pending) expandPath(path);
+        for (LoginStateSync.PathState state : LoginStateSync.pathStates(new ArrayList<>(selected))) {
+            if (state.isExists() && !state.isFile()) expanded.add(state.getPath());
+        }
+    }
+
+    private void expandPath(String path) {
+        path = normalize(path);
+        while (!path.isEmpty()) {
+            int index = path.lastIndexOf('/');
+            if (index < 0) {
+                expanded.add(path);
+                return;
+            }
+            path = path.substring(0, index);
+            if (!path.isEmpty()) expanded.add(path);
+        }
+    }
+
+    private void rebuild() {
+        appRows.clear();
+        sdcardRows.clear();
+        buildRows(ROOT_APP, 0, appRows);
+        buildRows(ROOT_SDCARD, 0, sdcardRows);
+        appendMissingRows(ROOT_APP, appRows);
+        appendMissingRows(ROOT_SDCARD, sdcardRows);
+        appAdapter.notifyDataSetChanged();
+        sdcardAdapter.notifyDataSetChanged();
         updateState();
     }
 
-    private void up() {
-        if (current.isEmpty()) return;
-        LoginStateSync.Tree tree = LoginStateSync.tree(current);
-        load(".".equals(tree.getParent()) ? "" : tree.getParent());
+    private void buildRows(String dir, int depth, List<Row> rows) {
+        LoginStateSync.Tree tree = LoginStateSync.tree(dir);
+        for (LoginStateSync.TreeItem item : tree.getItems()) {
+            Row row = new Row(item, depth);
+            rows.add(row);
+            if (item.isDir() && expanded.contains(item.getPath())) buildRows(item.getPath(), depth + 1, rows);
+        }
+    }
+
+    private void appendMissingRows(String root, List<Row> rows) {
+        Set<String> visible = new LinkedHashSet<>();
+        for (Row row : rows) visible.add(row.item.getPath());
+        LinkedHashSet<String> paths = new LinkedHashSet<>();
+        paths.addAll(selected);
+        paths.addAll(pending);
+        for (String path : paths) {
+            if (!path.startsWith(root + "/") || visible.contains(path) || !isMissing(path)) continue;
+            rows.add(new Row(new LoginStateSync.TreeItem(name(path), path, false, 0, 0, true), depth(path)));
+            visible.add(path);
+        }
     }
 
     private void reset() {
         selected.clear();
-        adapter.notifyDataSetChanged();
-        updateState();
+        appPanelTouched = false;
+        sdcardPanelTouched = false;
+        rebuild();
     }
 
-    private void confirmPending() {
-        List<String> pending = pendingToConfirm();
-        if (pending.isEmpty()) {
+    private void revealPending() {
+        List<String> list = pendingToConfirm();
+        if (list.isEmpty()) {
             Notify.show(R.string.login_state_confirm_empty);
             return;
         }
-        selected.addAll(pending);
-        adapter.notifyDataSetChanged();
-        updateState();
-        Notify.show(getString(R.string.login_state_confirm_done, pending.size()));
+        for (String path : list) expandPath(path);
+        rebuild();
+        scrollToFirstPending();
+        Notify.show(getString(R.string.login_state_pending_revealed, list.size()));
     }
 
-    private void toggle(String path) {
+    private void scrollToFirstPending() {
+        int appIndex = firstPendingIndex(appRows);
+        if (appIndex >= 0) {
+            binding.appRecycler.scrollToPosition(appIndex);
+            return;
+        }
+        int sdcardIndex = firstPendingIndex(sdcardRows);
+        if (sdcardIndex >= 0) binding.sdcardRecycler.scrollToPosition(sdcardIndex);
+    }
+
+    private int firstPendingIndex(List<Row> rows) {
+        for (int i = 0; i < rows.size(); i++) if (isPending(rows.get(i).item.getPath())) return i;
+        return -1;
+    }
+
+    private void toggleExpanded(String path) {
+        path = normalize(path);
+        if (expanded.contains(path)) expanded.remove(path);
+        else expanded.add(path);
+        rebuild();
+    }
+
+    private void toggleSelected(String path) {
         if (TextUtils.isEmpty(path)) return;
         if (stateOf(path) == MaterialCheckBox.STATE_CHECKED) removePath(path);
         else addPath(path);
-        adapter.notifyDataSetChanged();
-        updateState();
+        rebuild();
     }
 
     private void addPath(String path) {
@@ -169,25 +290,67 @@ public class LoginStatePathDialog extends BaseAlertDialog {
     }
 
     private void updateState() {
-        binding.current.setText(current.isEmpty() ? "/" : LoginStateSync.displayPath(current));
-        binding.up.setEnabled(!current.isEmpty());
-        binding.recycler.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
-        binding.empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
         int ready = 0;
         int missing = 0;
         for (LoginStateSync.PathState state : LoginStateSync.pathStates(new ArrayList<>(selected))) {
             if (state.isExists()) ready++;
             else missing++;
         }
-        binding.summary.setText(selected.isEmpty() ? getString(R.string.login_state_paths_empty_selected) : getString(R.string.login_state_paths_selected_count, selected.size(), ready, missing));
-        int pending = pendingToConfirm().size();
-        binding.selectSafe.setEnabled(pending > 0);
-        binding.selectSafe.setText(pending > 0 ? getString(R.string.login_state_confirm_pending_count, pending) : getString(R.string.login_state_confirm_pending));
+        int pendingCount = pendingToConfirm().size();
+        binding.summary.setText(selected.isEmpty() ? getString(R.string.login_state_paths_empty_selected_with_pending, pendingCount) : getString(R.string.login_state_paths_selected_count_with_pending, selected.size(), ready, missing, pendingCount));
+        binding.selectSafe.setEnabled(pendingCount > 0);
+        binding.selectSafe.setText(pendingCount > 0 ? getString(R.string.login_state_reveal_pending_count, pendingCount) : getString(R.string.login_state_reveal_pending));
+        binding.empty.setVisibility(appRows.isEmpty() && sdcardRows.isEmpty() ? View.VISIBLE : View.GONE);
+        updatePanelState();
+    }
+
+    private void updatePanelState() {
+        PanelCount app = panelCount(ROOT_APP);
+        PanelCount sdcard = panelCount(ROOT_SDCARD);
+        binding.appTitle.setText(getString(R.string.login_state_tree_title_count, getString(R.string.login_state_tree_app), app.selected, app.pending));
+        binding.sdcardTitle.setText(getString(R.string.login_state_tree_title_count, getString(R.string.login_state_tree_sdcard), sdcard.selected, sdcard.pending));
+        if (!appPanelTouched) appPanelCollapsed = app.isEmpty() && !sdcard.isEmpty();
+        if (!sdcardPanelTouched) sdcardPanelCollapsed = sdcard.isEmpty() && !app.isEmpty();
+        if (app.isEmpty() && sdcard.isEmpty()) {
+            appPanelCollapsed = false;
+            sdcardPanelCollapsed = false;
+        }
+        applyPanelLayout(binding.appPanel, binding.appRecycler, appPanelCollapsed);
+        applyPanelLayout(binding.sdcardPanel, binding.sdcardRecycler, sdcardPanelCollapsed);
+    }
+
+    private PanelCount panelCount(String root) {
+        int selectedCount = 0;
+        int pendingCount = 0;
+        for (String path : selected) if (path.equals(root) || path.startsWith(root + "/")) selectedCount++;
+        for (String path : pendingToConfirm()) if (path.equals(root) || path.startsWith(root + "/")) pendingCount++;
+        return new PanelCount(selectedCount, pendingCount);
+    }
+
+    private void togglePanel(String root) {
+        if (ROOT_APP.equals(root)) {
+            appPanelTouched = true;
+            appPanelCollapsed = !appPanelCollapsed;
+        } else {
+            sdcardPanelTouched = true;
+            sdcardPanelCollapsed = !sdcardPanelCollapsed;
+        }
+        updatePanelState();
+    }
+
+    private void applyPanelLayout(ViewGroup panel, RecyclerView recycler, boolean collapsed) {
+        ViewGroup.LayoutParams params = panel.getLayoutParams();
+        if (params instanceof LinearLayoutCompat.LayoutParams layoutParams) {
+            layoutParams.height = collapsed ? ViewGroup.LayoutParams.WRAP_CONTENT : 0;
+            layoutParams.weight = collapsed ? 0 : 1;
+            panel.setLayoutParams(layoutParams);
+        }
+        recycler.setVisibility(collapsed ? View.GONE : View.VISIBLE);
     }
 
     private List<String> pendingToConfirm() {
         List<String> result = new ArrayList<>();
-        for (String path : LoginStateSync.pendingPaths()) {
+        for (String path : pending) {
             if (stateOf(path) != MaterialCheckBox.STATE_CHECKED) result.add(path);
         }
         return result;
@@ -204,6 +367,21 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         parent = normalize(parent);
         child = normalize(child);
         return !parent.isEmpty() && (parent.equals(child) || child.startsWith(parent + "/"));
+    }
+
+    private boolean isPending(String path) {
+        path = normalize(path);
+        return pending.contains(path) && stateOf(path) != MaterialCheckBox.STATE_CHECKED;
+    }
+
+    private boolean hasPendingChild(String path) {
+        path = normalize(path);
+        for (String item : pending) if (!item.equals(path) && covers(path, item) && stateOf(item) != MaterialCheckBox.STATE_CHECKED) return true;
+        return false;
+    }
+
+    private boolean isMissing(String path) {
+        return !LoginStateSync.pathState(path).isExists();
     }
 
     private String normalize(String path) {
@@ -224,16 +402,22 @@ public class LoginStatePathDialog extends BaseAlertDialog {
 
     private void showEditor(String path, String content) {
         if (editor != null && editor.isShowing()) editor.dismiss();
-        TextInputEditText input = new TextInputEditText(requireContext());
-        input.setText(content);
+        EditText input = new EditText(requireContext());
+        input.setText(content, TextView.BufferType.EDITABLE);
         input.setSelectAllOnFocus(false);
         input.setSingleLine(false);
+        input.setHorizontallyScrolling(true);
         input.setMinLines(8);
-        input.setMaxLines(16);
+        input.setTextSize(12);
+        input.setTypeface(Typeface.MONOSPACE);
+        input.setPadding(ResUtil.dp2px(10), ResUtil.dp2px(10), ResUtil.dp2px(10), ResUtil.dp2px(10));
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         input.setGravity(Gravity.START | Gravity.TOP);
         input.setHorizontalScrollBarEnabled(true);
         input.setVerticalScrollBarEnabled(true);
+        input.setScrollbarFadingEnabled(false);
+        input.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
+        input.setBackground(editorBackground());
         input.setOnTouchListener((view, event) -> {
             int action = event.getActionMasked();
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) view.getParent().requestDisallowInterceptTouchEvent(false);
@@ -244,11 +428,16 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         LinearLayoutCompat container = new LinearLayoutCompat(requireContext());
         container.setOrientation(LinearLayoutCompat.VERTICAL);
         container.setPadding(ResUtil.dp2px(20), ResUtil.dp2px(8), ResUtil.dp2px(20), 0);
-        TextInputLayout layout = new TextInputLayout(requireContext());
-        layout.setHint(path);
-        layout.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
-        layout.addView(input, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        container.addView(layout, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView label = new TextView(requireContext());
+        label.setText(path);
+        label.setTextColor(Color.parseColor("#5F6368"));
+        label.setTextSize(12);
+        label.setSingleLine(true);
+        label.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+        container.addView(label, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayoutCompat.LayoutParams inputParams = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) (ResUtil.getScreenHeight(requireContext()) * 0.52f));
+        inputParams.topMargin = ResUtil.dp2px(8);
+        container.addView(input, inputParams);
 
         editor = new MaterialAlertDialogBuilder(requireContext(), R.style.Theme_WebHTV_LightDialog)
                 .setTitle(R.string.login_state_edit)
@@ -256,7 +445,17 @@ public class LoginStatePathDialog extends BaseAlertDialog {
                 .setNegativeButton(R.string.dialog_negative, null)
                 .setPositiveButton(R.string.dialog_positive, null)
                 .show();
+        editor.setCancelable(false);
+        editor.setCanceledOnTouchOutside(false);
         editor.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> save(editor, path, input.getText() == null ? "" : input.getText().toString()));
+    }
+
+    private GradientDrawable editorBackground() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(Color.parseColor("#F8FAFD"));
+        drawable.setCornerRadius(ResUtil.dp2px(8));
+        drawable.setStroke(1, Color.parseColor("#DADCE0"));
+        return drawable;
     }
 
     private void save(AlertDialog dialog, String path, String content) {
@@ -267,7 +466,9 @@ public class LoginStatePathDialog extends BaseAlertDialog {
                 App.post(() -> {
                     dialog.dismiss();
                     Notify.show(R.string.login_state_saved);
-                    load(current);
+                    reloadPending();
+                    expandPath(path);
+                    rebuild();
                 });
             } catch (Exception e) {
                 App.post(() -> Notify.show(e.getMessage()));
@@ -275,56 +476,164 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         });
     }
 
-    private class ItemAdapter extends RecyclerView.Adapter<ItemAdapter.ViewHolder> {
+    private String detail(Row row) {
+        LoginStateSync.TreeItem item = row.item;
+        String relative = shortPath(item.getPath());
+        LoginStateSync.Candidate candidate = findings.get(item.getPath());
+        if (candidate != null && isPending(item.getPath())) return getString(R.string.login_state_pending_detail, candidate.getReason(), relative, FileUtil.byteCountToDisplaySize(item.getSize()));
+        if (item.isDir()) return relative;
+        String size = FileUtil.byteCountToDisplaySize(item.getSize());
+        String time = item.getModified() <= 0 ? "" : Formatters.LOCAL_DATETIME.format(Instant.ofEpochMilli(item.getModified()).atZone(ZoneId.systemDefault()));
+        return TextUtils.isEmpty(time) ? relative + " · " + size : relative + " · " + size + " · " + time;
+    }
+
+    private String shortPath(String path) {
+        path = normalize(path);
+        int index = path.indexOf('/');
+        return index < 0 ? path : path.substring(index + 1);
+    }
+
+    private String name(String path) {
+        path = normalize(path);
+        int index = path.lastIndexOf('/');
+        return index < 0 ? path : path.substring(index + 1);
+    }
+
+    private int depth(String path) {
+        path = shortPath(path);
+        if (path.isEmpty()) return 0;
+        int depth = 0;
+        for (int i = 0; i < path.length(); i++) if (path.charAt(i) == '/') depth++;
+        return depth;
+    }
+
+    private String stateText(Row row) {
+        String path = row.item.getPath();
+        if (isMissing(path)) return getString(R.string.login_state_state_missing);
+        if (isPending(path)) return getString(R.string.login_state_state_pending);
+        if (row.item.isDir() && hasPendingChild(path)) return getString(R.string.login_state_state_has_pending);
+        int state = stateOf(path);
+        if (state == MaterialCheckBox.STATE_CHECKED) return getString(R.string.login_state_state_selected);
+        if (state == MaterialCheckBox.STATE_INDETERMINATE) return getString(R.string.login_state_state_partial);
+        return "";
+    }
+
+    private int stateColor(Row row) {
+        String path = row.item.getPath();
+        if (isMissing(path)) return Color.parseColor("#B3261E");
+        if (isPending(path) || (row.item.isDir() && hasPendingChild(path))) return Color.parseColor("#B06000");
+        return Color.parseColor("#174EA6");
+    }
+
+    private int nameColor(Row row) {
+        if (isPending(row.item.getPath()) || (row.item.isDir() && hasPendingChild(row.item.getPath()))) return Color.parseColor("#8A4B00");
+        if (isMissing(row.item.getPath())) return Color.parseColor("#B3261E");
+        return Color.parseColor("#202124");
+    }
+
+    private int iconFor(LoginStateSync.TreeItem item) {
+        return item.isDir() ? R.drawable.ic_folder : R.drawable.ic_login_state_file;
+    }
+
+    private int expandIconFor(Row row) {
+        return expanded.contains(row.item.getPath()) ? R.drawable.ic_detail_minus : R.drawable.ic_detail_plus;
+    }
+
+    private String contentDescription(Row row) {
+        if (row.item.isDir()) return getString(expanded.contains(row.item.getPath()) ? R.string.login_state_tree_collapse : R.string.login_state_tree_expand);
+        return getString(R.string.login_state_edit);
+    }
+
+    private class TreeAdapter extends RecyclerView.Adapter<TreeAdapter.ViewHolder> {
+
+        private final List<Row> rows;
+
+        private TreeAdapter(List<Row> rows) {
+            this.rows = rows;
+        }
 
         @NonNull
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            return new ViewHolder(AdapterSyncPathDirBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
+            return new ViewHolder(AdapterLoginStateTreeBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
         }
 
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-            holder.bind(items.get(position));
+            holder.bind(rows.get(position));
         }
 
         @Override
         public int getItemCount() {
-            return items.size();
+            return rows.size();
         }
 
         private class ViewHolder extends RecyclerView.ViewHolder {
 
-            private final AdapterSyncPathDirBinding binding;
+            private final AdapterLoginStateTreeBinding binding;
 
-            private ViewHolder(@NonNull AdapterSyncPathDirBinding binding) {
+            private ViewHolder(@NonNull AdapterLoginStateTreeBinding binding) {
                 super(binding.getRoot());
                 this.binding = binding;
             }
 
-            private void bind(LoginStateSync.TreeItem item) {
-                String detail = item.isDir() ? item.getPath() : FileUtil.byteCountToDisplaySize(item.getSize()) + " · " + Formatters.LOCAL_DATETIME.format(Instant.ofEpochMilli(item.getModified()).atZone(ZoneId.systemDefault()));
+            private void bind(Row row) {
+                LoginStateSync.TreeItem item = row.item;
+                String state = stateText(row);
+                ViewGroup.LayoutParams indentParams = binding.indent.getLayoutParams();
+                indentParams.width = ResUtil.dp2px(row.depth * INDENT_DP);
+                binding.indent.setLayoutParams(indentParams);
                 binding.name.setText(item.getName());
-                binding.path.setText(detail);
-                binding.icon.setImageResource(item.isDir() ? R.drawable.ic_folder : R.drawable.ic_file);
+                binding.name.setTextColor(nameColor(row));
+                binding.path.setText(detail(row));
+                binding.icon.setImageResource(iconFor(item));
                 binding.check.setCheckedState(stateOf(item.getPath()));
                 binding.check.setVisibility(item.isSelectable() ? View.VISIBLE : View.INVISIBLE);
-                binding.enter.setVisibility(View.VISIBLE);
-                binding.enter.setContentDescription(getString(item.isDir() ? R.string.sync_paths_enter : R.string.login_state_edit));
+                binding.state.setVisibility(TextUtils.isEmpty(state) ? View.GONE : View.VISIBLE);
+                binding.state.setText(state);
+                binding.state.setTextColor(stateColor(row));
+                binding.expand.setVisibility(item.isDir() ? View.VISIBLE : View.INVISIBLE);
+                binding.expand.setImageResource(expandIconFor(row));
+                binding.expand.setContentDescription(contentDescription(row));
+                binding.expand.setOnClickListener(v -> {
+                    if (item.isDir()) toggleExpanded(item.getPath());
+                });
+                binding.check.setOnClickListener(v -> toggleSelected(item.getPath()));
                 binding.getRoot().setOnClickListener(v -> {
-                    if (!item.isSelectable() && item.isDir()) load(item.getPath());
-                    else toggle(item.getPath());
-                });
-                binding.getRoot().setOnKeyListener((v, keyCode, event) -> {
-                    if (event.getAction() != KeyEvent.ACTION_DOWN || keyCode != KeyEvent.KEYCODE_DPAD_RIGHT || !item.isDir()) return false;
-                    load(item.getPath());
-                    return true;
-                });
-                binding.enter.setOnClickListener(v -> {
-                    if (item.isDir()) load(item.getPath());
+                    if (item.isDir()) toggleExpanded(item.getPath());
                     else edit(item.getPath());
                 });
+                binding.getRoot().setOnKeyListener((v, keyCode, event) -> {
+                    if (event.getAction() != KeyEvent.ACTION_DOWN || !item.isDir()) return false;
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && !expanded.contains(item.getPath())) {
+                        toggleExpanded(item.getPath());
+                        return true;
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && expanded.contains(item.getPath())) {
+                        toggleExpanded(item.getPath());
+                        return true;
+                    }
+                    return false;
+                });
             }
+        }
+    }
+
+    private static class Row {
+
+        private final LoginStateSync.TreeItem item;
+        private final int depth;
+
+        private Row(LoginStateSync.TreeItem item, int depth) {
+            this.item = item;
+            this.depth = depth;
+        }
+    }
+
+    private record PanelCount(int selected, int pending) {
+
+        private boolean isEmpty() {
+            return selected == 0 && pending == 0;
         }
     }
 }

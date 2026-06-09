@@ -321,12 +321,12 @@
     <string name="sync_sender">Sender</string>
     <string name="sync_receiver">Receiver</string>
     <string name="sync_direction_change">Switch sync direction</string>
-    <string name="sync_change_device">Change</string>
+    <string name="sync_change_device">Select</string>
     <string name="sync_switch_short">Switch</string>
     <string name="sync_push">Push</string>
     <string name="sync_pull">Pull</string>
     <string name="sync_select_all">Select all</string>
-    <string name="sync_select_none">Clear</string>
+    <string name="sync_select_none">Deselect all</string>
     <string name="sync_item_config">Interfaces and source lists</string>
     <string name="sync_item_spider">Jar/script saved data</string>
     <string name="sync_item_login_state">Login state</string>
@@ -355,7 +355,7 @@
     <string name="sync_paths_edit">Edit</string>
     <string name="sync_paths_desc">One external-storage relative path per line. TV, TVBox and TVData are synced by default. You can add local package folders; folder contents are synced with Jar/script saved data.</string>
     <string name="sync_paths_hint">TV&#10;TVBox&#10;TVData</string>
-    <string name="sync_paths_up">Up</string>
+    <string name="sync_paths_up">Collapse</string>
     <string name="sync_paths_refresh">Refresh</string>
     <string name="sync_paths_enter">Open folder</string>
     <string name="sync_paths_empty">No folders in this directory</string>
@@ -372,6 +372,7 @@
     <string name="login_state_learned_title">Selected paths</string>
     <string name="login_state_pending_title">Pending candidates</string>
     <string name="login_state_findings_title">Latest findings</string>
+    <string name="login_state_more_count">+%1$d more</string>
     <string name="login_state_empty">No login state files found</string>
     <string name="login_state_edit">View/Edit login state file</string>
     <string name="login_state_saved">Login state file saved</string>
@@ -379,10 +380,26 @@
     <string name="login_state_manage_paths">Manage paths</string>
     <string name="login_state_paths_empty_selected">No login state paths selected</string>
     <string name="login_state_paths_selected_count">%1$d selected, %2$d ready, %3$d missing</string>
+    <string name="login_state_paths_empty_selected_with_pending">No login state paths selected · %1$d pending</string>
+    <string name="login_state_paths_selected_count_with_pending">%1$d selected, %2$d ready, %3$d missing · %4$d pending</string>
     <string name="login_state_confirm_pending">Select pending</string>
     <string name="login_state_confirm_pending_count">Select pending %1$d</string>
     <string name="login_state_confirm_empty">No items waiting for confirmation</string>
     <string name="login_state_confirm_done">%1$d pending items selected</string>
+    <string name="login_state_reveal_pending">Show pending</string>
+    <string name="login_state_reveal_pending_count">Show pending %1$d</string>
+    <string name="login_state_pending_revealed">%1$d pending items are shown in the tree</string>
+    <string name="login_state_pending_detail">%1$s · %2$s · %3$s</string>
+    <string name="login_state_tree_app">App private directory</string>
+    <string name="login_state_tree_sdcard">Shared storage</string>
+    <string name="login_state_tree_title_count">%1$s · selected %2$d · pending %3$d</string>
+    <string name="login_state_tree_expand">Expand folder</string>
+    <string name="login_state_tree_collapse">Collapse folder</string>
+    <string name="login_state_state_selected">Selected</string>
+    <string name="login_state_state_pending">Pending</string>
+    <string name="login_state_state_has_pending">Has pending</string>
+    <string name="login_state_state_partial">Partial</string>
+    <string name="login_state_state_missing">Missing</string>
 
     <!-- Player -->
     <string name="player">Player</string>

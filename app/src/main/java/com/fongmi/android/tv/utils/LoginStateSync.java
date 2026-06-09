@@ -1022,7 +1022,7 @@ public class LoginStateSync {
         private final long modified;
         private final boolean selectable;
 
-        private TreeItem(String name, String path, boolean dir, long size, long modified, boolean selectable) {
+        public TreeItem(String name, String path, boolean dir, long size, long modified, boolean selectable) {
             this.name = name;
             this.path = path;
             this.dir = dir;
