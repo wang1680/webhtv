@@ -664,6 +664,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void setQualityVisible(boolean visible) {
         mBinding.quality.setVisibility(visible ? View.VISIBLE : View.GONE);
         updateFocus();
+        updateEpisodeWindow();
         setR2Callback();
     }
 
@@ -729,9 +730,33 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         int totalRows = Math.max(1, (mEpisodeAdapter.getItemCount() + column - 1) / column);
         int rowHeight = ResUtil.dp2px(40);
         int spacing = mBinding.episode.getVerticalSpacing();
-        int maxRows = ResUtil.getScreenHeight() < ResUtil.dp2px(560) ? 2 : 3;
+        int maxRows = getEpisodeMaxRows(rowHeight, spacing);
         int rows = Math.min(totalRows, maxRows);
         return rowHeight * rows + spacing * Math.max(0, rows - 1) + mBinding.episode.getPaddingTop() + mBinding.episode.getPaddingBottom();
+    }
+
+    private int getEpisodeMaxRows(int rowHeight, int spacing) {
+        int available = getEpisodeAvailableHeight();
+        if (available <= 0) return ResUtil.getScreenHeight() < ResUtil.dp2px(560) ? 2 : 3;
+        int content = Math.max(0, available - mBinding.episode.getPaddingTop() - mBinding.episode.getPaddingBottom());
+        int rows = (content + spacing) / (rowHeight + spacing);
+        return Math.max(1, rows);
+    }
+
+    private int getEpisodeAvailableHeight() {
+        int height = mBinding.scroll.getHeight();
+        if (height <= 0) return 0;
+        int available = height - mBinding.scroll.getPaddingTop() - mBinding.scroll.getPaddingBottom();
+        ViewGroup.LayoutParams episodeParams = mBinding.episode.getLayoutParams();
+        if (episodeParams instanceof ViewGroup.MarginLayoutParams margins) available -= margins.topMargin + margins.bottomMargin;
+        for (int i = 0; i < mBinding.scroll.getChildCount(); i++) {
+            View child = mBinding.scroll.getChildAt(i);
+            if (child == mBinding.episode || child.getVisibility() == View.GONE) continue;
+            available -= child.getMeasuredHeight();
+            ViewGroup.LayoutParams params = child.getLayoutParams();
+            if (params instanceof ViewGroup.MarginLayoutParams margins) available -= margins.topMargin + margins.bottomMargin;
+        }
+        return available;
     }
 
     @Override
