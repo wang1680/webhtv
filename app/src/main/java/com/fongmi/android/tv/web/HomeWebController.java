@@ -36,8 +36,10 @@ import com.fongmi.android.tv.utils.Util;
 import com.fongmi.android.tv.utils.WebViewUtil;
 import com.fongmi.android.tv.web.ext.WebHomeExtension;
 import com.fongmi.android.tv.web.ext.WebHomeExtensionRegistry;
+import com.google.common.net.HttpHeaders;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -47,21 +49,26 @@ public class HomeWebController {
 
     private static final String BRIDGE = "fongmiBridge";
     private static final int SLOW_KEY_MS = 24;
+    private static final long EXTENSION_RELOAD_MIN_INTERVAL_MS = 5000;
     private static HomeWebController active;
     private static boolean extensionReloadRequested;
 
     private final Listener listener;
     private final Activity activity;
     private final Set<String> injectedExtensions;
+    private final Runnable extensionReloadRunnable;
     private final boolean debugTools;
     private WebView webView;
     private final float density;
     private ScriptHandler documentStartHandler;
     private Site site;
     private String documentStartKey;
+    private String defaultUserAgent;
     private String homePage;
     private long pauseAt;
     private long lastKeyAt;
+    private long lastExtensionReloadAt;
+    private int inlineEvaluationCount;
     private boolean sdkReady;
     private boolean paused;
 
@@ -76,6 +83,7 @@ public class HomeWebController {
         this.debugTools = debugTools;
         this.density = activity.getResources().getDisplayMetrics().density;
         this.injectedExtensions = new HashSet<>();
+        this.extensionReloadRunnable = this::consumeExtensionReload;
         active = this;
         init();
     }
@@ -90,6 +98,7 @@ public class HomeWebController {
     private void init() {
         if (debugTools) WebView.setWebContentsDebuggingEnabled(true);
         WebViewUtil.configureHome(webView);
+        defaultUserAgent = webView.getSettings().getUserAgentString();
         if (Util.isLeanback()) webView.setNextFocusUpId(R.id.title);
         webView.setBackgroundColor(Color.TRANSPARENT);
         CookieManager.getInstance().setAcceptCookie(true);
@@ -118,7 +127,7 @@ public class HomeWebController {
             sdkReady = false;
             injectedExtensions.clear();
             homePage = url;
-            webView.loadUrl(force ? reloadUrl(homePage) : homePage);
+            loadUrl(force ? reloadUrl(homePage) : homePage);
         }
         show();
         return true;
@@ -129,13 +138,49 @@ public class HomeWebController {
             webView.reload();
         } else {
             webView.clearCache(false);
-            webView.loadUrl(reloadUrl(homePage));
+            loadUrl(reloadUrl(homePage));
         }
     }
 
     public void reloadExtensions() {
         extensionReloadRequested = true;
         consumeExtensionReload();
+    }
+
+    private void loadUrl(String url) {
+        Map<String, String> headers = site == null ? Collections.emptyMap() : site.getHeader();
+        String userAgent = header(headers, HttpHeaders.USER_AGENT);
+        if (!TextUtils.isEmpty(userAgent)) webView.getSettings().setUserAgentString(userAgent);
+        else if (!TextUtils.isEmpty(defaultUserAgent)) webView.getSettings().setUserAgentString(defaultUserAgent);
+        Map<String, String> requestHeaders = requestHeaders(url, headers);
+        SpiderDebug.log("webhome-webview", "load url=%s ua=%s headers=%s", url, !TextUtils.isEmpty(userAgent), requestHeaders.keySet());
+        if (requestHeaders.isEmpty()) webView.loadUrl(url);
+        else webView.loadUrl(url, requestHeaders);
+    }
+
+    private Map<String, String> requestHeaders(String url, Map<String, String> headers) {
+        if (headers == null || headers.isEmpty()) return Collections.emptyMap();
+        Map<String, String> result = new HashMap<>();
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (TextUtils.isEmpty(key) || value == null) continue;
+            if (HttpHeaders.USER_AGENT.equalsIgnoreCase(key)) continue;
+            if (HttpHeaders.COOKIE.equalsIgnoreCase(key)) {
+                CookieManager.getInstance().setCookie(url, value);
+                continue;
+            }
+            result.put(key, value);
+        }
+        return result;
+    }
+
+    private static String header(Map<String, String> headers, String name) {
+        if (headers == null || headers.isEmpty()) return "";
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            if (name.equalsIgnoreCase(entry.getKey())) return entry.getValue();
+        }
+        return "";
     }
 
     public void evaluate(String script, ValueCallback<String> callback) {
@@ -185,6 +230,9 @@ public class HomeWebController {
 
     public void onResume() {
         paused = false;
+        synchronized (this) {
+            inlineEvaluationCount = 0;
+        }
         webView.onResume();
         webView.resumeTimers();
         recoverAfterResume();
@@ -198,6 +246,36 @@ public class HomeWebController {
         webView.onPause();
     }
 
+    public boolean beginInlineEvaluation() {
+        synchronized (this) {
+            if (!paused) return false;
+            inlineEvaluationCount++;
+            if (inlineEvaluationCount > 1) return true;
+        }
+        App.post(() -> {
+            if (!paused) return;
+            SpiderDebug.log("webhome-inline", "resume WebView for inline evaluation url=%s", webView.getUrl());
+            webView.onResume();
+            webView.resumeTimers();
+        });
+        return true;
+    }
+
+    public void endInlineEvaluation(boolean active) {
+        if (!active) return;
+        boolean pause;
+        synchronized (this) {
+            if (inlineEvaluationCount > 0) inlineEvaluationCount--;
+            pause = paused && inlineEvaluationCount == 0;
+        }
+        if (!pause) return;
+        App.post(() -> {
+            if (!paused) return;
+            SpiderDebug.log("webhome-inline", "pause WebView after inline evaluation url=%s", webView.getUrl());
+            webView.onPause();
+        });
+    }
+
     public void destroy() {
         removeDocumentStartScripts();
         webView.stopLoading();
@@ -208,7 +286,15 @@ public class HomeWebController {
 
     private void consumeExtensionReload() {
         if (!extensionReloadRequested || paused || !isVisible() || site == null || TextUtils.isEmpty(homePage)) return;
+        long now = System.currentTimeMillis();
+        long wait = EXTENSION_RELOAD_MIN_INTERVAL_MS - (now - lastExtensionReloadAt);
+        if (wait > 0) {
+            webView.removeCallbacks(extensionReloadRunnable);
+            webView.postDelayed(extensionReloadRunnable, wait);
+            return;
+        }
         extensionReloadRequested = false;
+        lastExtensionReloadAt = now;
         Site current = site;
         WebHomeExtensionRegistry.get().refresh(current, () -> {
             if (site == null || !current.getKey().equals(site.getKey())) return;
@@ -360,7 +446,7 @@ public class HomeWebController {
                 recreateWebView();
                 if (!TextUtils.isEmpty(homePage)) {
                     listener.onWebLoading();
-                    webView.loadUrl(reloadUrl(homePage, true));
+                    loadUrl(reloadUrl(homePage, true));
                 } else {
                     listener.onWebError();
                 }
@@ -543,6 +629,7 @@ public class HomeWebController {
                   const player={
                     playUrl:(url,title,options)=>invoke('player.playUrl',Object.assign({},options||{},{url,title})),
                     playVod:(siteKey,vodId,title,pic,options)=>invoke('player.playVod',Object.assign({},options||{},{siteKey,vodId,title,pic})),
+                    playVodInline:(payload)=>invoke('player.playVodInline',payload||{}),
                     control:(action)=>invoke('player.control',{action}),
                     status:()=>invoke('player.status',{})
                   };
@@ -591,6 +678,7 @@ public class HomeWebController {
                     res:net.resourceUrl,
                     play:player.playUrl,
                     vod:player.playVod,
+                    vodInline:player.playVodInline,
                     ctrl:player.control,
                     stat:player.status,
                     search:window.fongmi.app.search,

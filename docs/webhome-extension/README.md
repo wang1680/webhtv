@@ -254,7 +254,49 @@ await fm.play("https://example.com/video.m3u8", "影片名", {
 - `.m3u8`、`.mp4`、`.mkv`、`.flv`、`.mov` 等直链。
 - 需要 Referer/Cookie 的直链，传 `headers` 或 `credentials`。
 
-### 6.2 推送网盘/磁力/电驴/迅雷
+### 6.2 临时多集直链
+
+```js
+await fm.vodInline({
+  vod_id: "demo-1",
+  vod_name: "影片名",
+  vod_pic: "https://example.com/poster.webp",
+  vod_play_from: "WebHome",
+  mark: "02",
+  headers: { Referer: location.href },
+  episodes: [
+    { name: "01", url: "https://example.com/01.m3u8" },
+    { name: "02", url: "https://example.com/02.m3u8" }
+  ]
+});
+```
+
+也可以只传页面集数链接，让 App 播放页在用户点某一集时再回调扩展解析：
+
+```js
+window.__fmWebHomeInlineResolver = async function (episode) {
+  return {
+    url: "https://example.com/01.m3u8",
+    format: "application/x-mpegURL",
+    headers: { Referer: episode.pageUrl },
+    credentials: "include"
+  };
+};
+
+await fm.vodInline({
+  vod_id: "demo-1",
+  vod_name: "影片名",
+  vod_play_from: "WebHome",
+  episodes: [
+    { name: "01", url: "https://example.com/play/1", pageUrl: "https://example.com/play/1", resolve: true },
+    { name: "02", url: "https://example.com/play/2", pageUrl: "https://example.com/play/2", resolve: true }
+  ]
+});
+```
+
+适用：扩展已经拿到一组直链，或只拿到集数页面但希望进入 App 原生播放页并保留集数切换。`resolve: true` 不会在打开播放页前批量请求所有播放地址，而是在播放页点击该集时即时解析。`mark` 用于指定进入播放页后默认选中的集名。
+
+### 6.3 推送网盘/磁力/电驴/迅雷
 
 ```js
 await fm.pan.play({
@@ -282,7 +324,7 @@ await fm.pan.play({
 | `thunder` | `thunder://...` |
 | `http` | 无法归类但希望走推送解析的普通 URL |
 
-### 6.3 网盘有效性检测
+### 6.4 网盘有效性检测
 
 ```js
 const config = await fm.config();
@@ -296,7 +338,7 @@ if (config.driveCheck) {
 
 检测必须异步做，不能阻塞首屏。只检测 App 支持的网盘，不要把磁力、电驴、普通网页链接提交给 `pan.check`。
 
-### 6.4 Native 请求
+### 6.5 Native 请求
 
 ```js
 const res = await fm.req("https://api.example.com/list", {
@@ -579,6 +621,10 @@ AI 生成脚本时必须遵守：
 | --- | --- |
 | `examples/pomo.mom.js` | Pomo 实战示例：美化移动端/电视端页面，生成“在线播放/网盘/磁力”三组播放列表，点击直接调用原生播放 |
 | `examples/pomo.manifest.json` | Pomo 示例 manifest，可作为外部扩展清单格式参考 |
+| `examples/dm.xueximeng.com.js` | 美漫共建实战示例：清理移动端详情页，重排海报/剧照/标题/标签，增强资源链接和电视端焦点 |
+| `examples/dm.xueximeng.manifest.json` | 美漫共建示例 manifest |
+| `examples/ymvid.com.js` | 粤漫之家实战示例：根据站点播放器数据生成 App 播放入口，清理首屏弹窗/播放器广告层，优化手机端和电视端焦点 |
+| `examples/ymvid.manifest.json` | 粤漫之家示例 manifest |
 | `templates/page-analyzer.js` | 当前页面候选 DOM/资源分析器，适合半自动生成脚本前采集数据 |
 | `templates/auto-resource-router.js` | 通用资源路由：识别 DOM 里的网盘、磁力和媒体直链 |
 | `templates/pan-link-router.js` | 通用网盘链接增强：扫描网盘链接、注入播放按钮、可选检测 |
@@ -638,6 +684,42 @@ AI 生成脚本时必须遵守：
       "version": "1.2.2",
       "runAt": "document-end",
       "js": ["https://example.com/webhome/pomo.mom.js"]
+    }
+  ]
+}
+```
+
+## 15. Ymvid 示例结论
+
+以 `https://www.ymvid.com/` 为例，首页和排行页是动画卡片/列表，播放页路径可能是首集 `/play/{videoId}` 或指定集 `/play/{videoId}/{seriesId}`。播放页 `#main` 带 `data-id`、`data-series-id`，剧集列表为 `.play-list`，当前集由 `.play-list .item.active` 标记；播放器地址由站点脚本解密隐藏 input 后拼出 m3u8。
+
+适合策略：
+
+- 保留原站播放器，同时在播放区下方生成“App播放 / 刷新地址”入口和独立剧集栏。
+- 点击“App播放”时只把页面集数链接传给 `fm.vodInline()`；进入 App 原生播放页后，用户点击某一集才通过 `window.__fmWebHomeInlineResolver` 回调扩展，使用页面上下文里的 `decryptByAES()` 把该集隐藏 input 转成 m3u8。
+- 单集兜底仍会从站点播放器构造参数或 Hls `loadSource()` 捕获播放地址；捕获不到时，通过页面上下文调用站点自己的 `decryptByAES()` 和隐藏 input 计算当前集地址。
+- 手机端隐藏评论、页脚、侧边工具和推荐侧栏，播放页重排为播放器、App 播放入口、剧集栏、海报信息。
+- 首页/排行/推荐卡片加 `tabindex`，电视端提供焦点高亮和 Enter/空格打开。
+- 清理首屏公告层和播放器广告层，但不删除登录/留言等普通业务弹窗。
+
+示例脚本见 [examples/ymvid.com.js](examples/ymvid.com.js)。
+
+站点内联挂载示例：
+
+```json
+{
+  "key": "ymvid",
+  "name": "粤漫之家",
+  "type": 3,
+  "api": "csp_Builtin",
+  "homePage": "https://www.ymvid.com/",
+  "extensions": [
+    {
+      "id": "ymvid-native-router",
+      "name": "Ymvid native router",
+      "version": "1.0.0",
+      "runAt": "document-end",
+      "js": ["https://example.com/webhome/ymvid.com.js"]
     }
   ]
 }
