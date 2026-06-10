@@ -637,10 +637,16 @@ public class Manage implements Process {
         String path = params.get("path");
         if (TextUtils.isEmpty(path)) return Nano.error(Status.BAD_REQUEST, "Missing path");
         if (params.containsKey("content")) LoginStateSync.write(path, params.get("content"));
+        LoginStateSync.TextPreview preview = LoginStateSync.preview(path);
         JsonObject object = new JsonObject();
-        object.addProperty("path", LoginStateSync.normalizePath(path));
-        object.addProperty("displayPath", LoginStateSync.displayPath(path));
-        object.addProperty("content", LoginStateSync.read(path));
+        object.addProperty("path", preview.getPath());
+        object.addProperty("displayPath", preview.getDisplayPath());
+        object.addProperty("content", preview.getContent());
+        object.addProperty("size", preview.getSize());
+        object.addProperty("truncated", preview.isTruncated());
+        object.addProperty("editable", preview.isEditable());
+        object.addProperty("text", preview.isText());
+        object.addProperty("encoding", preview.getEncoding());
         return json(object);
     }
 

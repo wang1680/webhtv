@@ -21,6 +21,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,10 +47,21 @@ public class LoginStateSync {
     private static final int BUFFER_SIZE = 128 * 1024;
     private static final long MAX_SYNC_FILE_SIZE = 4L * 1024 * 1024;
     private static final long MAX_SCAN_FILE_SIZE = 512L * 1024;
+    private static final int TEXT_SAMPLE_SIZE = 4 * 1024;
+    private static final int TEXT_PREVIEW_SIZE = 256 * 1024;
     private static final String ROOT_APP = "app";
     private static final String ROOT_SDCARD = "sdcard";
     private static final String ROOT_APP_NAME = "App 私有目录";
     private static final String ROOT_SDCARD_NAME = "共享存储";
+    private static final Set<String> TEXT_EXTENSIONS = new LinkedHashSet<>(Arrays.asList(
+            "cfg", "conf", "config", "cookie", "cookies", "css", "csv", "htm", "html", "ini", "js",
+            "json", "log", "md", "mjs", "properties", "text", "toml", "ts", "txt", "xml", "yaml", "yml"
+    ));
+    private static final Set<String> BINARY_EXTENSIONS = new LinkedHashSet<>(Arrays.asList(
+            "7z", "aar", "apk", "bin", "bmp", "class", "db", "dex", "gif", "gz", "jar", "jpeg", "jpg",
+            "keystore", "mp3", "mp4", "o", "otf", "p12", "png", "prof", "so", "sqlite", "sqlite3",
+            "ttf", "webm", "webp", "zip"
+    ));
 
     private static final List<String> LOGIN_MARKERS = Arrays.asList(
             "cookie", "cookies", "ck", "token", "access_token", "refresh_token", "auth", "oauth",
@@ -112,6 +128,11 @@ public class LoginStateSync {
         Setting.putLoginStatePendingPaths(pathsText(prunePending(learned, pendingPaths())));
     }
 
+    public static void resetLearningResults() {
+        Setting.putLoginStatePendingPaths("");
+        Setting.putLoginStateFindings("");
+    }
+
     public static List<String> confirmPending() {
         LinkedHashSet<String> merged = new LinkedHashSet<>(learnedPaths());
         merged.addAll(pendingPaths());
@@ -135,9 +156,10 @@ public class LoginStateSync {
         path = normalize(path);
         try {
             File file = fileForPath(path);
-            return new PathState(path, displayPath(path), file.exists(), file.isFile(), file.exists() ? file.length() : 0, file.exists() ? file.lastModified() : 0);
+            FileKind kind = kind(path, file);
+            return new PathState(path, displayPath(path), file.exists(), file.isFile(), file.exists() ? file.length() : 0, file.exists() ? file.lastModified() : 0, kind.type, kind.text, kind.previewable);
         } catch (Exception e) {
-            return new PathState(path, displayPath(path), false, false, 0, 0);
+            return new PathState(path, displayPath(path), false, false, 0, 0, "missing", false, false);
         }
     }
 
@@ -168,7 +190,7 @@ public class LoginStateSync {
                 });
                 for (File file : files == null ? new File[0] : files) {
                     String child = relative(root, parsed.key, file);
-                    if (!child.isEmpty()) items.add(new TreeItem(file.getName(), child, file.isDirectory(), file.isFile() ? file.length() : 0, file.lastModified(), true));
+                    if (!child.isEmpty()) items.add(new TreeItem(file.getName(), child, file.isDirectory(), file.isFile() ? file.length() : 0, file.lastModified(), true, kind(child, file)));
                 }
             }
         } catch (Exception e) {
@@ -188,26 +210,33 @@ public class LoginStateSync {
     }
 
     public static String read(String path) throws IOException {
+        return preview(path).getContent();
+    }
+
+    public static TextPreview preview(String path) throws IOException {
+        path = normalize(path);
         File file = fileForPath(path);
-        if (!isSyncableFile(path, file)) throw new IOException("Invalid file");
-        if (file.length() > MAX_SYNC_FILE_SIZE) throw new IOException("File too large");
-        byte[] data = new byte[(int) file.length()];
-        try (BufferedInputStream input = new BufferedInputStream(new FileInputStream(file), BUFFER_SIZE)) {
-            int offset = 0;
-            int read;
-            while (offset < data.length && (read = input.read(data, offset, data.length - offset)) > 0) offset += read;
-        }
-        return new String(data, StandardCharsets.UTF_8);
+        if (!isReadableFile(path, file)) throw new IOException("文件不可访问");
+        TextProbe probe = probeText(readHead(file, (int) Math.min(file.length(), TEXT_SAMPLE_SIZE)), extension(file.getName()));
+        if (!probe.text) throw new IOException("仅支持查看文本文件");
+        int limit = (int) Math.min(file.length(), (long) TEXT_PREVIEW_SIZE + 4);
+        byte[] data = readHead(file, limit);
+        boolean truncated = file.length() > TEXT_PREVIEW_SIZE;
+        int length = truncated ? safeTextLength(data, TEXT_PREVIEW_SIZE, probe.charset) : data.length;
+        String content = decodeText(data, length, probe.charset);
+        boolean editable = !truncated && file.length() <= TEXT_PREVIEW_SIZE;
+        return new TextPreview(path, displayPath(path), content, file.length(), truncated, editable, true, probe.charset.name());
     }
 
     public static void write(String path, String text) throws IOException {
         path = normalize(path);
-        if (!isSafePath(path)) throw new IOException("Invalid path");
+        if (!isSafePath(path)) throw new IOException("路径无效");
         byte[] data = (text == null ? "" : text).getBytes(StandardCharsets.UTF_8);
-        if (data.length > MAX_SYNC_FILE_SIZE) throw new IOException("File too large");
+        if (data.length > TEXT_PREVIEW_SIZE) throw new IOException("文本超过可编辑上限");
         File file = fileForPath(path);
         Parsed parsed = parse(path);
-        if (parsed == null || !inside(parsed.root, file)) throw new IOException("Invalid path");
+        if (parsed == null || !inside(parsed.root, file)) throw new IOException("路径无效");
+        if (file.exists() && file.isFile() && !kind(path, file).text) throw new IOException("仅支持编辑文本文件");
         try (BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(create(file)), BUFFER_SIZE)) {
             output.write(data);
         }
@@ -542,6 +571,14 @@ public class LoginStateSync {
                 && file.length() <= MAX_SYNC_FILE_SIZE;
     }
 
+    private static boolean isReadableFile(String path, File file) throws IOException {
+        Parsed parsed = parse(path);
+        return parsed != null
+                && isSafePath(path)
+                && inside(parsed.root, file)
+                && file.isFile();
+    }
+
     private static boolean isSharedPrefsPath(String path) {
         return !TextUtils.isEmpty(sharedPrefsName(path));
     }
@@ -672,14 +709,83 @@ public class LoginStateSync {
     }
 
     private static boolean looksText(byte[] data) {
-        int printable = 0;
-        int zero = 0;
+        return probeText(data, "").text;
+    }
+
+    private static FileKind kind(String path, File file) {
+        if (file == null || !file.exists()) return FileKind.missing();
+        if (file.isDirectory()) return FileKind.dir();
+        if (!file.isFile()) return FileKind.binaryFile();
+        String ext = extension(file.getName());
+        if (file.length() == 0) return FileKind.textFile();
+        if (BINARY_EXTENSIONS.contains(ext)) return FileKind.binaryFile();
+        TextProbe probe = probeText(readHead(file, (int) Math.min(file.length(), TEXT_SAMPLE_SIZE)), ext);
+        return probe.text ? FileKind.textFile() : FileKind.binaryFile();
+    }
+
+    private static TextProbe probeText(byte[] data, String extension) {
+        if (data == null || data.length == 0) return new TextProbe(true, StandardCharsets.UTF_8);
+        if (hasUtf8Bom(data)) return new TextProbe(canDecode(data, 3, data.length - 3, StandardCharsets.UTF_8), StandardCharsets.UTF_8);
+        if (hasUtf16LeBom(data)) return new TextProbe(true, StandardCharsets.UTF_16LE);
+        if (hasUtf16BeBom(data)) return new TextProbe(true, StandardCharsets.UTF_16BE);
+        int control = 0;
         for (byte b : data) {
             int v = b & 0xff;
-            if (v == 0) zero++;
-            if (v == 9 || v == 10 || v == 13 || (v >= 32 && v <= 126)) printable++;
+            if (v == 0) return new TextProbe(false, StandardCharsets.UTF_8);
+            if (v < 32 && v != 9 && v != 10 && v != 12 && v != 13) control++;
         }
-        return zero == 0 && printable >= data.length * 0.78;
+        if (control > Math.max(1, data.length / 100)) return new TextProbe(false, StandardCharsets.UTF_8);
+        if (canDecode(data, 0, data.length, StandardCharsets.UTF_8)) return new TextProbe(true, StandardCharsets.UTF_8);
+        int trimmed = Math.max(0, data.length - 4);
+        if (trimmed > 0 && canDecode(data, 0, trimmed, StandardCharsets.UTF_8)) return new TextProbe(true, StandardCharsets.UTF_8);
+        return new TextProbe(TEXT_EXTENSIONS.contains(extension), StandardCharsets.UTF_8);
+    }
+
+    private static boolean canDecode(byte[] data, int offset, int length, Charset charset) {
+        if (length <= 0) return true;
+        CharsetDecoder decoder = charset.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT);
+        try {
+            decoder.decode(ByteBuffer.wrap(data, offset, length));
+            return true;
+        } catch (CharacterCodingException e) {
+            return false;
+        }
+    }
+
+    private static String decodeText(byte[] data, int length, Charset charset) {
+        if (length <= 0) return "";
+        int offset = 0;
+        if (charset.equals(StandardCharsets.UTF_8) && length >= 3 && hasUtf8Bom(data)) offset = 3;
+        else if (charset.equals(StandardCharsets.UTF_16LE) && length >= 2 && hasUtf16LeBom(data)) offset = 2;
+        else if (charset.equals(StandardCharsets.UTF_16BE) && length >= 2 && hasUtf16BeBom(data)) offset = 2;
+        return new String(data, offset, Math.max(0, length - offset), charset);
+    }
+
+    private static int safeTextLength(byte[] data, int max, Charset charset) {
+        int length = Math.min(Math.max(0, max), data == null ? 0 : data.length);
+        if (charset.equals(StandardCharsets.UTF_16LE) || charset.equals(StandardCharsets.UTF_16BE)) return length - (length % 2);
+        int floor = Math.max(0, length - 4);
+        while (length > floor && !canDecode(data, 0, length, charset)) length--;
+        return canDecode(data, 0, length, charset) ? length : Math.min(Math.max(0, max), data.length);
+    }
+
+    private static boolean hasUtf8Bom(byte[] data) {
+        return data.length >= 3 && (data[0] & 0xff) == 0xef && (data[1] & 0xff) == 0xbb && (data[2] & 0xff) == 0xbf;
+    }
+
+    private static boolean hasUtf16LeBom(byte[] data) {
+        return data.length >= 2 && (data[0] & 0xff) == 0xff && (data[1] & 0xff) == 0xfe;
+    }
+
+    private static boolean hasUtf16BeBom(byte[] data) {
+        return data.length >= 2 && (data[0] & 0xff) == 0xfe && (data[1] & 0xff) == 0xff;
+    }
+
+    private static String extension(String name) {
+        if (TextUtils.isEmpty(name)) return "";
+        int index = name.lastIndexOf('.');
+        if (index < 0 || index == name.length() - 1) return "";
+        return name.substring(index + 1).toLowerCase(Locale.ROOT);
     }
 
     private static byte[] readHead(File file, int length) {
@@ -827,6 +933,27 @@ public class LoginStateSync {
         }
     }
 
+    private record TextProbe(boolean text, Charset charset) {
+    }
+
+    private record FileKind(String type, boolean text, boolean previewable) {
+        private static FileKind dir() {
+            return new FileKind("dir", false, false);
+        }
+
+        private static FileKind missing() {
+            return new FileKind("missing", false, false);
+        }
+
+        private static FileKind textFile() {
+            return new FileKind("text", true, true);
+        }
+
+        private static FileKind binaryFile() {
+            return new FileKind("binary", false, false);
+        }
+    }
+
     private static class Parsed {
         private final String key;
         private final File root;
@@ -949,14 +1076,20 @@ public class LoginStateSync {
         private final boolean file;
         private final long size;
         private final long modified;
+        private final String fileType;
+        private final boolean text;
+        private final boolean previewable;
 
-        private PathState(String path, String displayPath, boolean exists, boolean file, long size, long modified) {
+        private PathState(String path, String displayPath, boolean exists, boolean file, long size, long modified, String fileType, boolean text, boolean previewable) {
             this.path = path;
             this.displayPath = displayPath;
             this.exists = exists;
             this.file = file;
             this.size = size;
             this.modified = modified;
+            this.fileType = fileType;
+            this.text = text;
+            this.previewable = previewable;
         }
 
         public String getPath() {
@@ -981,6 +1114,18 @@ public class LoginStateSync {
 
         public long getModified() {
             return modified;
+        }
+
+        public String getFileType() {
+            return fileType;
+        }
+
+        public boolean isText() {
+            return text;
+        }
+
+        public boolean isPreviewable() {
+            return previewable;
         }
     }
 
@@ -1021,14 +1166,24 @@ public class LoginStateSync {
         private final long size;
         private final long modified;
         private final boolean selectable;
+        private final String fileType;
+        private final boolean text;
+        private final boolean previewable;
 
         public TreeItem(String name, String path, boolean dir, long size, long modified, boolean selectable) {
+            this(name, path, dir, size, modified, selectable, dir ? FileKind.dir() : FileKind.binaryFile());
+        }
+
+        public TreeItem(String name, String path, boolean dir, long size, long modified, boolean selectable, FileKind kind) {
             this.name = name;
             this.path = path;
             this.dir = dir;
             this.size = size;
             this.modified = modified;
             this.selectable = selectable;
+            this.fileType = kind.type;
+            this.text = kind.text;
+            this.previewable = kind.previewable;
         }
 
         public String getName() {
@@ -1053,6 +1208,72 @@ public class LoginStateSync {
 
         public boolean isSelectable() {
             return selectable;
+        }
+
+        public String getFileType() {
+            return fileType;
+        }
+
+        public boolean isText() {
+            return text;
+        }
+
+        public boolean isPreviewable() {
+            return previewable;
+        }
+    }
+
+    public static class TextPreview {
+        private final String path;
+        private final String displayPath;
+        private final String content;
+        private final long size;
+        private final boolean truncated;
+        private final boolean editable;
+        private final boolean text;
+        private final String encoding;
+
+        private TextPreview(String path, String displayPath, String content, long size, boolean truncated, boolean editable, boolean text, String encoding) {
+            this.path = path;
+            this.displayPath = displayPath;
+            this.content = content;
+            this.size = size;
+            this.truncated = truncated;
+            this.editable = editable;
+            this.text = text;
+            this.encoding = encoding;
+        }
+
+        public String getPath() {
+            return path;
+        }
+
+        public String getDisplayPath() {
+            return displayPath;
+        }
+
+        public String getContent() {
+            return content;
+        }
+
+        public long getSize() {
+            return size;
+        }
+
+        public boolean isTruncated() {
+            return truncated;
+        }
+
+        public boolean isEditable() {
+            return editable;
+        }
+
+        public boolean isText() {
+            return text;
+        }
+
+        public String getEncoding() {
+            return encoding;
         }
     }
 

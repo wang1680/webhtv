@@ -355,10 +355,14 @@
     <string name="login_state_learned_title">已選路徑</string>
     <string name="login_state_pending_title">待確認候選</string>
     <string name="login_state_findings_title">最近學習結果</string>
+    <string name="login_state_reset_results">重置候選和結果</string>
+    <string name="login_state_reset_results_done">已清空待確認候選和最近學習結果</string>
     <string name="login_state_more_count">還有 %1$d 條</string>
     <string name="login_state_empty">未發現登入狀態檔案</string>
     <string name="login_state_edit">查看/編輯登入狀態檔案</string>
     <string name="login_state_saved">登入狀態檔案已保存</string>
+    <string name="login_state_preview_readonly">唯讀預覽</string>
+    <string name="login_state_preview_truncated">唯讀預覽，內容已截斷</string>
     <string name="login_state_paths_title">登入狀態路徑</string>
     <string name="login_state_manage_paths">管理路徑</string>
     <string name="login_state_paths_empty_selected">未選擇登入狀態路徑</string>

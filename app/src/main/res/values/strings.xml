@@ -372,10 +372,14 @@
     <string name="login_state_learned_title">Selected paths</string>
     <string name="login_state_pending_title">Pending candidates</string>
     <string name="login_state_findings_title">Latest findings</string>
+    <string name="login_state_reset_results">Reset candidates and findings</string>
+    <string name="login_state_reset_results_done">Pending candidates and latest findings cleared</string>
     <string name="login_state_more_count">+%1$d more</string>
     <string name="login_state_empty">No login state files found</string>
     <string name="login_state_edit">View/Edit login state file</string>
     <string name="login_state_saved">Login state file saved</string>
+    <string name="login_state_preview_readonly">Read-only preview</string>
+    <string name="login_state_preview_truncated">Read-only preview, content is truncated</string>
     <string name="login_state_paths_title">Login state paths</string>
     <string name="login_state_manage_paths">Manage paths</string>
     <string name="login_state_paths_empty_selected">No login state paths selected</string>

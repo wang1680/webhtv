@@ -2126,7 +2126,7 @@ body.manage-page {
     cursor: pointer;
 }
 
-.login-tree-main > span:not(.login-state-badge) {
+.login-tree-main .login-tree-name {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2142,6 +2142,14 @@ body.manage-page {
 .login-tree-main .file-icon {
     width: 22px;
     height: 22px;
+}
+
+.login-tree-badges {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    min-width: 0;
 }
 
 .login-state-badge {
@@ -2170,6 +2178,16 @@ body.manage-page {
 .login-state-badge.missing {
     background: var(--md-error-container);
     color: var(--md-on-error-container);
+}
+
+.login-state-badge.file-type.text {
+    background: #E5F5EC;
+    color: #206844;
+}
+
+.login-state-badge.file-type.binary {
+    background: #FCE8EE;
+    color: #8A1C3D;
 }
 
 .card-actions {
@@ -2573,6 +2591,15 @@ body.manage-page {
 .modal-code {
     min-height: min(55vh, 420px) !important;
     max-height: 62vh;
+}
+
+.file-preview-meta {
+    margin: 8px 0;
+}
+
+.readonly-code {
+    opacity: 0.92;
+    cursor: default;
 }
 
 .scroll-code {

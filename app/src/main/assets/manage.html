@@ -447,11 +447,12 @@
             <div class="md-dialog-title">登录态文件</div>
             <div class="md-dialog-body">
                 <div id="loginStatePath" class="file-path"></div>
+                <div id="loginStatePreviewMeta" class="dialog-hint file-preview-meta"></div>
                 <textarea id="loginStateContent" class="code-area modal-code scroll-code" spellcheck="false" wrap="off"></textarea>
             </div>
             <div class="md-dialog-actions">
                 <button onclick="closeDialog('loginStateEditorDialog')" class="md-dialog-btn">取消</button>
-                <button onclick="saveLoginStateFile()" class="md-dialog-btn">保存</button>
+                <button id="loginStateSaveBtn" onclick="saveLoginStateFile()" class="md-dialog-btn">保存</button>
             </div>
         </div>
     </div>

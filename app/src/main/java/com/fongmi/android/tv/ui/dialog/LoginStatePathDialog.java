@@ -114,7 +114,6 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         });
         binding.appTitle.setOnClickListener(v -> togglePanel(ROOT_APP));
         binding.sdcardTitle.setOnClickListener(v -> togglePanel(ROOT_SDCARD));
-        binding.reset.setOnClickListener(v -> reset());
         binding.selectSafe.setOnClickListener(v -> revealPending());
         binding.negative.setOnClickListener(v -> dismiss());
         binding.positive.setOnClickListener(v -> onPositive());
@@ -218,13 +217,6 @@ public class LoginStatePathDialog extends BaseAlertDialog {
             rows.add(new Row(new LoginStateSync.TreeItem(name(path), path, false, 0, 0, true), depth(path)));
             visible.add(path);
         }
-    }
-
-    private void reset() {
-        selected.clear();
-        appPanelTouched = false;
-        sdcardPanelTouched = false;
-        rebuild();
     }
 
     private void revealPending() {
@@ -392,18 +384,18 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         if (TextUtils.isEmpty(path)) return;
         Task.execute(() -> {
             try {
-                String content = LoginStateSync.read(path);
-                App.post(() -> showEditor(path, content));
+                LoginStateSync.TextPreview preview = LoginStateSync.preview(path);
+                App.post(() -> showEditor(preview));
             } catch (Exception e) {
                 App.post(() -> Notify.show(e.getMessage()));
             }
         });
     }
 
-    private void showEditor(String path, String content) {
+    private void showEditor(LoginStateSync.TextPreview preview) {
         if (editor != null && editor.isShowing()) editor.dismiss();
         SafeScrollEditText input = new SafeScrollEditText(requireContext());
-        input.setText(content, TextView.BufferType.EDITABLE);
+        input.setText(preview.getContent(), TextView.BufferType.EDITABLE);
         input.setSelectAllOnFocus(false);
         input.setSingleLine(false);
         input.setHorizontallyScrolling(true);
@@ -414,6 +406,8 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         input.setGravity(Gravity.START | Gravity.TOP);
         input.setBackground(editorBackground());
+        input.setCursorVisible(preview.isEditable());
+        if (!preview.isEditable()) input.setKeyListener(null);
         input.setOnTouchListener((view, event) -> {
             int action = event.getActionMasked();
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) view.getParent().requestDisallowInterceptTouchEvent(false);
@@ -425,12 +419,20 @@ public class LoginStatePathDialog extends BaseAlertDialog {
         container.setOrientation(LinearLayoutCompat.VERTICAL);
         container.setPadding(ResUtil.dp2px(20), ResUtil.dp2px(8), ResUtil.dp2px(20), 0);
         TextView label = new TextView(requireContext());
-        label.setText(path);
+        label.setText(preview.getPath());
         label.setTextColor(Color.parseColor("#5F6368"));
         label.setTextSize(12);
         label.setSingleLine(true);
         label.setEllipsize(TextUtils.TruncateAt.MIDDLE);
         container.addView(label, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        if (preview.isTruncated() || !preview.isEditable()) {
+            TextView meta = new TextView(requireContext());
+            meta.setText(preview.isTruncated() ? R.string.login_state_preview_truncated : R.string.login_state_preview_readonly);
+            meta.setTextColor(Color.parseColor("#8A4B00"));
+            meta.setTextSize(12);
+            meta.setPadding(0, ResUtil.dp2px(6), 0, 0);
+            container.addView(meta, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
         LinearLayoutCompat.LayoutParams inputParams = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) (ResUtil.getScreenHeight(requireContext()) * 0.52f));
         inputParams.topMargin = ResUtil.dp2px(8);
         container.addView(input, inputParams);
@@ -443,7 +445,8 @@ public class LoginStatePathDialog extends BaseAlertDialog {
                 .show();
         editor.setCancelable(false);
         editor.setCanceledOnTouchOutside(false);
-        editor.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> save(editor, path, input.getText() == null ? "" : input.getText().toString()));
+        editor.getButton(AlertDialog.BUTTON_POSITIVE).setVisibility(preview.isEditable() ? View.VISIBLE : View.GONE);
+        if (preview.isEditable()) editor.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> save(editor, preview.getPath(), input.getText() == null ? "" : input.getText().toString()));
     }
 
     private GradientDrawable editorBackground() {
@@ -528,7 +531,8 @@ public class LoginStatePathDialog extends BaseAlertDialog {
     }
 
     private int iconFor(LoginStateSync.TreeItem item) {
-        return item.isDir() ? R.drawable.ic_folder : R.drawable.ic_login_state_file;
+        if (item.isDir()) return R.drawable.ic_folder;
+        return item.isText() ? R.drawable.ic_login_state_file : R.drawable.ic_file;
     }
 
     private int expandIconFor(Row row) {

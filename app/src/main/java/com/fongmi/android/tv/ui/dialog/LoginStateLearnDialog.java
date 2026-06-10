@@ -4,6 +4,8 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -40,13 +42,23 @@ public final class LoginStateLearnDialog {
     public static void show(FragmentActivity activity, Runnable callback) {
         boolean learning = LoginStateSync.hasLearningSnapshot();
         int learned = LoginStateSync.learnedCount();
+        final AlertDialog[] dialogRef = new AlertDialog[1];
+        Runnable resetAction = () -> {
+            LoginStateSync.resetLearningResults();
+            Notify.show(R.string.login_state_reset_results_done);
+            if (callback != null) callback.run();
+            AlertDialog current = dialogRef[0];
+            if (current != null) current.dismiss();
+            if (!activity.isFinishing()) show(activity, callback);
+        };
         AlertDialog dialog = new MaterialAlertDialogBuilder(activity)
                 .setTitle(R.string.setting_login_state)
-                .setView(view(activity, learning, learned))
+                .setView(view(activity, learning, learned, resetAction))
                 .setNegativeButton(R.string.dialog_negative, null)
                 .setNeutralButton(R.string.login_state_manage_paths, null)
                 .setPositiveButton(learning ? R.string.login_state_finish : R.string.login_state_start, null)
                 .create();
+        dialogRef[0] = dialog;
         dialog.setOnShowListener(d -> {
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
                 dialog.dismiss();
@@ -60,7 +72,7 @@ public final class LoginStateLearnDialog {
         dialog.show();
     }
 
-    private static LinearLayoutCompat view(FragmentActivity activity, boolean learning, int learned) {
+    private static LinearLayoutCompat view(FragmentActivity activity, boolean learning, int learned, Runnable resetAction) {
         LinearLayoutCompat container = new LinearLayoutCompat(activity);
         container.setOrientation(LinearLayoutCompat.VERTICAL);
         container.setPadding(ResUtil.dp2px(24), ResUtil.dp2px(8), ResUtil.dp2px(24), 0);
@@ -80,7 +92,31 @@ public final class LoginStateLearnDialog {
         LinearLayoutCompat.LayoutParams params = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(190));
         params.topMargin = ResUtil.dp2px(12);
         container.addView(scroll, params);
+        addResetAction(activity, container, resetAction);
         return container;
+    }
+
+    private static void addResetAction(FragmentActivity activity, LinearLayoutCompat container, Runnable resetAction) {
+        if (LoginStateSync.pendingPaths().isEmpty() && LoginStateSync.findings().isEmpty()) return;
+        LinearLayoutCompat row = new LinearLayoutCompat(activity);
+        row.setGravity(Gravity.END);
+        TextView button = new TextView(activity);
+        button.setText(R.string.login_state_reset_results);
+        button.setTextColor(0xFF1A73E8);
+        button.setTextSize(13);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        button.setGravity(Gravity.CENTER);
+        button.setMinHeight(ResUtil.dp2px(36));
+        button.setPadding(ResUtil.dp2px(12), 0, ResUtil.dp2px(12), 0);
+        button.setClickable(true);
+        button.setFocusable(true);
+        TypedValue value = new TypedValue();
+        if (activity.getTheme().resolveAttribute(android.R.attr.selectableItemBackground, value, true)) button.setBackgroundResource(value.resourceId);
+        button.setOnClickListener(v -> resetAction.run());
+        row.addView(button, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ResUtil.dp2px(36)));
+        LinearLayoutCompat.LayoutParams params = new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.topMargin = ResUtil.dp2px(8);
+        container.addView(row, params);
     }
 
     private static LinearLayoutCompat quickView(FragmentActivity activity) {
