@@ -715,7 +715,7 @@ public class AudioActivity extends PlaybackActivity {
     private void showComments() {
         if (!isActivityAlive()) return;
         long duration = getPlayerDuration();
-        AudioCommentDialog.create(getDisplayTitleText(), getDisplaySubtitleText(), duration).show(this);
+        AudioCommentDialog.create(getTitleText(), getSubtitleText(), duration).show(this);
     }
 
     private void onKeep() {

@@ -24,7 +24,7 @@ public class LyricUtil {
 
     private static final String TAG = "audio-lyric";
     private static final String CACHE_PREFIX = "audio_lyric_";
-    private static final long DURATION_TOLERANCE_MS = 5000L;
+    private static final long DURATION_TOLERANCE_MS = 10000L;
 
     private static final Map<String, String> LRCLIB_HEADERS = new HashMap<>();
     private static final Map<String, String> NETEASE_HEADERS = new HashMap<>();
