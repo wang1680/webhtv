@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.BuildConfig;
+import com.fongmi.android.tv.bean.AudioConfig;
 import com.fongmi.android.tv.utils.WebViewUtil;
 import com.github.catvod.crawler.DebugLogStore;
 import com.github.catvod.crawler.SpiderDebug;
@@ -300,5 +301,17 @@ public class Setting {
     public static boolean hasFileManager() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false;
         return new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:" + App.get().getPackageName())).resolveActivity(App.get().getPackageManager()) != null || new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).resolveActivity(App.get().getPackageManager()) != null;
+    }
+
+    public static String getAudioConfig() {
+        return Prefers.getString("audio_config");
+    }
+
+    public static void putAudioConfig(String value) {
+        Prefers.put("audio_config", value);
+    }
+
+    public static boolean isAudioSiteEnabled(String key, String name) {
+        return AudioConfig.objectFrom(getAudioConfig()).isSiteEnabled(key, name);
     }
 }

@@ -21,3 +21,4 @@ nostr_副本*.html
 *.tmp
 *.log
 third_party/sources/
+app/signing/

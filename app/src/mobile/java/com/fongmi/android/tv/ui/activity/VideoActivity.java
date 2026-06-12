@@ -165,7 +165,12 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     public static void start(Activity activity, String url) {
+        if (dispatchToContentHandler(activity, url)) return;
         start(activity, SiteApi.PUSH, url, url);
+    }
+
+    private static boolean dispatchToContentHandler(Activity activity, String url) {
+        return com.fongmi.android.tv.content.ContentDispatcher.dispatchUrl(activity, url, "");
     }
 
     public static void start(Activity activity, String key, String id, String name) {
@@ -181,6 +186,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     public static void start(Activity activity, String key, String id, String name, String pic, String mark, boolean collect) {
+        if (dispatchToContentHandler(activity, key, id, name, pic, mark)) return;
         Intent intent = new Intent(activity, VideoActivity.class);
         intent.putExtra("collect", collect);
         intent.putExtra("mark", mark);
@@ -189,6 +195,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         intent.putExtra("key", key);
         intent.putExtra("id", id);
         activity.startActivity(intent);
+    }
+
+    private static boolean dispatchToContentHandler(Activity activity, String key, String id, String name, String pic, String mark) {
+        return com.fongmi.android.tv.content.ContentDispatcher.dispatchSite(activity, key, id, name, pic, mark);
     }
 
     private String getName() {
@@ -580,11 +590,18 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (result.hasPosition()) mHistory.setPosition(result.getPosition());
         if (result.hasDesc()) setText(mBinding.content, 0, result.getDesc());
         mBinding.control.parse.setVisibility(isUseParse() ? View.VISIBLE : View.GONE);
+        if (redirectToAudioIfNeeded(result)) return;
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
         if (DanmakuApi.canSearch()) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), danmaku -> {
             if (DanmakuSetting.isSpiderFirst() && !result.getDanmaku().isEmpty()) player().addDanmaku(danmaku);
             else player().setDanmaku(danmaku);
         });
+    }
+
+    private boolean redirectToAudioIfNeeded(Result result) {
+        boolean handled = com.fongmi.android.tv.content.ContentDispatcher.dispatchResult(this, getHistoryKey(), getKey(), getFlag().getFlag(), mHistory.getVodName(), mHistory.getVodPic(), mEpisodeAdapter.getItems(), mEpisodeAdapter.getPosition(), result, getSite().getTimeout());
+        if (handled) finish();
+        return handled;
     }
 
     private void recordDetailHealth(Result result, long cost) {

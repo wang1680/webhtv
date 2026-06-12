@@ -92,7 +92,12 @@ public class App extends Application implements Application.ActivityLifecycleCal
         Notify.createChannel();
         ProxySetting.apply();
         registerActivityLifecycleCallbacks(this);
+        registerContentHandlers();
         post(this::startBackgroundServices, 1200);
+    }
+
+    private void registerContentHandlers() {
+        com.fongmi.android.tv.content.ContentDispatcher.registerHandler(new com.fongmi.android.tv.content.AudioContentHandler());
     }
 
     private void startBackgroundServices() {

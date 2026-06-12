@@ -32,6 +32,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     private DecimalFormat format;
     private String[] background;
     private String[] caption;
+    private String[] player;
     private String[] render;
     private String[] scale;
 
@@ -60,6 +61,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.audioDecodeText.setText(getSwitch(PlayerSetting.isAudioPrefer()));
         mBinding.videoDecodeText.setText(getSwitch(PlayerSetting.isVideoPrefer()));
         mBinding.caption.setVisibility(PlayerSetting.hasCaption() ? View.VISIBLE : View.GONE);
+        mBinding.playerText.setText((player = ResUtil.getStringArray(R.array.select_player))[PlayerSetting.getPlayer()]);
         mBinding.scaleText.setText((scale = ResUtil.getStringArray(R.array.select_scale))[PlayerSetting.getScale()]);
         mBinding.renderText.setText((render = ResUtil.getStringArray(R.array.select_render))[PlayerSetting.getRender()]);
         mBinding.captionText.setText((caption = ResUtil.getStringArray(R.array.select_caption))[PlayerSetting.isCaption() ? 1 : 0]);
@@ -69,6 +71,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     @Override
     protected void initEvent() {
         mBinding.ua.setOnClickListener(this::onUa);
+        mBinding.player.setOnClickListener(this::onPlayer);
         mBinding.aac.setOnClickListener(this::setAAC);
         mBinding.scale.setOnClickListener(this::onScale);
         mBinding.speed.setOnClickListener(this::onSpeed);
@@ -96,6 +99,14 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     private void setAAC(View view) {
         PlayerSetting.putPreferAAC(!PlayerSetting.isPreferAAC());
         mBinding.aacText.setText(getSwitch(PlayerSetting.isPreferAAC()));
+    }
+
+    private void onPlayer(View view) {
+        new MaterialAlertDialogBuilder(requireActivity()).setTitle(R.string.player_default).setNegativeButton(R.string.dialog_negative, null).setSingleChoiceItems(player, PlayerSetting.getPlayer(), (dialog, which) -> {
+            mBinding.playerText.setText(player[which]);
+            PlayerSetting.putPlayer(which);
+            dialog.dismiss();
+        }).show();
     }
 
     private void onScale(View view) {

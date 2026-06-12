@@ -48,6 +48,10 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
         return 0;
     }
 
+    public List<Episode> getItems() {
+        return mItems;
+    }
+
     public int getSelectedPosition() {
         for (int i = 0; i < mItems.size(); i++) if (mItems.get(i).isSelected()) return i;
         return RecyclerView.NO_POSITION;

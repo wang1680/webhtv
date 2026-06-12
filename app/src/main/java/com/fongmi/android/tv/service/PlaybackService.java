@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -32,6 +33,7 @@ import com.fongmi.android.tv.event.ConfigEvent;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.player.engine.PlaySpec;
 import com.fongmi.android.tv.server.Server;
+import com.fongmi.android.tv.ui.audio.AudioHistory;
 import com.fongmi.android.tv.utils.Task;
 import com.github.catvod.crawler.SpiderDebug;
 import com.google.common.collect.ImmutableList;
@@ -51,16 +53,28 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
     public static final String LOCAL_BIND_ACTION = BuildConfig.APPLICATION_ID.concat(".LOCAL_BIND");
 
     private static final SessionCommand COMMAND_REPEAT = new SessionCommand(ActionEvent.REPEAT, Bundle.EMPTY);
+    private static final long AUDIO_HISTORY_SYNC_INTERVAL = 5000L;
 
     private static volatile boolean running;
 
     private final List<PlayerCallback> playerCallbacks = new CopyOnWriteArrayList<>();
     private final IBinder binder = new LocalBinder();
+    private final Runnable audioHistoryTicker = new Runnable() {
+        @Override
+        public void run() {
+            syncAudioHistoryProgress(false);
+            scheduleAudioHistorySync();
+        }
+    };
 
     private NavigationCallback navigationCallback;
     private MediaLibrarySession session;
+    private AudioHistory.Record audioHistoryRecord;
     private Runnable onNewBinding;
+    private String savedAudioHistoryTrack;
+    private long lastAudioHistorySync;
     private boolean externalBound;
+    private boolean keepAlive;
     private PlayerManager player;
     private String navigationKey;
     private Player exoPlayer;
@@ -175,6 +189,8 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
     @Override
     public void onDestroy() {
         running = false;
+        syncAudioHistoryProgress(true);
+        clearAudioHistoryRecord();
         releaseSession();
         player.stop();
         player.release();
@@ -185,6 +201,8 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
     }
 
     private void stopAndClear() {
+        syncAudioHistoryProgress(true);
+        clearAudioHistoryRecord();
         player.stop();
         player.clearMediaItems();
     }
@@ -197,11 +215,15 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
     public void shutdown() {
         if (!running) return;
         running = false;
+        keepAlive = false;
+        syncAudioHistoryProgress(true);
+        clearAudioHistoryRecord();
         stopAndClear();
         stopSelf();
     }
 
     private void tryShutdown() {
+        if (keepAlive) return;
         if (!hasNavigationCallback() && !hasExternalClient()) shutdown();
     }
 
@@ -266,6 +288,65 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
 
     public boolean hasExternalClient() {
         return externalBound;
+    }
+
+    public void setKeepAlive(boolean keepAlive) {
+        this.keepAlive = keepAlive;
+    }
+
+    public boolean isKeepAlive() {
+        return keepAlive;
+    }
+
+    public void setAudioHistoryRecord(@Nullable AudioHistory.Record record) {
+        if (record == null || !record.canUse()) {
+            clearAudioHistoryRecord();
+            return;
+        }
+        boolean changed = audioHistoryRecord == null || !TextUtils.equals(record.trackKey(), audioHistoryRecord.trackKey());
+        audioHistoryRecord = record;
+        if (changed) {
+            savedAudioHistoryTrack = null;
+            lastAudioHistorySync = 0;
+        }
+        updateAudioHistoryForReady();
+        scheduleAudioHistorySync();
+    }
+
+    public void clearAudioHistoryRecord() {
+        App.removeCallbacks(audioHistoryTicker);
+        audioHistoryRecord = null;
+        savedAudioHistoryTrack = null;
+        lastAudioHistorySync = 0;
+    }
+
+    public void syncAudioHistoryProgress(boolean force) {
+        if (!canSyncAudioHistory()) return;
+        updateAudioHistoryForReady();
+        long position = player.getPosition();
+        long duration = player.getDuration();
+        if (position <= 0 || duration <= 0) return;
+        long now = System.currentTimeMillis();
+        if (!force && now - lastAudioHistorySync < AUDIO_HISTORY_SYNC_INTERVAL) return;
+        lastAudioHistorySync = now;
+        AudioHistory.syncProgress(audioHistoryRecord, position, duration);
+    }
+
+    private boolean canSyncAudioHistory() {
+        return audioHistoryRecord != null && player != null && !player.isReleased() && TextUtils.equals(player.getKey(), audioHistoryRecord.playbackKey());
+    }
+
+    private void updateAudioHistoryForReady() {
+        if (!canSyncAudioHistory() || player.getPlaybackState() != Player.STATE_READY) return;
+        String track = audioHistoryRecord.trackKey();
+        if (TextUtils.equals(track, savedAudioHistoryTrack)) return;
+        savedAudioHistoryTrack = track;
+        AudioHistory.saveTrack(audioHistoryRecord, player.getPosition(), player.getDuration());
+    }
+
+    private void scheduleAudioHistorySync() {
+        App.removeCallbacks(audioHistoryTicker);
+        if (canSyncAudioHistory() && player.isPlaying()) App.post(audioHistoryTicker, AUDIO_HISTORY_SYNC_INTERVAL);
     }
 
     public void setSessionActivity(PendingIntent pendingIntent) {
@@ -475,8 +556,21 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
 
     private final Player.Listener listener = new Player.Listener() {
         @Override
+        public void onIsPlayingChanged(boolean isPlaying) {
+            if (isPlaying) scheduleAudioHistorySync();
+            else syncAudioHistoryProgress(true);
+        }
+
+        @Override
         public void onPlaybackStateChanged(int state) {
-            if (state == Player.STATE_ENDED && !(hasNavigationCallback() && isNavigationOwner())) navigateItem(1);
+            if (state == Player.STATE_READY) {
+                updateAudioHistoryForReady();
+                scheduleAudioHistorySync();
+            }
+            if (state == Player.STATE_ENDED) {
+                syncAudioHistoryProgress(true);
+                if (!(hasNavigationCallback() && isNavigationOwner())) navigateItem(1);
+            }
         }
 
         @Override

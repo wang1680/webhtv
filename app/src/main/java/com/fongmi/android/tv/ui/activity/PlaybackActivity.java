@@ -4,6 +4,7 @@ import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.View;
@@ -43,6 +44,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     private boolean bound;
     private boolean stop;
     private boolean lock;
+    private int render = -1;
 
     protected MediaController controller() {
         return mController;
@@ -53,7 +55,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     protected PlayerManager player() {
-        return mService.player();
+        return mService == null ? null : mService.player();
     }
 
     protected boolean isRedirect() {
@@ -107,7 +109,8 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
 
     protected boolean isOwner() {
         String key = getPlaybackKey();
-        return key == null || (mService != null && key.equals(player().getKey()));
+        PlayerManager manager = player();
+        return key == null || (manager != null && key.equals(manager.getKey()));
     }
 
     protected boolean isIdle() {
@@ -151,6 +154,14 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     protected void onReclaim() {
+    }
+
+    protected boolean shouldBindPlaybackService() {
+        return true;
+    }
+
+    protected boolean shouldPauseOnBackground() {
+        return PlayerSetting.isBackgroundOff();
     }
 
     protected void seekTo(long time) {
@@ -236,7 +247,37 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     private void attachSurface() {
-        if (mService != null && getExoView().getPlayer() == null) getExoView().setPlayer(player().getPlayer());
+        if (mService == null) return;
+        int targetRender = getRender();
+        syncShutter(true);
+        if (render != targetRender) {
+            if (getExoView().getPlayer() != null) getExoView().setPlayer(null);
+            getExoView().setRender(targetRender);
+            render = targetRender;
+            syncShutter(true);
+        }
+        if (getExoView().getPlayer() == null) {
+            getExoView().setPlayer(player().getPlayer());
+            syncShutter();
+            if (player().isIjk()) getExoView().post(this::syncShutter);
+        }
+    }
+
+    private void syncShutter() {
+        syncShutter(false);
+    }
+
+    private void syncShutter(boolean restoreExo) {
+        if (mService == null) return;
+        boolean ijk = player().isIjk();
+        View shutter = getExoView().findViewById(androidx.media3.ui.R.id.exo_shutter);
+        if (ijk) {
+            getExoView().setShutterBackgroundColor(Color.TRANSPARENT);
+            if (shutter != null) shutter.setVisibility(View.GONE);
+        } else if (restoreExo) {
+            getExoView().setShutterBackgroundColor(Color.BLACK);
+            if (shutter != null) shutter.setVisibility(View.VISIBLE);
+        }
     }
 
     private void detachSurface() {
@@ -244,9 +285,13 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     private void setRender() {
-        getExoView().setRender(PlayerSetting.getRender());
+        render = -1;
         detachSurface();
         attachSurface();
+    }
+
+    private int getRender() {
+        return mService != null && player().isIjk() ? 0 : PlayerSetting.getRender();
     }
 
     private void releasePlaybackService() {
@@ -257,7 +302,9 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     private void releaseService(boolean owner) {
         mService.removePlayerCallback(mPlayerCallback);
         if (owner) mService.setNavigationCallback(null, null);
-        if (mService.hasExternalClient() || mService.hasPlayerCallback()) {
+        if (owner && mService.isKeepAlive()) {
+            mService.resetSessionActivity();
+        } else if (mService.hasExternalClient() || mService.hasPlayerCallback()) {
             if (owner) mService.suspend();
             mService.resetSessionActivity();
         } else if (owner) {
@@ -317,6 +364,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     protected void initView(Bundle savedInstanceState) {
         long start = System.currentTimeMillis();
         super.initView(savedInstanceState);
+        if (!shouldBindPlaybackService()) return;
         ExoUtil.setPlayerView(getExoView());
         if (deferPlaybackServiceBinding()) bindPlaybackServiceAfterFirstFrame();
         else bindPlaybackService();
@@ -326,6 +374,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     @Override
     public void onIsPlayingChanged(boolean isPlaying) {
         if (!isOwner()) return;
+        syncShutter();
         if (isPlaying) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         else if (!isBuffering()) getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         onPlayingChanged(isPlaying);
@@ -333,12 +382,16 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
 
     @Override
     public void onPlaybackStateChanged(int state) {
-        if (isOwner()) onStateChanged(state);
+        if (!isOwner()) return;
+        syncShutter();
+        onStateChanged(state);
     }
 
     @Override
     public void onVideoSizeChanged(@NonNull VideoSize size) {
-        if (isOwner()) onSizeChanged(size);
+        if (!isOwner()) return;
+        syncShutter();
+        onSizeChanged(size);
     }
 
     @Override
@@ -377,7 +430,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     @Override
     protected void onStop() {
         super.onStop();
-        if (isOwner() && PlayerSetting.isBackgroundOff() && mController != null) mController.pause();
+        if (isOwner() && shouldPauseOnBackground() && mController != null) mController.pause();
     }
 
     @Override

@@ -155,7 +155,12 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     public static void start(Activity activity, String url) {
+        if (dispatchToContentHandler(activity, url)) return;
         start(activity, SiteApi.PUSH, url, url);
+    }
+
+    private static boolean dispatchToContentHandler(Activity activity, String url) {
+        return com.fongmi.android.tv.content.ContentDispatcher.dispatchUrl(activity, url, "");
     }
 
     public static void start(Activity activity, String key, String id, String name) {
@@ -173,6 +178,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     public static void start(Activity activity, String key, String id, String name, String pic, String mark, boolean collect, boolean cast) {
         long launch = System.currentTimeMillis();
         SpiderDebug.log("video-flow", "launch request key=%s id=%s name=%s collect=%s cast=%s", key, id, name, collect, cast);
+        if (dispatchToContentHandler(activity, key, id, name, pic, mark, cast)) {
+            SpiderDebug.log("video-flow", "dispatched to content handler key=%s", key);
+            return;
+        }
         Intent intent = new Intent(activity, VideoActivity.class);
         intent.putExtra("launchTime", launch);
         intent.putExtra("collect", collect);
@@ -184,6 +193,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         intent.putExtra("id", id);
         activity.startActivity(intent);
         SpiderDebug.log("video-flow", "launch dispatched cost=%dms key=%s id=%s", System.currentTimeMillis() - launch, key, id);
+    }
+
+    private static boolean dispatchToContentHandler(Activity activity, String key, String id, String name, String pic, String mark, boolean cast) {
+        return !cast && com.fongmi.android.tv.content.ContentDispatcher.dispatchSite(activity, key, id, name, pic, mark);
     }
 
     private boolean isCast() {
@@ -587,11 +600,18 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (result.hasDesc()) mBinding.content.setTag(result.getDesc());
         if (result.hasPosition()) mHistory.setPosition(result.getPosition());
         mBinding.control.parse.setVisibility(isUseParse() ? View.VISIBLE : View.GONE);
+        if (redirectToContentHandler(result)) return;
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
         if (DanmakuApi.canSearch()) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), danmaku -> {
             if (DanmakuSetting.isSpiderFirst() && !result.getDanmaku().isEmpty()) player().addDanmaku(danmaku);
             else player().setDanmaku(danmaku);
         });
+    }
+
+    private boolean redirectToContentHandler(Result result) {
+        boolean handled = com.fongmi.android.tv.content.ContentDispatcher.dispatchResult(this, getHistoryKey(), getKey(), getFlag().getFlag(), mHistory.getVodName(), mHistory.getVodPic(), mEpisodeAdapter.getItems(), mEpisodeAdapter.getPosition(), result, getSite().getTimeout());
+        if (handled) finish();
+        return handled;
     }
 
     private void recordDetailHealth(Result result, long cost) {

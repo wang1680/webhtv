@@ -406,6 +406,7 @@
 
     <!-- Player -->
     <string name="player">播放核心</string>
+    <string name="player_default">預設播放核心</string>
     <string name="player_render">渲染方式</string>
     <string name="player_scale">縮放比例</string>
     <string name="player_libass">字幕渲染</string>
@@ -414,6 +415,8 @@
     <string name="player_audio_decode">音訊軟解</string>
     <string name="player_video_decode">視訊軟解</string>
     <string name="player_aac_track">AAC優先</string>
+    <string name="player_music_notification">音樂背景通知</string>
+    <string name="player_audio_book_notification">有聲書背景通知</string>
     <string name="player_adblock">智慧去廣</string>
     <string name="player_tunnel">隧道模式</string>
     <string name="player_buffer">緩衝時間</string>

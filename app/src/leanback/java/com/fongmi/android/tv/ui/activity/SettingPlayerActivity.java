@@ -28,6 +28,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
     private ActivitySettingPlayerBinding mBinding;
     private DecimalFormat format;
     private String[] caption;
+    private String[] player;
     private String[] render;
     private String[] scale;
 
@@ -48,7 +49,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
     protected void initView(Bundle savedInstanceState) {
         setVisible();
         format = new DecimalFormat("0.#");
-        mBinding.render.requestFocus();
+        mBinding.player.requestFocus();
         mBinding.uaText.setText(Setting.getUa());
         mBinding.aacText.setText(getSwitch(PlayerSetting.isPreferAAC()));
         mBinding.tunnelText.setText(getSwitch(PlayerSetting.isTunnel()));
@@ -58,6 +59,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         mBinding.backgroundText.setText(getSwitch(PlayerSetting.isBackgroundOn()));
         mBinding.audioDecodeText.setText(getSwitch(PlayerSetting.isAudioPrefer()));
         mBinding.videoDecodeText.setText(getSwitch(PlayerSetting.isVideoPrefer()));
+        mBinding.playerText.setText((player = ResUtil.getStringArray(R.array.select_player))[PlayerSetting.getPlayer()]);
         mBinding.scaleText.setText((scale = ResUtil.getStringArray(R.array.select_scale))[PlayerSetting.getScale()]);
         mBinding.renderText.setText((render = ResUtil.getStringArray(R.array.select_render))[PlayerSetting.getRender()]);
         mBinding.captionText.setText((caption = ResUtil.getStringArray(R.array.select_caption))[PlayerSetting.isCaption() ? 1 : 0]);
@@ -66,6 +68,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
     @Override
     protected void initEvent() {
         mBinding.ua.setOnClickListener(this::onUa);
+        mBinding.player.setOnClickListener(this::setPlayer);
         mBinding.aac.setOnClickListener(this::setAAC);
         mBinding.scale.setOnClickListener(this::setScale);
         mBinding.speed.setOnClickListener(this::onSpeed);
@@ -98,6 +101,12 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
     private void setAAC(View view) {
         PlayerSetting.putPreferAAC(!PlayerSetting.isPreferAAC());
         mBinding.aacText.setText(getSwitch(PlayerSetting.isPreferAAC()));
+    }
+
+    private void setPlayer(View view) {
+        int index = (PlayerSetting.getPlayer() + 1) % player.length;
+        mBinding.playerText.setText(player[index]);
+        PlayerSetting.putPlayer(index);
     }
 
     private void setScale(View view) {

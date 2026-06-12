@@ -407,6 +407,7 @@
 
     <!-- Player -->
     <string name="player">Player</string>
+    <string name="player_default">Default player</string>
     <string name="player_render">Render</string>
     <string name="player_scale">Scale</string>
     <string name="player_libass">libass</string>
@@ -415,6 +416,8 @@
     <string name="player_audio_decode">Audio software decode</string>
     <string name="player_video_decode">Video software decode</string>
     <string name="player_aac_track">Prefer aac track</string>
+    <string name="player_music_notification">Music background notification</string>
+    <string name="player_audio_book_notification">Audiobook background notification</string>
     <string name="player_adblock">Remove ads</string>
     <string name="player_tunnel">Tunnel mode</string>
     <string name="player_buffer">Buffer time</string>
@@ -503,6 +506,11 @@
     <string name="none">None</string>
     <string name="times">times</string>
     <string name="lines">lines</string>
+
+    <string-array name="select_player">
+        <item>EXO</item>
+        <item>IJK</item>
+    </string-array>
 
     <string-array name="select_decode">
         <item>Soft</item>
