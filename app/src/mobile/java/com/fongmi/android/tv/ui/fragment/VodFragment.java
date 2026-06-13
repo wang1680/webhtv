@@ -48,7 +48,10 @@ import com.fongmi.android.tv.ui.dialog.SiteDialog;
 import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
+import com.fongmi.android.tv.web.WebHomeChrome;
 import com.fongmi.android.tv.web.HomeWebController;
+import com.fongmi.android.tv.web.WebHomeViewport;
+import com.google.gson.JsonObject;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -65,7 +68,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     private HomeWebController mWeb;
     private TypeAdapter mAdapter;
     private Result mResult;
-    private boolean mWebFullscreen;
+    private String mChromeMode = WebHomeChrome.NORMAL;
     private int mHomeWebTopMargin;
 
     public static VodFragment newInstance() {
@@ -138,6 +141,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     private void setWebView() {
         mWeb = new HomeWebController(requireActivity(), mBinding.homeWeb, this);
+        syncWebHomeChrome();
     }
 
     private void setViewModel() {
@@ -155,7 +159,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void setFabVisible(int position) {
-        if (mWebFullscreen) {
+        if (isNativeChromeHidden()) {
             mBinding.top.setVisibility(View.GONE);
             mBinding.link.setVisibility(View.GONE);
             mBinding.filter.setVisibility(View.GONE);
@@ -270,7 +274,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void homeContent() {
-        setWebFullscreen(false);
+        requestNormalChrome();
         showProgress();
         mBinding.homeWeb.setVisibility(View.GONE);
         clearPagerTypes();
@@ -319,7 +323,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         switch (event.getType()) {
             case HOME:
                 if (mWeb != null && mWeb.isVisible()) {
-                    setWebFullscreen(false);
+                    requestNormalChrome();
                     setTitle();
                     if (!mWeb.load(getHome(), true)) {
                         showNativeContent();
@@ -396,8 +400,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     @Override
     public boolean canBack() {
         if (mWeb != null && mWeb.handleBack()) return false;
-        if (mWebFullscreen) {
-            setWebFullscreen(false);
+        if (isNativeChromeHidden()) {
+            requestNormalChrome();
             return false;
         }
         if (mBinding.pager.getAdapter() == null || mBinding.pager.getAdapter().getCount() == 0) return true;
@@ -408,7 +412,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     @Override
     public void onDestroyView() {
-        setWebFullscreen(false);
+        requestNormalChrome();
         if (mWeb != null) mWeb.destroy();
         EventBus.getDefault().unregister(this);
         super.onDestroyView();
@@ -438,14 +442,46 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     @Override
     public void onWebError() {
-        setWebFullscreen(false);
+        requestNormalChrome();
         showNativeContent();
         homeContent();
     }
 
     @Override
     public void setToolbar(boolean visible) {
-        setWebFullscreen(!visible);
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.setWebHomeLegacyToolbar(visible);
+        else applyWebHomeChrome(visible ? WebHomeChrome.NORMAL : WebHomeChrome.IMMERSIVE);
+    }
+
+    @Override
+    public void applyDefaultChrome(Site site) {
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.applyWebHomeDefaultChrome(site);
+    }
+
+    @Override
+    public void setChrome(JsonObject payload) {
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.setWebHomeChrome(payload);
+    }
+
+    @Override
+    public void restoreChrome() {
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.restoreWebHomeChrome();
+    }
+
+    @Override
+    public WebHomeViewport getViewport() {
+        HomeActivity activity = homeActivity();
+        return activity == null ? WebHomeViewport.EMPTY : activity.getWebHomeViewport();
+    }
+
+    @Override
+    public void openVod() {
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.openVod();
     }
 
     @Override
@@ -455,9 +491,9 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
 
     private void hideNativeContent() {
         mBinding.appBar.setExpanded(true, false);
-        mBinding.appBar.setVisibility(mWebFullscreen ? View.GONE : View.VISIBLE);
-        setHomeWebTopMargin(mWebFullscreen ? 0 : mHomeWebTopMargin);
-        setNavigationVisible(!mWebFullscreen);
+        boolean hidden = isNativeChromeHidden();
+        mBinding.appBar.setVisibility(hidden ? View.GONE : View.VISIBLE);
+        setHomeWebTopMargin(hidden ? 0 : mHomeWebTopMargin);
         mBinding.type.setVisibility(View.GONE);
         mBinding.pager.setVisibility(View.GONE);
         mBinding.filter.setVisibility(View.GONE);
@@ -466,25 +502,33 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void showNativeContent() {
-        setWebFullscreen(false);
+        requestNormalChrome();
         mBinding.type.setVisibility(View.VISIBLE);
         mBinding.pager.setVisibility(View.VISIBLE);
         mBinding.homeWeb.setVisibility(View.GONE);
     }
 
-    private void setWebFullscreen(boolean fullscreen) {
-        mWebFullscreen = fullscreen;
+    public void applyWebHomeChrome(String mode) {
+        mChromeMode = WebHomeChrome.normalize(mode, WebHomeChrome.NORMAL);
+        boolean hidden = isNativeChromeHidden();
         mBinding.appBar.setExpanded(true, false);
-        mBinding.appBar.setVisibility(fullscreen ? View.GONE : View.VISIBLE);
-        setHomeWebTopMargin(fullscreen ? 0 : mHomeWebTopMargin);
-        setNavigationVisible(!fullscreen);
-        if (fullscreen) {
+        mBinding.appBar.setVisibility(hidden ? View.GONE : View.VISIBLE);
+        setHomeWebTopMargin(hidden ? 0 : mHomeWebTopMargin);
+        if (hidden) {
             mBinding.type.setVisibility(View.GONE);
             mBinding.pager.setVisibility(View.GONE);
             mBinding.filter.setVisibility(View.GONE);
             mBinding.link.setVisibility(View.GONE);
             mBinding.top.setVisibility(View.GONE);
         }
+    }
+
+    public void applyWebHomeViewport(WebHomeViewport viewport) {
+        if (mWeb != null) mWeb.setViewport(viewport);
+    }
+
+    public void openVodHome() {
+        homeContent();
     }
 
     private void setHomeWebTopMargin(int margin) {
@@ -494,8 +538,25 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         mBinding.homeWeb.setLayoutParams(params);
     }
 
-    private void setNavigationVisible(boolean visible) {
-        if (getActivity() instanceof HomeActivity) ((HomeActivity) getActivity()).setNavigationVisible(visible);
+    private void requestNormalChrome() {
+        HomeActivity activity = homeActivity();
+        if (activity != null) activity.setWebHomeLegacyToolbar(true);
+        else applyWebHomeChrome(WebHomeChrome.NORMAL);
+    }
+
+    private boolean isNativeChromeHidden() {
+        return WebHomeChrome.hidesNativeChrome(mChromeMode);
+    }
+
+    private void syncWebHomeChrome() {
+        HomeActivity activity = homeActivity();
+        if (activity == null) return;
+        applyWebHomeChrome(activity.getWebHomeChromeMode());
+        applyWebHomeViewport(activity.getWebHomeViewport());
+    }
+
+    private HomeActivity homeActivity() {
+        return getActivity() instanceof HomeActivity ? (HomeActivity) getActivity() : null;
     }
 
 

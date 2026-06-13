@@ -118,6 +118,7 @@ public class HomeWebBridge {
                 case "player.control" -> control(payload);
                 case "player.status" -> WebCall.request(statusPayload());
                 case "app.search" -> search(payload);
+                case "app.openVod" -> openVod();
                 case "app.openLive" -> openLive();
                 case "app.openKeep" -> openKeep();
                 case "app.openSetting" -> openSetting();
@@ -134,6 +135,9 @@ public class HomeWebBridge {
                 case "ext.log" -> extLog(payload);
                 case "ext.toast" -> extToast(payload);
                 case "ui.setToolbar" -> setToolbar(payload);
+                case "ui.setChrome" -> setChrome(payload);
+                case "ui.restoreChrome" -> restoreChrome();
+                case "ui.getViewport" -> controller.getViewportJson();
                 case "navigation.back" -> back();
                 case "navigation.reload" -> reload();
                 default -> throw new IllegalArgumentException("Unknown method: " + method);
@@ -312,6 +316,11 @@ public class HomeWebBridge {
         return "{}";
     }
 
+    private String openVod() {
+        App.post(controller::openVod);
+        return "{}";
+    }
+
     private String openKeep() {
         App.post(() -> KeepActivity.start(activity));
         return "{}";
@@ -378,6 +387,8 @@ public class HomeWebBridge {
         object.addProperty("key", site.getKey());
         object.addProperty("name", site.getName());
         object.addProperty("homePage", site.getHomePage());
+        object.addProperty("chromeMode", site.getChromeMode());
+        object.add("webHomeChrome", site.getWebHomeChrome());
         object.addProperty("type", site.getType());
         object.add("header", App.gson().toJsonTree(site.getHeader()));
         return object.toString();
@@ -420,6 +431,16 @@ public class HomeWebBridge {
     private String setToolbar(JsonObject payload) {
         boolean visible = !payload.has("visible") || payload.get("visible").getAsBoolean();
         App.post(() -> controller.setToolbar(visible));
+        return "{}";
+    }
+
+    private String setChrome(JsonObject payload) {
+        App.post(() -> controller.setChrome(payload));
+        return "{}";
+    }
+
+    private String restoreChrome() {
+        App.post(controller::restoreChrome);
         return "{}";
     }
 

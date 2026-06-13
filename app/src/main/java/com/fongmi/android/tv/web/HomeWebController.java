@@ -39,6 +39,7 @@ import com.fongmi.android.tv.utils.WebViewUtil;
 import com.fongmi.android.tv.web.ext.WebHomeExtension;
 import com.fongmi.android.tv.web.ext.WebHomeExtensionRegistry;
 import com.google.common.net.HttpHeaders;
+import com.google.gson.JsonObject;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -67,6 +68,8 @@ public class HomeWebController {
     private String documentStartKey;
     private String defaultUserAgent;
     private String homePage;
+    private WebHomeViewport viewport = WebHomeViewport.EMPTY;
+    private String lastViewportKey;
     private long pauseAt;
     private long lastKeyAt;
     private long lastExtensionReloadAt;
@@ -119,6 +122,7 @@ public class HomeWebController {
 
     public boolean load(Site site, boolean force) {
         if (!site.hasHomePage()) return false;
+        listener.applyDefaultChrome(site);
         Server.get().start();
         String url = getHomePage(site);
         boolean reload = force || !url.equals(homePage);
@@ -127,6 +131,7 @@ public class HomeWebController {
         registerDocumentStartScripts();
         if (reload) {
             sdkReady = false;
+            lastViewportKey = "";
             injectedExtensions.clear();
             homePage = url;
             loadUrl(force ? reloadUrl(homePage) : homePage);
@@ -300,6 +305,27 @@ public class HomeWebController {
 
     public void setToolbar(boolean visible) {
         listener.setToolbar(visible);
+    }
+
+    public void setChrome(JsonObject payload) {
+        listener.setChrome(payload);
+    }
+
+    public void restoreChrome() {
+        listener.restoreChrome();
+    }
+
+    public String getViewportJson() {
+        return viewport.json(density, webView.getWidth(), webView.getHeight());
+    }
+
+    public void setViewport(WebHomeViewport viewport) {
+        this.viewport = viewport == null ? WebHomeViewport.EMPTY : viewport;
+        injectViewport();
+    }
+
+    public void openVod() {
+        listener.openVod();
     }
 
     public void openSetting() {
@@ -481,6 +507,7 @@ public class HomeWebController {
                 SpiderDebug.log("webhome-webview", "page started url=%s", url);
                 listener.onWebRequest("PAGE", url, true);
                 sdkReady = false;
+                lastViewportKey = "";
                 injectedExtensions.clear();
                 markDocumentStartInjected();
                 listener.onWebLoading();
@@ -635,14 +662,10 @@ public class HomeWebController {
 
     private void injectViewport() {
         if (webView.getWidth() <= 0 || webView.getHeight() <= 0) return;
-        float width = webView.getWidth() / density;
-        float height = webView.getHeight() / density;
-        String script = "(function(){if(!document||!document.documentElement)return;"
-                + "document.documentElement.style.setProperty('--fm-web-width','" + width + "px');"
-                + "document.documentElement.style.setProperty('--fm-web-height','" + height + "px');"
-                + "document.documentElement.style.setProperty('--fm-safe-bottom','0px');"
-                + "window.dispatchEvent(new CustomEvent('fmviewport',{detail:{width:" + width + ",height:" + height + ",safeBottom:0}}));"
-                + "})();";
+        String key = viewport.key(density, webView.getWidth(), webView.getHeight());
+        if (key.equals(lastViewportKey)) return;
+        lastViewportKey = key;
+        String script = viewport.script(density, webView.getWidth(), webView.getHeight());
         webView.post(() -> webView.evaluateJavascript(script, null));
     }
 
@@ -730,11 +753,15 @@ public class HomeWebController {
                     toast:(message)=>invoke('ext.toast',{message})
                   };
                   const ui={
-                    setToolbar:(visible)=>invoke('ui.setToolbar',{visible:visible!==false})
+                    setToolbar:(visible)=>invoke('ui.setToolbar',{visible:visible!==false}),
+                    setChrome:(options)=>invoke('ui.setChrome',options||{}),
+                    restoreChrome:()=>invoke('ui.restoreChrome',{}),
+                    getViewport:()=>invoke('ui.getViewport',{})
                   };
                   window.fongmi={invoke,player,net,cache,
                     app:{
                       search:(keyword,options)=>invoke('app.search',Object.assign({},options||{},{keyword})),
+                      openVod:()=>invoke('app.openVod',{}),
                       openLive:()=>invoke('app.openLive',{}),
                       openKeep:()=>invoke('app.openKeep',{}),
                       openSetting:()=>invoke('app.openSetting',{}),
@@ -760,6 +787,7 @@ public class HomeWebController {
                     ctrl:player.control,
                     stat:player.status,
                     search:window.fongmi.app.search,
+                    openVod:window.fongmi.app.openVod,
                     openLive:window.fongmi.app.openLive,
                     openKeep:window.fongmi.app.openKeep,
                     openSetting:window.fongmi.app.openSetting,
@@ -870,6 +898,22 @@ public class HomeWebController {
         void onWebError();
 
         default void setToolbar(boolean visible) {
+        }
+
+        default void applyDefaultChrome(Site site) {
+        }
+
+        default void setChrome(JsonObject payload) {
+        }
+
+        default void restoreChrome() {
+        }
+
+        default WebHomeViewport getViewport() {
+            return WebHomeViewport.EMPTY;
+        }
+
+        default void openVod() {
         }
 
         default void openSetting() {

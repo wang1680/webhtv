@@ -71,9 +71,12 @@ import com.fongmi.android.tv.utils.PermissionUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.UrlUtil;
 import com.fongmi.android.tv.web.HomeWebController;
+import com.fongmi.android.tv.web.WebHomeViewport;
 import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.net.OkHttp;
+import com.github.catvod.utils.Json;
 import com.google.common.collect.Lists;
+import com.google.gson.JsonObject;
 
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
@@ -223,6 +226,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private void setWebView() {
         SpiderDebug.log("startup", "webview create start cost=%sms", System.currentTimeMillis() - App.time());
         mWeb = new HomeWebController(this, getHomeWeb(), this);
+        mWeb.setViewport(tvViewport("tv-normal"));
         SpiderDebug.log("startup", "webview create end cost=%sms", System.currentTimeMillis() - App.time());
     }
 
@@ -739,11 +743,53 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     public void setToolbar(boolean visible) {
         webToolbarVisible = visible;
         updateToolbarVisibility(visible);
+        if (mWeb != null) mWeb.setViewport(tvViewport(visible ? "tv-normal" : "tv-toolbar-hidden"));
+    }
+
+    @Override
+    public void applyDefaultChrome(Site site) {
+        String mode = tvMode(site == null ? "" : site.getChromeMode());
+        setToolbar(!"tv-toolbar-hidden".equals(mode));
+        if (mWeb != null) mWeb.setViewport(tvViewport(mode));
+    }
+
+    @Override
+    public void setChrome(JsonObject payload) {
+        String mode = tvMode(Json.safeString(payload, "mode"));
+        setToolbar(!"tv-toolbar-hidden".equals(mode));
+        if (mWeb != null) mWeb.setViewport(tvViewport(mode));
+    }
+
+    @Override
+    public void restoreChrome() {
+        setToolbar(true);
+    }
+
+    @Override
+    public WebHomeViewport getViewport() {
+        return tvViewport(webToolbarVisible ? "tv-normal" : "tv-toolbar-hidden");
+    }
+
+    @Override
+    public void openVod() {
+        setToolbar(true);
+        if (mWeb != null) mWeb.hide();
+        getVideo(true);
     }
 
     @Override
     public void openSetting() {
         SettingActivity.start(this);
+    }
+
+    private String tvMode(String mode) {
+        if ("tv-toolbar-hidden".equals(mode)) return mode;
+        if ("tv-overlay".equals(mode) || "tv-full".equals(mode)) return "tv-toolbar-hidden";
+        return "tv-normal";
+    }
+
+    private WebHomeViewport tvViewport(String mode) {
+        return WebHomeViewport.fixed(ResUtil.dp2px(28), ResUtil.dp2px(48), ResUtil.dp2px(28), ResUtil.dp2px(48), mode);
     }
 
 }

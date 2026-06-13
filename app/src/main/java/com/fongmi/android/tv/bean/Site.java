@@ -21,6 +21,7 @@ import com.github.catvod.crawler.Spider;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Trans;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 
@@ -67,6 +68,14 @@ public class Site implements Parcelable {
     @Ignore
     @SerializedName(value = "homePage", alternate = {"home_page", "webHome", "web_home"})
     private String homePage;
+
+    @Ignore
+    @SerializedName("chromeMode")
+    private String chromeMode;
+
+    @Ignore
+    @SerializedName("webHomeChrome")
+    private JsonElement webHomeChrome;
 
     @Ignore
     @SerializedName("extensions")
@@ -126,6 +135,9 @@ public class Site implements Parcelable {
         this.click = in.readString();
         this.playUrl = in.readString();
         this.homePage = in.readString();
+        this.chromeMode = in.readString();
+        String chrome = in.readString();
+        this.webHomeChrome = TextUtils.isEmpty(chrome) ? null : App.gson().fromJson(chrome, JsonElement.class);
         this.type = (Integer) in.readValue(Integer.class.getClassLoader());
         this.indexs = (Integer) in.readValue(Integer.class.getClassLoader());
         this.timeout = (Integer) in.readValue(Integer.class.getClassLoader());
@@ -222,6 +234,35 @@ public class Site implements Parcelable {
 
     public void setHomePage(String homePage) {
         this.homePage = homePage;
+    }
+
+    public String getChromeMode() {
+        if (!TextUtils.isEmpty(chromeMode)) return chromeMode.trim();
+        try {
+            JsonObject object = getWebHomeChrome();
+            return object.has("mode") ? object.getAsJsonPrimitive("mode").getAsString().trim() : "";
+        } catch (Throwable e) {
+            return "";
+        }
+    }
+
+    public void setChromeMode(String chromeMode) {
+        this.chromeMode = chromeMode;
+    }
+
+    public JsonObject getWebHomeChrome() {
+        JsonObject object = new JsonObject();
+        try {
+            if (webHomeChrome != null && webHomeChrome.isJsonObject()) object = webHomeChrome.getAsJsonObject().deepCopy();
+            else if (webHomeChrome != null && webHomeChrome.isJsonPrimitive()) object.addProperty("mode", webHomeChrome.getAsString());
+        } catch (Throwable ignored) {
+        }
+        if (!TextUtils.isEmpty(chromeMode) && !object.has("mode")) object.addProperty("mode", chromeMode.trim());
+        return object;
+    }
+
+    public void setWebHomeChrome(JsonElement webHomeChrome) {
+        this.webHomeChrome = webHomeChrome;
     }
 
     public JsonElement getExtensions() {
@@ -415,6 +456,8 @@ public class Site implements Parcelable {
         dest.writeString(this.click);
         dest.writeString(this.playUrl);
         dest.writeString(this.homePage);
+        dest.writeString(this.chromeMode);
+        dest.writeString(this.webHomeChrome == null ? "" : this.webHomeChrome.toString());
         dest.writeValue(this.type);
         dest.writeValue(this.indexs);
         dest.writeValue(this.timeout);

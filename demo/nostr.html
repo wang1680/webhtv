@@ -238,7 +238,14 @@
       --shadow: 0 16px 42px rgba(0, 0, 0, .24);
       --radius: 8px;
       --fm-web-height: 100vh;
+      --fm-safe-top: 0px;
+      --fm-safe-right: 0px;
       --fm-safe-bottom: 20px;
+      --fm-safe-left: 0px;
+      --safe-top: max(var(--fm-safe-top, 0px), env(safe-area-inset-top, 0px));
+      --safe-right: max(var(--fm-safe-right, 0px), env(safe-area-inset-right, 0px));
+      --safe-bottom: max(var(--fm-safe-bottom, 0px), env(safe-area-inset-bottom, 0px));
+      --safe-left: max(var(--fm-safe-left, 0px), env(safe-area-inset-left, 0px));
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
     }
 
@@ -311,7 +318,7 @@
       min-width: 0;
       min-height: var(--fm-web-height);
       overflow-x: hidden;
-      padding: max(12px, env(safe-area-inset-top)) 14px calc(18px + var(--fm-safe-bottom) + env(safe-area-inset-bottom));
+      padding: max(12px, var(--safe-top)) 14px calc(18px + var(--safe-bottom));
       background: transparent;
     }
 
@@ -334,7 +341,7 @@
     .mobile-detail-back {
       display: none;
       position: fixed;
-      top: max(12px, env(safe-area-inset-top));
+      top: max(12px, var(--safe-top));
       left: 12px;
       z-index: 90;
       width: 42px;
@@ -1200,7 +1207,7 @@
       backdrop-filter: none;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: max(16px, env(safe-area-inset-top)) var(--sheet-x) calc(22px + var(--fm-safe-bottom) + env(safe-area-inset-bottom));
+      padding: max(16px, var(--safe-top)) var(--sheet-x) calc(22px + var(--safe-bottom));
     }
 
     .sheet.active { display: block; }
@@ -1548,7 +1555,7 @@
       --detail-side-pad: clamp(42px, 5.4vw, 80px);
       --detail-top-pad: clamp(46px, 7.2vh, 82px);
       background: #06111b;
-      padding: var(--detail-top-pad) var(--detail-side-pad) calc(34px + var(--fm-safe-bottom) + env(safe-area-inset-bottom));
+      padding: var(--detail-top-pad) var(--detail-side-pad) calc(34px + var(--safe-bottom));
       overflow-y: auto;
       overflow-x: hidden;
     }
@@ -2159,7 +2166,7 @@
       --mobile-detail-x: 20px;
       --mobile-hero-min: min(72vh, 680px);
       background: #081016;
-      padding: 0 var(--mobile-detail-x) calc(32px + var(--fm-safe-bottom) + env(safe-area-inset-bottom));
+      padding: 0 var(--mobile-detail-x) calc(32px + var(--safe-bottom));
       overflow-y: auto;
       overflow-x: hidden;
       overscroll-behavior: contain;
@@ -2207,7 +2214,7 @@
 
     html.native-mobile-app #detailSheet:not(.detail-large) .mobile-detail-back {
       position: fixed;
-      top: max(14px, env(safe-area-inset-top));
+      top: max(14px, var(--safe-top));
       left: 16px;
       width: 54px;
       height: 54px;
@@ -2651,7 +2658,7 @@
       --mobile-detail-x: 14px;
       --sheet-x: 14px;
       background: transparent;
-      padding: max(16px, env(safe-area-inset-top)) var(--mobile-detail-x) calc(22px + var(--fm-safe-bottom) + env(safe-area-inset-bottom));
+      padding: max(16px, var(--safe-top)) var(--mobile-detail-x) calc(22px + var(--safe-bottom));
       backdrop-filter: none;
     }
 
@@ -2666,7 +2673,7 @@
     }
 
     html.native-mobile-app.mobile-detail-translucent #detailSheet:not(.detail-large) .mobile-detail-back {
-      top: max(12px, env(safe-area-inset-top));
+      top: max(12px, var(--safe-top));
       left: 12px;
       width: 42px;
       height: 42px;
@@ -2991,7 +2998,7 @@
       grid-template-rows: minmax(0, 1fr);
       gap: 0;
       background: #081016;
-      padding: 0 0 calc(28px + var(--fm-safe-bottom) + env(safe-area-inset-bottom));
+      padding: 0 0 calc(28px + var(--safe-bottom));
       overflow: hidden;
     }
 
@@ -3005,7 +3012,7 @@
 
     html.native-mobile-app .image-viewer.episode-mode .mobile-detail-back {
       position: fixed;
-      top: max(14px, env(safe-area-inset-top));
+      top: max(14px, var(--safe-top));
       left: 16px;
       width: 54px;
       height: 54px;
@@ -3036,7 +3043,7 @@
       width: 100%;
       min-height: var(--fm-web-height);
       display: block;
-      padding: 0 22px calc(34px + var(--fm-safe-bottom) + env(safe-area-inset-bottom));
+      padding: 0 22px calc(34px + var(--safe-bottom));
       border: 0;
       border-radius: 0;
       background: #081016;
@@ -3084,7 +3091,7 @@
     }
 
     html.native-mobile-app .image-viewer.episode-mode .episode-view.no-still {
-      padding-top: max(96px, env(safe-area-inset-top));
+      padding-top: max(96px, var(--safe-top));
       background:
         linear-gradient(180deg, rgba(12, 20, 28, .96), #081016 42%),
         var(--detail-hero-bg, none);
@@ -3150,7 +3157,7 @@
     .toast {
       position: fixed;
       left: 50%;
-      bottom: max(18px, calc(var(--fm-safe-bottom) + env(safe-area-inset-bottom)));
+      bottom: max(18px, var(--safe-bottom));
       z-index: 90;
       transform: translateX(-50%) translateY(24px);
       max-width: calc(100vw - 28px);
@@ -3173,8 +3180,8 @@
 
     .back-top {
       position: fixed;
-      right: max(14px, env(safe-area-inset-right));
-      bottom: max(76px, calc(58px + var(--fm-safe-bottom) + env(safe-area-inset-bottom)));
+      right: max(14px, var(--safe-right));
+      bottom: max(76px, calc(58px + var(--safe-bottom)));
       z-index: 55;
       width: 44px;
       height: 44px;
@@ -3587,7 +3594,7 @@
       min-height: var(--fm-web-height);
       background: var(--panel-strong);
       backdrop-filter: blur(8px) saturate(1.05);
-      padding: max(14px, env(safe-area-inset-top)) 14px calc(18px + var(--fm-safe-bottom) + env(safe-area-inset-bottom));
+      padding: max(14px, var(--safe-top)) 14px calc(18px + var(--safe-bottom));
     }
 
     .image-viewer.episode-mode {
@@ -3617,7 +3624,7 @@
       justify-self: center;
       width: 100%;
       height: 100%;
-      max-height: calc(var(--fm-web-height) - 86px - var(--fm-safe-bottom));
+      max-height: calc(var(--fm-web-height) - 86px - var(--safe-bottom));
       object-fit: contain;
       background: transparent;
     }
@@ -4647,7 +4654,12 @@
         vod: async (siteKey, vodId, title) => toast("原生播放：" + (title || vodId || siteKey || "")),
         pan: { check, play },
         check,
-        ui: { setToolbar: async () => {} },
+        ui: {
+          setToolbar: async () => {},
+          setChrome: async () => {},
+          restoreChrome: async () => {},
+          getViewport: async () => ({ width: innerWidth, height: innerHeight, safeTop: 0, safeRight: 0, safeBottom: 0, safeLeft: 0, chromeMode: "normal", systemBarsHidden: false })
+        },
         cache: {
           get: async (key) => localStorage.getItem("fm_" + key) || "",
           set: async (key, value) => localStorage.setItem("fm_" + key, value),
@@ -4692,6 +4704,15 @@
       if (!force && !isTvMode() && !isNativeMobileClient()) return;
       try {
         const ui = sdk().ui || {};
+        if (isNativeMobileClient() && ui.setChrome) {
+          ui.setChrome({
+            mode: visible ? "edge" : "immersive",
+            statusBarStyle: "light",
+            navigationBarStyle: "light",
+            restoreAffordance: visible ? "auto" : "native"
+          });
+          return;
+        }
         if (ui.setToolbar) ui.setToolbar(visible);
       } catch (e) {}
     }

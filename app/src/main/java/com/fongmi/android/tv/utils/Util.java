@@ -17,6 +17,7 @@ import android.view.inputmethod.InputMethodManager;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.core.view.ViewCompat;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.BuildConfig;
@@ -45,7 +46,6 @@ public class Util {
     public static void hideSystemUI(Window window) {
         WindowInsetsControllerCompat insets = WindowCompat.getInsetsController(window, window.getDecorView());
         insets.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-        window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         insets.hide(WindowInsetsCompat.Type.systemBars());
     }
 
@@ -172,6 +172,8 @@ public class Util {
 
     public static boolean isFullscreen(Activity activity) {
         if (activity == null || activity.getWindow() == null) return false;
+        WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(activity.getWindow().getDecorView());
+        if (insets != null) return isLeanback() || !insets.isVisible(WindowInsetsCompat.Type.systemBars());
         return isLeanback() || (activity.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_FULLSCREEN) != 0;
     }
 
