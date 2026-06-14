@@ -30,13 +30,17 @@ import com.google.common.net.HttpHeaders;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import jahirfiquitiva.libs.textdrawable.TextDrawable;
 
 public class ImgUtil {
 
+    private static final long PRELOAD_WAIT_MS = 800;
     private static final Set<String> failed = Collections.synchronizedSet(new HashSet<>());
 
     public static void logo(ImageView view) {
@@ -69,6 +73,54 @@ public class ImgUtil {
             Glide.with(context).load(getUrl(url)).override(ResUtil.getScreenWidth(), ResUtil.getScreenHeight()).preload();
         } catch (Throwable e) {
             e.printStackTrace();
+        }
+    }
+
+    public static void preload(Context context, String first, String second, Runnable callback) {
+        App.post(() -> preloadNow(context, first, second, callback));
+    }
+
+    private static void preloadNow(Context context, String first, String second, Runnable callback) {
+        Set<String> urls = new LinkedHashSet<>();
+        if (!TextUtils.isEmpty(first)) urls.add(first);
+        if (!TextUtils.isEmpty(second)) urls.add(second);
+        if (urls.isEmpty()) {
+            callback.run();
+            return;
+        }
+        AtomicBoolean finished = new AtomicBoolean(false);
+        AtomicInteger pending = new AtomicInteger(urls.size());
+        Runnable finish = () -> {
+            if (!finished.compareAndSet(false, true)) return;
+            callback.run();
+        };
+        App.post(finish, PRELOAD_WAIT_MS);
+        for (String url : urls) preload(context, url, () -> {
+            if (pending.decrementAndGet() == 0) {
+                App.removeCallbacks(finish);
+                finish.run();
+            }
+        });
+    }
+
+    private static void preload(Context context, String url, Runnable callback) {
+        try {
+            Glide.with(context).load(getUrl(url)).override(ResUtil.getScreenWidth(), ResUtil.getScreenHeight()).listener(new RequestListener<>() {
+                @Override
+                public boolean onLoadFailed(@Nullable GlideException e, Object model, @NonNull Target<Drawable> target, boolean isFirstResource) {
+                    callback.run();
+                    return false;
+                }
+
+                @Override
+                public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                    callback.run();
+                    return false;
+                }
+            }).preload();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            callback.run();
         }
     }
 

@@ -19,6 +19,7 @@ import com.fongmi.android.tv.ui.activity.KeepActivity;
 import com.fongmi.android.tv.ui.activity.LiveActivity;
 import com.fongmi.android.tv.ui.activity.SearchActivity;
 import com.fongmi.android.tv.ui.activity.VideoActivity;
+import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.Task;
 import com.fongmi.android.tv.web.ext.WebHomeExtensionRegistry;
@@ -159,7 +160,7 @@ public class HomeWebBridge {
         final String playPic = pic;
         final String playWall = wall;
         SpiderDebug.log("webhome", "player.playUrl title=%s url=%s", playTitle, playUrl);
-        App.post(() -> VideoActivity.start(activity, SiteApi.PUSH, playUrl, playTitle, playPic, null, playWall));
+        startVideoPreloaded(SiteApi.PUSH, playUrl, playTitle, playPic, null, playWall);
         return "{}";
     }
 
@@ -169,7 +170,7 @@ public class HomeWebBridge {
         String title = Json.safeString(payload, "title");
         String pic = Json.safeString(payload, "pic");
         String wall = wallPic(payload);
-        App.post(() -> VideoActivity.start(activity, siteKey, vodId, title, pic, null, wall));
+        startVideoPreloaded(siteKey, vodId, title, pic, null, wall);
         return "{}";
     }
 
@@ -187,11 +188,15 @@ public class HomeWebBridge {
         final String playMark = mark;
         final String playWall = wall;
         SpiderDebug.log("webhome", "player.playVodInline title=%s id=%s mark=%s", playTitle, vodId, playMark);
-        App.post(() -> VideoActivity.start(activity, WebHomeInlineVodStore.KEY, vodId, playTitle, playPic, playMark, playWall));
+        startVideoPreloaded(WebHomeInlineVodStore.KEY, vodId, playTitle, playPic, playMark, playWall);
         JsonObject result = new JsonObject();
         result.addProperty("siteKey", WebHomeInlineVodStore.KEY);
         result.addProperty("vodId", vodId);
         return result.toString();
+    }
+
+    private void startVideoPreloaded(String key, String id, String title, String pic, String mark, String wall) {
+        ImgUtil.preload(activity, pic, wall, () -> VideoActivity.start(activity, key, id, title, pic, mark, wall));
     }
 
     private String wallPic(JsonObject payload) {
