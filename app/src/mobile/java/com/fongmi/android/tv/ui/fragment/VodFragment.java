@@ -18,6 +18,7 @@ import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.api.CspWarmup;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Class;
 import com.fongmi.android.tv.bean.Config;
@@ -312,6 +313,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
             clearPagerTypes();
             hideProgress();
             hideNativeContent();
+            CspWarmup.schedule("mobile-webhome");
         } else {
             showNativeContent();
             homeContent();

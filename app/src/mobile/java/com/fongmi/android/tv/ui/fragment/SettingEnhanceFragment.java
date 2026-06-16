@@ -76,6 +76,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.siteHealthSort.setOnLongClickListener(this::clearSiteHealth);
         mBinding.webHomeExtension.setOnClickListener(view -> WebHomeExtensionDialog.show(this, this::setText));
         mBinding.webHomeExtension.setOnLongClickListener(this::clearWebHomeExtension);
+        mBinding.cspWarmup.setOnClickListener(this::setCspWarmup);
         mBinding.playbackArtworkWall.setOnClickListener(this::setPlaybackArtworkWall);
         mBinding.playbackWebhook.setOnClickListener(view -> ViewingRecordSyncDialog.show(this, this::setText));
         mBinding.managePage.setOnClickListener(view -> ManagePageDialog.show(this));
@@ -96,6 +97,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.siteHealthSortText.setText(getSwitch(Setting.isSiteHealthSort()));
         WebHomeExtensionRegistry.Snapshot webHomeExtension = WebHomeExtensionRegistry.get().snapshot();
         mBinding.webHomeExtensionText.setText(getSwitch(Setting.isWebHomeExtension()) + " · " + webHomeExtension.readyCount + "/" + webHomeExtension.installedCount);
+        mBinding.cspWarmupText.setText(getSwitch(Setting.isCspWarmup()));
         mBinding.playbackArtworkWallText.setText(getSwitch(Setting.isPlaybackArtworkWall()));
         mBinding.playbackWebhookText.setText(ViewingRecordSyncStore.summary(requireContext()));
         mBinding.managePageText.setText(R.string.manage_page_web);
@@ -124,6 +126,11 @@ public class SettingEnhanceFragment extends BaseFragment {
     private void setPlaybackArtworkWall(View view) {
         Setting.putPlaybackArtworkWall(!Setting.isPlaybackArtworkWall());
         mBinding.playbackArtworkWallText.setText(getSwitch(Setting.isPlaybackArtworkWall()));
+    }
+
+    private void setCspWarmup(View view) {
+        Setting.putCspWarmup(!Setting.isCspWarmup());
+        mBinding.cspWarmupText.setText(getSwitch(Setting.isCspWarmup()));
     }
 
     private boolean clearSiteHealth(View view) {

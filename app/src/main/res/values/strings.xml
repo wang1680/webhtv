@@ -134,6 +134,7 @@
     <string name="setting_site_health_dialog_sort">Sort site dialog</string>
     <string name="site_health_clear_done">Site health data cleared</string>
     <string name="setting_web_home_extension">WebHome extensions</string>
+    <string name="setting_csp_warmup">CSP init warmup</string>
     <string name="setting_playback_artwork_wall">Playback stills</string>
     <string name="setting_viewing_record_sync">Viewing record sync</string>
     <string name="viewing_record_sync_entry_summary">%1$s · Remote %2$d/%3$d · Webhook %4$d/%5$d</string>

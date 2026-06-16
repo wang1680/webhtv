@@ -180,6 +180,14 @@ public class Setting {
         Prefers.put("playback_artwork_wall", artworkWall);
     }
 
+    public static boolean isCspWarmup() {
+        return Prefers.getBoolean("csp_warmup");
+    }
+
+    public static void putCspWarmup(boolean warmup) {
+        Prefers.put("csp_warmup", warmup);
+    }
+
     public static boolean isDebugLog() {
         return DebugLogStore.isEnabled();
     }
