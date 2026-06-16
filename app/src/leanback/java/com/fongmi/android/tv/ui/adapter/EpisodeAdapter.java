@@ -129,6 +129,10 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
         return 2;
     }
 
+    public static String getTitle(Episode item) {
+        return item.getDesc().concat(item.getDisplayName());
+    }
+
     private int getWidth() {
         return Math.min((maxWidth - spacing * (column - 1)) / column, ResUtil.dp2px(120));
     }

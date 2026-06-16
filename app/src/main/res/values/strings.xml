@@ -18,6 +18,7 @@
     <string name="detail_actor">Actor: <xliff:g name="name">%s</xliff:g></string>
     <string name="detail_content">Summary: <xliff:g name="name">%s</xliff:g></string>
     <string name="detail_desc">Summary</string>
+    <string name="detail_episode">Episode</string>
 
     <!-- Keep -->
     <string name="keep">Keep</string>

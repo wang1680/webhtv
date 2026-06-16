@@ -75,6 +75,7 @@ import com.fongmi.android.tv.ui.custom.CustomMovement;
 import com.fongmi.android.tv.ui.custom.CustomSeekView;
 import com.fongmi.android.tv.ui.dialog.ContentDialog;
 import com.fongmi.android.tv.ui.dialog.DanmakuDialog;
+import com.fongmi.android.tv.ui.dialog.EpisodeDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
 import com.fongmi.android.tv.ui.dialog.TitleDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
@@ -393,6 +394,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.control.action.text.setDownListener(this::onSubtitleClick);
         mBinding.control.action.next.setOnClickListener(view -> checkNext());
         mBinding.control.action.prev.setOnClickListener(view -> checkPrev());
+        mBinding.control.action.episodes.setOnClickListener(view -> onEpisodes());
         mBinding.control.action.scale.setOnClickListener(view -> onScale());
         mBinding.control.action.speed.setOnClickListener(view -> onSpeed());
         mBinding.control.action.reset.setOnClickListener(view -> onReset());
@@ -697,6 +699,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void setEpisodeAdapter(List<Episode> items, boolean scrollToCurrent) {
         mBinding.episode.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
+        mBinding.control.action.episodes.setVisibility(items.size() < 2 ? View.GONE : View.VISIBLE);
 
         // 先添加数据，让适配器检测是否有TMDB数据
         mEpisodeAdapter.addAll(items);
@@ -1133,6 +1136,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void onToggle() {
         if (isVisible(mBinding.control.getRoot())) hideControl();
         else showControl(getFocus2());
+    }
+
+    private void onEpisodes() {
+        EpisodeDialog.create().episodes(mEpisodeAdapter.getItems()).reverseAction(this::onRevSort).show(this);
     }
 
     private void showProgress() {
@@ -1987,7 +1994,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (isFullscreen() && KeyUtil.isMenuKey(event)) onToggle();
+        if (isFullscreen() && KeyUtil.isMenuKey(event)) {
+            if (Setting.getFullscreenMenuKey() == 1) onEpisodes();
+            else onToggle();
+        }
         if (isVisible(mBinding.control.getRoot())) setR1Callback();
         if (isVisible(mBinding.control.getRoot())) mFocus2 = getCurrentFocus();
         if (onEpisodeKey(event)) return true;

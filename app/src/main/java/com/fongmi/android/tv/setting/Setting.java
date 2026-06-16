@@ -381,7 +381,7 @@ public class Setting {
     }
 
     public static int getFullscreenMenuKey() {
-        return Prefers.getInt("fullscreen_menu_key", 0) == 1 ? 1 : 0;
+        return Prefers.getInt("fullscreen_menu_key", 0);
     }
 
     public static void putFullscreenMenuKey(int menuKey) {
