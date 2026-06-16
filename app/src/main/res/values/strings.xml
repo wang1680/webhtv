@@ -128,6 +128,8 @@
     <string name="repo_cnb">CNB repository</string>
     <string name="setting_debug_log">Debug log</string>
     <string name="setting_manage_page">Management page</string>
+    <string name="setting_git_cloud">Git cloud drive</string>
+    <string name="git_cloud_account_count">Accounts %1$d</string>
     <string name="setting_login_state">Login state learning</string>
     <string name="setting_site_health_sort">Site health ranking</string>
     <string name="setting_site_health_enable">Enable site health ranking</string>

@@ -11,6 +11,7 @@ import androidx.annotation.Nullable;
 import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.gitcloud.GitCloudAccountStore;
 import com.fongmi.android.tv.playback.ViewingRecordSyncStore;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.databinding.FragmentSettingEnhanceBinding;
@@ -20,6 +21,7 @@ import com.fongmi.android.tv.setting.SiteHealthStore;
 import com.fongmi.android.tv.ui.base.BaseFragment;
 import com.fongmi.android.tv.ui.dialog.CustomCspDialog;
 import com.fongmi.android.tv.ui.dialog.DebugLogDialog;
+import com.fongmi.android.tv.ui.dialog.GitCloudDialog;
 import com.fongmi.android.tv.ui.dialog.LoginStateLearnDialog;
 import com.fongmi.android.tv.ui.dialog.ManagePageDialog;
 import com.fongmi.android.tv.ui.dialog.OneKeySyncDialog;
@@ -79,6 +81,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.playbackArtworkWall.setOnClickListener(this::setPlaybackArtworkWall);
         mBinding.playbackWebhook.setOnClickListener(view -> ViewingRecordSyncDialog.show(this, this::setText));
         mBinding.managePage.setOnClickListener(view -> ManagePageDialog.show(this));
+        mBinding.gitCloud.setOnClickListener(view -> GitCloudDialog.show(this, this::setText));
         mBinding.shellProxy.setOnClickListener(view -> ShellProxyDialog.show(this, this::setText));
         mBinding.shellProxy.setOnLongClickListener(v -> false);
         mBinding.shellProxyConfig.setVisibility(View.GONE);
@@ -99,6 +102,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.playbackArtworkWallText.setText(getSwitch(Setting.isPlaybackArtworkWall()));
         mBinding.playbackWebhookText.setText(ViewingRecordSyncStore.summary(requireContext()));
         mBinding.managePageText.setText(R.string.manage_page_web);
+        mBinding.gitCloudText.setText(getString(R.string.git_cloud_account_count, GitCloudAccountStore.list().size()));
         mBinding.shellProxyText.setText(getSwitch(Setting.isShellProxy()) + " · " + getString(R.string.setting_proxy_rule_count, ProxySetting.count()));
         mBinding.shellProxyConfigText.setText(getString(R.string.setting_proxy_rule_count, ProxySetting.count()));
         CustomCspSetting.Registry registry = CustomCspSetting.load();

@@ -127,6 +127,8 @@
     <string name="repo_cnb">CNB 倉庫</string>
     <string name="setting_debug_log">調試日誌</string>
     <string name="setting_manage_page">管理頁面</string>
+    <string name="setting_git_cloud">Git 雲盤</string>
+    <string name="git_cloud_account_count">帳號 %1$d</string>
     <string name="setting_login_state">登入狀態學習</string>
     <string name="setting_site_health_sort">站點健康排序</string>
     <string name="setting_site_health_enable">啟用站點健康排序</string>

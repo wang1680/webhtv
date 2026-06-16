@@ -319,32 +319,8 @@ public class WebHomeRawAdapter {
         }
 
         static RawUrl parse(String url) {
-            if (TextUtils.isEmpty(url)) return null;
-            try {
-                Uri source = Uri.parse(url);
-                String scheme = source.getScheme();
-                if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) return null;
-                String host = source.getHost();
-                if (TextUtils.isEmpty(host)) return null;
-                Uri uri = clean(source);
-                String lowerHost = host.toLowerCase(Locale.ROOT);
-                String path = path(uri);
-                RawUrl result = githubRaw(uri, lowerHost, path);
-                if (result != null) return result;
-                result = github(uri, lowerHost, path);
-                if (result != null) return result;
-                result = gist(uri, lowerHost, path);
-                if (result != null) return result;
-                result = cnb(uri, lowerHost, path);
-                if (result != null) return result;
-                result = dashRaw(uri, lowerHost, path);
-                if (result != null) return result;
-                result = knownSimple(uri, lowerHost, path);
-                if (result != null) return result;
-                return giteaLike(uri, lowerHost, path);
-            } catch (Throwable e) {
-                return null;
-            }
+            GitRawUrlResolver.RawUrl result = GitRawUrlResolver.resolve(url);
+            return result == null ? null : new RawUrl(result.original, result.upstream, result.scope, result.path);
         }
 
         boolean sameScope(RawUrl target) {

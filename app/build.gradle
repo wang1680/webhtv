@@ -134,6 +134,7 @@ dependencies {
     implementation libs.customactivityoncrash
     implementation libs.eventbus
     implementation libs.flexbox
+    implementation libs.jgit
     implementation libs.lottie
     implementation libs.material
     implementation libs.materialdesigncolors
