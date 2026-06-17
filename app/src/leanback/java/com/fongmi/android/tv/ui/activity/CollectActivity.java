@@ -123,10 +123,19 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
     protected void initEvent() {
         mBinding.searchColumn.setOnClickListener(v -> toggleSearchColumn());
         mBinding.searchColumn.setOnKeyListener((v, keyCode, event) -> {
-            if (event.getAction() == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
-                // 从切换按钮按下键，返回到搜索结果的第一个项
+            if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+
+            if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                // 按下键：返回到搜索结果的第一个项
                 if (mBinding.recycler.getChildCount() > 0) {
                     mBinding.recycler.getChildAt(0).requestFocus();
+                    return true;
+                }
+            } else if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+                // 按左键：返回到收藏列表的第一项
+                if (mBinding.collect.getChildCount() > 0) {
+                    mBinding.collect.setSelectedPosition(0);
+                    mBinding.collect.requestFocus();
                     return true;
                 }
             }
@@ -351,6 +360,17 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
     @Override
     public void onItemClick(int position, Collect item) {
         scheduleCollect(position, 0);
+    }
+
+    @Override
+    public boolean onCollectKey(int position, int keyCode, KeyEvent event) {
+        if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+        // 在第一项按上键，跳转到切换按钮
+        if (position == 0 && keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+            mBinding.searchColumn.requestFocus();
+            return true;
+        }
+        return false;
     }
 
     private void scheduleCollect(int position, long delayMillis) {
