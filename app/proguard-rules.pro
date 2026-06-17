@@ -25,6 +25,10 @@
 -keep class okio.** { *; }
 -keep class okhttp3.** { *; }
 
+# JGit
+-dontwarn java.lang.ProcessHandle
+-dontwarn java.lang.management.ManagementFactory
+
 # CatVod
 -keep class com.github.catvod.Proxy { *; }
 -keep class com.github.catvod.crawler.** { *; }
