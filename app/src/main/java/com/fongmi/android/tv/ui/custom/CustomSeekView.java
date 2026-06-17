@@ -2,7 +2,9 @@ package com.fongmi.android.tv.ui.custom;
 
 import android.content.Context;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -22,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 public class CustomSeekView extends FrameLayout implements Player.Listener, TimeBar.OnScrubListener {
 
+    private static final String TAG = "CustomSeekView";
     private static final int MAX_UPDATE_INTERVAL_MS = 1000;
     private static final int MIN_UPDATE_INTERVAL_MS = 200;
 
@@ -54,6 +57,10 @@ public class CustomSeekView extends FrameLayout implements Player.Listener, Time
         timeBar = findViewById(R.id.timeBar);
         runnable = this::updateProgress;
         timeBar.addListener(this);
+        // Make this view focusable and delegate to timeBar
+        setFocusable(true);
+        setFocusableInTouchMode(false);
+        setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
         resetView();
     }
 
@@ -149,7 +156,29 @@ public class CustomSeekView extends FrameLayout implements Player.Listener, Time
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         attached = true;
+        // Sync focus navigation from parent to timeBar
+        int nextFocusUpId = getNextFocusUpId();
+        int nextFocusDownId = getNextFocusDownId();
+        Log.d(TAG, "onAttachedToWindow - nextFocusUpId: " + nextFocusUpId + ", nextFocusDownId: " + nextFocusDownId);
+        if (nextFocusUpId != NO_ID) {
+            timeBar.setNextFocusUpId(nextFocusUpId);
+            Log.d(TAG, "Set timeBar nextFocusUpId to: " + nextFocusUpId);
+        }
+        if (nextFocusDownId != NO_ID) {
+            timeBar.setNextFocusDownId(nextFocusDownId);
+            Log.d(TAG, "Set timeBar nextFocusDownId to: " + nextFocusDownId);
+        }
         updateTimeline();
+    }
+
+    @Override
+    public boolean requestFocus(int direction, android.graphics.Rect previouslyFocusedRect) {
+        Log.d(TAG, "requestFocus called with direction: " + direction);
+        // Delegate focus to timeBar
+        if (timeBar != null && timeBar.getVisibility() == VISIBLE) {
+            return timeBar.requestFocus(direction, previouslyFocusedRect);
+        }
+        return super.requestFocus(direction, previouslyFocusedRect);
     }
 
     @Override
