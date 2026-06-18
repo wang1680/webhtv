@@ -1181,7 +1181,6 @@ public final class RemoteTrustDialog {
         params.width = (int) (ResUtil.getScreenWidth(context) * (land ? 0.76f : 0.94f));
         params.height = WindowManager.LayoutParams.WRAP_CONTENT;
         params.gravity = Gravity.CENTER;
-        window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         window.setAttributes(params);
         window.setLayout(params.width, WindowManager.LayoutParams.WRAP_CONTENT);
     }
