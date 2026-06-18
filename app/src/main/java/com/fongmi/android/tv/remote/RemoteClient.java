@@ -21,6 +21,7 @@ import com.github.catvod.net.OkHttp;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
@@ -34,6 +35,7 @@ public final class RemoteClient {
 
     private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(12);
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+    private static final MediaType ZIP = MediaType.parse("application/zip");
 
     private final RemoteProfile profile;
 
@@ -53,7 +55,7 @@ public final class RemoteClient {
         body.addProperty("role", "app");
         body.addProperty("type", device.getType());
         body.addProperty("appVersion", BuildConfig.VERSION_NAME);
-        body.add("capabilities", App.gson().toJsonTree(new RemoteModels.RemoteCapabilities()));
+        body.add("capabilities", App.gson().toJsonTree(appCapabilities()));
         JsonArray groups = new JsonArray();
         if (profile.groups != null) {
             for (RemoteGroup group : profile.groups) {
@@ -111,6 +113,15 @@ public final class RemoteClient {
         return App.gson().fromJson(requestJson("GET", "/api/commands/" + commandId, null, group.groupToken), CommandDetailResponse.class);
     }
 
+    public JsonObject createSync(RemoteGroup group, String sourceDeviceId, String targetDeviceId, JsonObject options) throws IOException {
+        if (group == null || TextUtils.isEmpty(group.groupToken)) throw new IOException("Missing group token");
+        JsonObject body = new JsonObject();
+        body.addProperty("sourceDeviceId", sourceDeviceId);
+        body.addProperty("targetDeviceId", targetDeviceId);
+        body.add("options", options == null ? new JsonObject() : options);
+        return requestJson("POST", "/api/sync/create", body, group.groupToken);
+    }
+
     public PollResponse poll() throws IOException {
         ensureDeviceIdentity(profile);
         JsonObject body = baseDeviceBody();
@@ -139,12 +150,88 @@ public final class RemoteClient {
         requestJson("POST", "/api/commands/" + commandId + "/result", body);
     }
 
+    public JsonObject uploadSyncText(String url, String part, String text) throws IOException {
+        return uploadSync(url, part, RequestBody.create(text == null ? "" : text, JSON));
+    }
+
+    public JsonObject uploadSyncFile(String url, String part, File file) throws IOException {
+        if (file == null || !file.isFile()) return new JsonObject();
+        return uploadSync(url, part, RequestBody.create(ZIP, file));
+    }
+
+    public File downloadSyncFile(String url, String prefix, String suffix) throws IOException {
+        ensureDeviceIdentity(profile);
+        File file = File.createTempFile(prefix, suffix, com.github.catvod.utils.Path.cache());
+        Request request = authedRequest(url).get().build();
+        try (Response response = OkHttp.client(TIMEOUT).newCall(request).execute()) {
+            ResponseBody body = response.body();
+            if (!response.isSuccessful()) throw new IOException("HTTP " + response.code() + (body == null ? "" : ": " + body.string()));
+            if (body == null) throw new IOException("Empty sync part");
+            try (java.io.InputStream input = body.byteStream(); java.io.FileOutputStream output = new java.io.FileOutputStream(file)) {
+                byte[] buffer = new byte[128 * 1024];
+                int read;
+                while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
+            }
+        }
+        return file;
+    }
+
+    public String downloadSyncText(String url) throws IOException {
+        ensureDeviceIdentity(profile);
+        Request request = authedRequest(url).get().build();
+        try (Response response = OkHttp.client(TIMEOUT).newCall(request).execute()) {
+            ResponseBody body = response.body();
+            String text = body == null ? "" : body.string();
+            if (!response.isSuccessful()) throw new IOException("HTTP " + response.code() + (TextUtils.isEmpty(text) ? "" : ": " + text));
+            return text;
+        }
+    }
+
+    public JsonObject completeSync(String url, boolean ok, String message, JsonObject data) throws IOException {
+        JsonObject body = baseDeviceBody();
+        body.addProperty("ok", ok);
+        body.addProperty("message", message == null ? "" : message);
+        if (data != null) body.add("data", data);
+        return requestAbsoluteJson(url, body);
+    }
+
     private JsonObject baseDeviceBody() {
         JsonObject body = new JsonObject();
         body.addProperty("deviceId", profile.deviceId);
         body.addProperty("deviceToken", profile.deviceToken);
         body.addProperty("deviceSecret", profile.deviceToken);
         return body;
+    }
+
+    private JsonObject uploadSync(String url, String part, RequestBody body) throws IOException {
+        Request request = authedRequest(url.endsWith("/" + part) ? url : url + "/" + part).post(body).build();
+        try (Response response = OkHttp.client(TIMEOUT).newCall(request).execute()) {
+            ResponseBody responseBody = response.body();
+            String text = responseBody == null ? "" : responseBody.string();
+            if (!response.isSuccessful()) throw new IOException("HTTP " + response.code() + (TextUtils.isEmpty(text) ? "" : ": " + text));
+            if (TextUtils.isEmpty(text)) return new JsonObject();
+            JsonObject object = App.gson().fromJson(text, JsonObject.class);
+            return object == null ? new JsonObject() : object;
+        }
+    }
+
+    private JsonObject requestAbsoluteJson(String url, JsonObject payload) throws IOException {
+        Request request = authedRequest(url).post(RequestBody.create(payload == null ? "{}" : App.gson().toJson(payload), JSON)).build();
+        try (Response response = OkHttp.client(TIMEOUT).newCall(request).execute()) {
+            ResponseBody body = response.body();
+            String text = body == null ? "" : body.string();
+            if (!response.isSuccessful()) throw new IOException("HTTP " + response.code() + (TextUtils.isEmpty(text) ? "" : ": " + text));
+            if (TextUtils.isEmpty(text)) return new JsonObject();
+            JsonObject object = App.gson().fromJson(text, JsonObject.class);
+            return object == null ? new JsonObject() : object;
+        }
+    }
+
+    private Request.Builder authedRequest(String url) {
+        Request.Builder builder = new Request.Builder().url(url);
+        if (!TextUtils.isEmpty(profile.deviceId)) builder.header("x-device-id", profile.deviceId);
+        if (!TextUtils.isEmpty(profile.deviceToken)) builder.header("x-device-token", profile.deviceToken);
+        return builder;
     }
 
     private JsonObject requestJson(String method, String path, JsonObject payload) throws IOException {
@@ -171,5 +258,14 @@ public final class RemoteClient {
     private static void ensureDeviceIdentity(RemoteProfile profile) {
         if (TextUtils.isEmpty(profile.deviceToken)) profile.deviceToken = RemoteTokens.randomCapability("dtk");
         profile.deviceId = RemoteTokens.deviceId(profile.serverOrigin, profile.deviceToken);
+    }
+
+    private static RemoteModels.RemoteCapabilities appCapabilities() {
+        RemoteModels.RemoteCapabilities capabilities = new RemoteModels.RemoteCapabilities();
+        capabilities.configManage = true;
+        capabilities.remoteSync = true;
+        capabilities.pushAction = true;
+        capabilities.recentLog = true;
+        return capabilities;
     }
 }

@@ -10,6 +10,7 @@ import com.fongmi.android.tv.remote.RemoteModels.RemoteCommand;
 import com.fongmi.android.tv.remote.RemoteModels.RemoteCommandResult;
 import com.fongmi.android.tv.remote.RemoteModels.RemoteGroup;
 import com.fongmi.android.tv.remote.RemoteModels.RemoteProfile;
+import com.fongmi.android.tv.utils.Task;
 import com.github.catvod.crawler.DebugLogStore;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -26,6 +27,12 @@ public final class RemoteCommandExecutor {
             if ("remote.profile.addGroup".equals(command.type)) return addGroup(profile, command);
             if (!validateGroup(profile, command)) return RemoteCommandResult.failure("Command group is not trusted by this device");
             if ("device.status".equals(command.type)) return status(profile);
+            if ("config.list".equals(command.type)) return RemoteConfigOps.list();
+            if ("config.upsert".equals(command.type)) return RemoteConfigOps.upsert(command.payload);
+            if ("config.use".equals(command.type)) return RemoteConfigOps.use(command.payload);
+            if ("config.delete".equals(command.type)) return RemoteConfigOps.delete(command.payload);
+            if ("remoteSync.export".equals(command.type)) return startSyncExport(profile, command);
+            if ("remoteSync.restore".equals(command.type)) return startSyncRestore(profile, command);
             if ("action.search".equals(command.type)) return search(command.payload);
             if ("action.push".equals(command.type)) return push(command.payload);
             if ("log.recent".equals(command.type) || "device.log.recent".equals(command.type)) return recentLog(command.payload);
@@ -70,6 +77,16 @@ public final class RemoteCommandExecutor {
         data.addProperty("debugLog", DebugLogStore.isEnabled());
         data.addProperty("debugLogLines", DebugLogStore.size());
         return RemoteCommandResult.success("", data);
+    }
+
+    private static RemoteCommandResult startSyncExport(RemoteProfile profile, RemoteCommand command) {
+        Task.execute(() -> RemoteSyncTransfer.export(profile, command));
+        return RemoteCommandResult.accepted("Sync export started");
+    }
+
+    private static RemoteCommandResult startSyncRestore(RemoteProfile profile, RemoteCommand command) {
+        Task.execute(() -> RemoteSyncTransfer.restore(profile, command));
+        return RemoteCommandResult.accepted("Sync restore started");
     }
 
     private static RemoteCommandResult search(JsonObject payload) {
