@@ -4,6 +4,22 @@ Go 版远程托管中转服务，兼容现有 HTTP API，并额外提供 WebSock
 
 ## 运行
 
+已编译好的 Linux 二进制在：
+
+```text
+dist/webhtv-remote-go-linux-amd64
+dist/webhtv-remote-go-linux-arm64
+```
+
+直接运行：
+
+```bash
+chmod +x dist/webhtv-remote-go-linux-amd64
+WEBHTV_REMOTE_ADDR=:8787 ./dist/webhtv-remote-go-linux-amd64
+```
+
+也可以从源码运行：
+
 ```bash
 cd serverless/webhtv-remote-go
 go mod tidy
@@ -31,5 +47,8 @@ WEBHTV_REMOTE_ADDR=:8787 go run .
 proxy_set_header Upgrade $http_upgrade;
 proxy_set_header Connection "upgrade";
 proxy_set_header Host $host;
+proxy_set_header X-Forwarded-Host $host;
 proxy_set_header X-Forwarded-Proto $scheme;
 ```
+
+`serverOrigin` 会参与设备和设备组 ID 派生，反向代理时必须保证外部访问的 scheme/host 被正确传给服务端。

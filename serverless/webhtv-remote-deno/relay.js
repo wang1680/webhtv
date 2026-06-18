@@ -1,4 +1,4 @@
-const SERVER_MODE = 'simple';
+const SERVER_MODE = 'deno';
 const BIND_TTL_MS = 10 * 60 * 1000;
 const COMMAND_TTL_MS = 60 * 60 * 1000;
 const SYNC_TTL_MS = 2 * 60 * 60 * 1000;

@@ -24,7 +24,7 @@ serverless/webhtv-remote-vercel/api/index.js
 GET /api/server/capabilities
 ```
 
-返回 `relayMode=origin-token-memory` 即表示是零配置在线中转版。
+返回 `serverMode=vercel`、`relayMode=origin-token-memory` 即表示是 Vercel 零配置在线中转版。
 
 ## 限制
 

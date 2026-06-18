@@ -25,7 +25,7 @@ serverless/webhtv-remote-deno/main.js
 GET /api/server/capabilities
 ```
 
-返回 `relayMode=origin-token-memory` 即表示是零配置在线中转版。
+返回 `serverMode=deno`、`relayMode=origin-token-memory` 即表示是 Deno 零配置在线中转版。
 
 ## 限制
 
