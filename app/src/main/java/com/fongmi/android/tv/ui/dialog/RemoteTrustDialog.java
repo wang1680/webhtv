@@ -1129,23 +1129,24 @@ public final class RemoteTrustDialog {
         state.typeRow.addView(state.wall, weight());
         root.addView(state.typeRow, matchWrap());
 
-        LinearLayoutCompat header = row(activity);
+        state.header = row(activity);
         state.summary = text(activity, activity.getString(R.string.remote_trust_config_manage_hint), 13, "#5F6368", false);
-        header.addView(state.summary, weight());
+        state.header.addView(state.summary, weight());
         state.add = primary(activity, activity.getString(R.string.remote_trust_config_add));
-        header.addView(state.add, fixed(activity, 64, 34));
+        state.header.addView(state.add, fixed(activity, 64, 34));
         state.refresh = iconButton(activity, R.drawable.ic_setting_refresh, activity.getString(R.string.remote_trust_refresh_devices));
-        header.addView(state.refresh, fixed(activity, 38, 34));
+        state.header.addView(state.refresh, fixed(activity, 38, 34));
+        root.addView(state.header, topMargin(matchWrap(), 8));
+
+        state.formActionsRow = row(activity);
         state.addSave = primary(activity, activity.getString(R.string.remote_trust_config_upsert_short));
-        header.addView(state.addSave, fixed(activity, 56, 34));
+        state.formActionsRow.addView(state.addSave, weight());
         state.addBack = outline(activity, activity.getString(R.string.remote_trust_back_devices));
-        header.addView(state.addBack, fixed(activity, 56, 34));
+        state.formActionsRow.addView(state.addBack, leftWeight(activity, 6));
         state.addCancel = outline(activity, activity.getString(R.string.dialog_cancel));
-        header.addView(state.addCancel, fixed(activity, 56, 34));
-        state.addSave.setVisibility(View.GONE);
-        state.addBack.setVisibility(View.GONE);
-        state.addCancel.setVisibility(View.GONE);
-        root.addView(header, topMargin(matchWrap(), 8));
+        state.formActionsRow.addView(state.addCancel, leftWeight(activity, 6));
+        state.formActionsRow.setVisibility(View.GONE);
+        root.addView(state.formActionsRow, topMargin(matchWrap(), 8));
 
         state.actionsRow = row(activity);
         state.home = tonal(activity, activity.getString(R.string.remote_trust_config_home_short));
@@ -1214,7 +1215,8 @@ public final class RemoteTrustDialog {
         if (window == null) return;
         WindowManager.LayoutParams params = window.getAttributes();
         boolean land = ResUtil.isLand(context);
-        params.width = (int) (ResUtil.getScreenWidth(context) * (land ? 0.82f : 0.97f));
+        int screen = ResUtil.getScreenWidth(context);
+        params.width = land ? (int) (screen * 0.84f) : Math.min(screen - dp(context, 8), (int) (screen * 0.985f));
         params.height = WindowManager.LayoutParams.WRAP_CONTENT;
         params.gravity = Gravity.CENTER;
         window.setAttributes(params);
@@ -1267,6 +1269,7 @@ public final class RemoteTrustDialog {
     private static void renderRemoteConfigList(FragmentActivity activity, Binding binding, ConfigDialogState state) {
         state.adding = false;
         state.editing = false;
+        state.homePicking = false;
         state.content.removeAllViews();
         state.vod.setChecked(state.type == 0);
         state.live.setChecked(state.type == 1);
@@ -1329,13 +1332,15 @@ public final class RemoteTrustDialog {
         String title = configTitle(item);
         String urlValue = safe(item, "url");
         MaterialTextView name = text(activity, title, 13, "#202124", active);
-        name.setTextIsSelectable(true);
+        name.setSingleLine(false);
+        name.setHorizontallyScrolling(false);
         name.setMaxLines(TextUtils.equals(title, urlValue) ? 3 : 1);
         name.setEllipsize(TextUtils.TruncateAt.END);
         textBox.addView(name, matchWrap());
         if (!TextUtils.equals(title, urlValue) && !TextUtils.isEmpty(urlValue)) {
             MaterialTextView url = text(activity, urlValue, 12, "#5F6368", false);
-            url.setTextIsSelectable(true);
+            url.setSingleLine(false);
+            url.setHorizontallyScrolling(false);
             url.setMaxLines(2);
             url.setEllipsize(TextUtils.TruncateAt.END);
             url.setPadding(0, dp(activity, 3), 0, 0);
@@ -1345,7 +1350,7 @@ public final class RemoteTrustDialog {
         MaterialButton use = configUseButton(activity, active, useStatus);
         use.setEnabled(!active && useStatus != HOME_STATUS_SETTING && !configBusy(state));
         use.setOnClickListener(v -> useRemoteConfig(activity, binding, state, item));
-        top.addView(use, fixed(activity, 76, 32));
+        top.addView(use, fixed(activity, useStatus == HOME_STATUS_SETTING ? 74 : 58, 32));
         card.addView(top, matchWrap());
         addConfigUseLine(activity, card, state, item);
         addConfigHomeLine(activity, card, state, item, active);
@@ -1424,16 +1429,16 @@ public final class RemoteTrustDialog {
     private static void updateConfigChrome(FragmentActivity activity, ConfigDialogState state) {
         boolean adding = state.adding;
         boolean editing = state.editing;
+        boolean homePicking = state.homePicking;
         boolean form = adding || editing;
         boolean busy = configBusy(state);
-        state.summary.setText(editing ? editConfigSummary(activity, state) : adding ? addConfigSummary(activity, state) : configListSummary(activity, state));
-        state.typeRow.setVisibility(editing ? View.GONE : View.VISIBLE);
-        state.add.setVisibility(form ? View.GONE : View.VISIBLE);
-        state.refresh.setVisibility(form ? View.GONE : View.VISIBLE);
-        state.actionsRow.setVisibility(form ? View.GONE : View.VISIBLE);
-        state.addSave.setVisibility(form ? View.VISIBLE : View.GONE);
-        state.addBack.setVisibility(form ? View.VISIBLE : View.GONE);
-        state.addCancel.setVisibility(form ? View.VISIBLE : View.GONE);
+        state.summary.setText(homePicking ? activity.getString(R.string.remote_trust_config_home) : editing ? editConfigSummary(activity, state) : adding ? addConfigSummary(activity, state) : configListSummary(activity, state));
+        state.typeRow.setVisibility(editing || homePicking ? View.GONE : View.VISIBLE);
+        state.header.setVisibility(homePicking ? View.GONE : View.VISIBLE);
+        state.add.setVisibility(form || homePicking ? View.GONE : View.VISIBLE);
+        state.refresh.setVisibility(form || homePicking ? View.GONE : View.VISIBLE);
+        state.actionsRow.setVisibility(form || homePicking ? View.GONE : View.VISIBLE);
+        state.formActionsRow.setVisibility(form ? View.VISIBLE : View.GONE);
         state.addSave.setEnabled(!busy);
         state.addBack.setEnabled(!busy);
         state.addCancel.setEnabled(!busy);
@@ -1711,7 +1716,9 @@ public final class RemoteTrustDialog {
 
     private static void showRemoteHomeDialog(FragmentActivity activity, Binding binding, ConfigDialogState state, JsonObject payload) {
         if (payload == null) return;
+        state.homePicking = true;
         state.settingHomeKey = "";
+        updateConfigActions(activity, state);
         JsonArray cached = binding.siteCache.get(siteCacheKey(binding, payload));
         if (cached != null) {
             showHomeSitePicker(activity, binding, state, payload, cached);
@@ -1741,6 +1748,8 @@ public final class RemoteTrustDialog {
     }
 
     private static void showHomeSitePicker(FragmentActivity activity, Binding binding, ConfigDialogState state, JsonObject payload, JsonArray sites) {
+        state.homePicking = true;
+        updateConfigActions(activity, state);
         state.content.removeAllViews();
         LinearLayoutCompat header = row(activity);
         MaterialTextView title = sectionTitle(activity, R.string.remote_trust_config_home);
@@ -3159,7 +3168,9 @@ public final class RemoteTrustDialog {
         private AlertDialog dialog;
         private NestedScrollView contentScroll;
         private LinearLayoutCompat content;
+        private LinearLayoutCompat header;
         private LinearLayoutCompat actionsRow;
+        private LinearLayoutCompat formActionsRow;
         private MaterialButtonToggleGroup typeRow;
         private MaterialTextView summary;
         private MaterialButton vod;
@@ -3185,6 +3196,7 @@ public final class RemoteTrustDialog {
         private int useStatus = HOME_STATUS_NONE;
         private int type;
         private boolean adding;
+        private boolean homePicking;
         private boolean addLocalMode = true;
         private JsonObject addSelected;
         private TextInputEditText addUrl;
