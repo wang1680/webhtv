@@ -1895,7 +1895,9 @@ public final class RemoteTrustDialog {
                 if (sites.size() == 0) return;
                 binding.siteCache.put(key, sites);
                 applyHomeNameFromSites(state.items, payload, sites);
-                if (state.dialog != null && state.dialog.isShowing() && state.type == 0) renderRemoteConfigList(activity, binding, state);
+                if (state.dialog != null && state.dialog.isShowing() && state.type == 0 && !state.homePicking && !state.adding && !state.editing) {
+                    renderRemoteConfigList(activity, binding, state);
+                }
             });
         }
     }
