@@ -246,6 +246,8 @@
     <string name="remote_trust_config_remote_empty">远端设备暂无接口</string>
     <string name="remote_trust_config_manage_hint">远端已有接口</string>
     <string name="remote_trust_config_summary">%1$s · %2$d 个接口</string>
+    <string name="remote_trust_config_add_local_summary">本机%1$s接口</string>
+    <string name="remote_trust_config_add_manual_summary">手动%1$s接口</string>
     <string name="remote_trust_config_save">继续</string>
     <string name="remote_trust_config_save_remote">保存到远端</string>
     <string name="remote_trust_config_upsert">保存接口</string>

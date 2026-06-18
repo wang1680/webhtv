@@ -247,6 +247,8 @@
     <string name="remote_trust_config_remote_empty">No configs on the remote device</string>
     <string name="remote_trust_config_manage_hint">Remote configs</string>
     <string name="remote_trust_config_summary">%1$s · %2$d configs</string>
+    <string name="remote_trust_config_add_local_summary">Local %1$s config</string>
+    <string name="remote_trust_config_add_manual_summary">Manual %1$s config</string>
     <string name="remote_trust_config_save">Continue</string>
     <string name="remote_trust_config_save_remote">Save to remote</string>
     <string name="remote_trust_config_upsert">Save config</string>

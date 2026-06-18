@@ -62,6 +62,7 @@ import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Task;
 import com.github.catvod.net.OkHttp;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -1107,35 +1108,49 @@ public final class RemoteTrustDialog {
         LinearLayoutCompat root = dialogRoot(activity);
         ConfigDialogState state = new ConfigDialogState();
 
-        LinearLayoutCompat typeRow = row(activity);
+        MaterialButtonToggleGroup typeRow = new MaterialButtonToggleGroup(activity);
+        typeRow.setSingleSelection(true);
+        typeRow.setSelectionRequired(true);
         state.vod = tab(activity, R.string.remote_trust_config_type_vod);
         state.live = tab(activity, R.string.remote_trust_config_type_live);
         state.wall = tab(activity, R.string.remote_trust_config_type_wall);
+        state.vod.setId(View.generateViewId());
+        state.live.setId(View.generateViewId());
+        state.wall.setId(View.generateViewId());
         state.vod.setChecked(true);
         typeRow.addView(state.vod, weight());
-        typeRow.addView(state.live, leftWeight(activity, 6));
-        typeRow.addView(state.wall, leftWeight(activity, 6));
+        typeRow.addView(state.live, weight());
+        typeRow.addView(state.wall, weight());
         root.addView(typeRow, matchWrap());
 
         LinearLayoutCompat header = row(activity);
         state.summary = text(activity, activity.getString(R.string.remote_trust_config_manage_hint), 13, "#5F6368", false);
         header.addView(state.summary, weight());
-        MaterialButton add = primary(activity, activity.getString(R.string.remote_trust_config_add));
-        header.addView(add, fixed(activity, 72, 34));
-        MaterialButton refresh = iconButton(activity, R.drawable.ic_setting_refresh, activity.getString(R.string.remote_trust_refresh_devices));
-        header.addView(refresh, fixed(activity, 38, 34));
+        state.add = primary(activity, activity.getString(R.string.remote_trust_config_add));
+        header.addView(state.add, fixed(activity, 64, 34));
+        state.refresh = iconButton(activity, R.drawable.ic_setting_refresh, activity.getString(R.string.remote_trust_refresh_devices));
+        header.addView(state.refresh, fixed(activity, 38, 34));
+        state.addSave = primary(activity, activity.getString(R.string.remote_trust_config_upsert_short));
+        header.addView(state.addSave, fixed(activity, 56, 34));
+        state.addBack = outline(activity, activity.getString(R.string.remote_trust_back_devices));
+        header.addView(state.addBack, fixed(activity, 56, 34));
+        state.addCancel = outline(activity, activity.getString(R.string.dialog_cancel));
+        header.addView(state.addCancel, fixed(activity, 56, 34));
+        state.addSave.setVisibility(View.GONE);
+        state.addBack.setVisibility(View.GONE);
+        state.addCancel.setVisibility(View.GONE);
         root.addView(header, topMargin(matchWrap(), 8));
 
-        LinearLayoutCompat actions = row(activity);
+        state.actionsRow = row(activity);
         state.home = tonal(activity, activity.getString(R.string.remote_trust_config_home_short));
         state.edit = tonal(activity, activity.getString(R.string.remote_trust_config_edit));
         state.delete = outline(activity, activity.getString(R.string.remote_trust_config_delete_short));
         state.delete.setTextColor(Color.parseColor("#B3261E"));
         state.delete.setStrokeColor(ColorStateList.valueOf(Color.parseColor("#F2B8B5")));
-        actions.addView(state.home, weight());
-        actions.addView(state.edit, leftWeight(activity, 6));
-        actions.addView(state.delete, leftWeight(activity, 6));
-        root.addView(actions, topMargin(matchWrap(), 8));
+        state.actionsRow.addView(state.home, weight());
+        state.actionsRow.addView(state.edit, leftWeight(activity, 6));
+        state.actionsRow.addView(state.delete, leftWeight(activity, 6));
+        root.addView(state.actionsRow, topMargin(matchWrap(), 8));
 
         state.contentScroll = new NestedScrollView(activity);
         state.contentScroll.setFillViewport(false);
@@ -1151,7 +1166,10 @@ public final class RemoteTrustDialog {
                 .setNegativeButton(R.string.dialog_cancel, null)
                 .create();
         state.dialog = dialog;
-        state.render = () -> renderRemoteConfigList(activity, binding, state);
+        state.render = () -> {
+            if (state.adding) renderConfigAddContent(activity, binding, state);
+            else renderRemoteConfigList(activity, binding, state);
+        };
         state.vod.setOnClickListener(v -> selectConfigType(state, 0));
         state.live.setOnClickListener(v -> selectConfigType(state, 1));
         state.wall.setOnClickListener(v -> selectConfigType(state, 2));
@@ -1164,8 +1182,13 @@ public final class RemoteTrustDialog {
         state.delete.setOnClickListener(v -> {
             if (state.selected != null) confirmConfigDelete(activity, binding, state, configPayload(state.selected));
         });
-        add.setOnClickListener(v -> renderConfigAddContent(activity, binding, state));
-        refresh.setOnClickListener(v -> refreshRemoteConfigList(activity, binding, state, true));
+        state.add.setOnClickListener(v -> enterConfigAdd(activity, binding, state));
+        state.refresh.setOnClickListener(v -> refreshRemoteConfigList(activity, binding, state, true));
+        state.addSave.setOnClickListener(v -> saveConfigAdd(activity, binding, state));
+        state.addBack.setOnClickListener(v -> exitConfigAdd(activity, binding, state));
+        state.addCancel.setOnClickListener(v -> {
+            if (state.dialog != null) state.dialog.dismiss();
+        });
         dialog.setOnShowListener(v -> {
             configureConfigWindow(activity, dialog);
             refreshRemoteConfigList(activity, binding, state, false);
@@ -1194,6 +1217,7 @@ public final class RemoteTrustDialog {
     private static void selectConfigType(ConfigDialogState state, int type) {
         state.type = type;
         state.selected = null;
+        state.addSelected = null;
         state.settingHomeKey = "";
         if (state.render != null) state.render.run();
     }
@@ -1228,6 +1252,7 @@ public final class RemoteTrustDialog {
     }
 
     private static void renderRemoteConfigList(FragmentActivity activity, Binding binding, ConfigDialogState state) {
+        state.adding = false;
         state.content.removeAllViews();
         state.vod.setChecked(state.type == 0);
         state.live.setChecked(state.type == 1);
@@ -1374,12 +1399,35 @@ public final class RemoteTrustDialog {
     }
 
     private static void updateConfigActions(FragmentActivity activity, ConfigDialogState state) {
+        updateConfigChrome(activity, state);
+        if (state.adding) return;
         boolean has = state.selected != null;
         boolean busy = configBusy(state);
-        state.summary.setText(configListSummary(activity, state));
         state.home.setEnabled(has && payloadType(state.selected) == 0 && !busy);
         state.edit.setEnabled(has && !busy);
         state.delete.setEnabled(has && !busy);
+    }
+
+    private static void updateConfigChrome(FragmentActivity activity, ConfigDialogState state) {
+        boolean adding = state.adding;
+        boolean busy = configBusy(state);
+        state.summary.setText(adding ? addConfigSummary(activity, state) : configListSummary(activity, state));
+        state.add.setVisibility(adding ? View.GONE : View.VISIBLE);
+        state.refresh.setVisibility(adding ? View.GONE : View.VISIBLE);
+        state.actionsRow.setVisibility(adding ? View.GONE : View.VISIBLE);
+        state.addSave.setVisibility(adding ? View.VISIBLE : View.GONE);
+        state.addBack.setVisibility(adding ? View.VISIBLE : View.GONE);
+        state.addCancel.setVisibility(adding ? View.VISIBLE : View.GONE);
+        state.addSave.setEnabled(!busy);
+        state.addBack.setEnabled(!busy);
+        state.addCancel.setEnabled(!busy);
+        setConfigDialogCancelVisible(state, !adding);
+    }
+
+    private static void setConfigDialogCancelVisible(ConfigDialogState state, boolean visible) {
+        if (state == null || state.dialog == null) return;
+        android.widget.Button button = state.dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        if (button != null) button.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     private static boolean configBusy(ConfigDialogState state) {
@@ -1391,79 +1439,78 @@ public final class RemoteTrustDialog {
         return context.getString(R.string.remote_trust_config_summary, typeName(state.type), items.size());
     }
 
+    private static String addConfigSummary(Context context, ConfigDialogState state) {
+        return context.getString(state.addLocalMode ? R.string.remote_trust_config_add_local_summary : R.string.remote_trust_config_add_manual_summary, typeName(state.type));
+    }
+
+    private static void enterConfigAdd(FragmentActivity activity, Binding binding, ConfigDialogState state) {
+        state.adding = true;
+        state.addLocalMode = true;
+        state.addSelected = null;
+        renderConfigAddContent(activity, binding, state);
+    }
+
+    private static void exitConfigAdd(FragmentActivity activity, Binding binding, ConfigDialogState state) {
+        state.adding = false;
+        state.addSelected = null;
+        renderRemoteConfigList(activity, binding, state);
+    }
+
     private static void renderConfigAddContent(FragmentActivity activity, Binding binding, ConfigDialogState state) {
-        int[] selectedType = {0};
-        boolean[] localMode = {true};
+        state.adding = true;
         state.content.removeAllViews();
-        LinearLayoutCompat modeRow = row(activity);
+        state.vod.setChecked(state.type == 0);
+        state.live.setChecked(state.type == 1);
+        state.wall.setChecked(state.type == 2);
+        MaterialButtonToggleGroup modeRow = new MaterialButtonToggleGroup(activity);
+        modeRow.setSingleSelection(true);
+        modeRow.setSelectionRequired(true);
         MaterialButton local = tab(activity, R.string.remote_trust_config_mode_local);
         MaterialButton manual = tab(activity, R.string.remote_trust_config_mode_manual);
-        local.setChecked(true);
+        local.setId(View.generateViewId());
+        manual.setId(View.generateViewId());
+        local.setChecked(state.addLocalMode);
+        manual.setChecked(!state.addLocalMode);
         modeRow.addView(local, weight());
-        modeRow.addView(manual, leftWeight(activity));
+        modeRow.addView(manual, weight());
         state.content.addView(modeRow, matchWrap());
-
-        LinearLayoutCompat typeRow = row(activity);
-        MaterialButton vod = tab(activity, R.string.remote_trust_config_type_vod);
-        MaterialButton live = tab(activity, R.string.remote_trust_config_type_live);
-        MaterialButton wall = tab(activity, R.string.remote_trust_config_type_wall);
-        vod.setChecked(true);
-        typeRow.addView(vod, weight());
-        typeRow.addView(live, leftWeight(activity, 6));
-        typeRow.addView(wall, leftWeight(activity, 6));
-        state.content.addView(typeRow, topMargin(matchWrap(), 8));
 
         LinearLayoutCompat body = new LinearLayoutCompat(activity);
         body.setOrientation(LinearLayoutCompat.VERTICAL);
         state.content.addView(body, topMargin(matchWrap(), 10));
 
-        Runnable[] render = new Runnable[1];
-        render[0] = () -> renderConfigAddBody(activity, binding, state, body, selectedType[0], localMode[0]);
         local.setOnClickListener(v -> {
-            localMode[0] = true;
-            local.setChecked(true);
-            manual.setChecked(false);
-            render[0].run();
+            state.addLocalMode = true;
+            state.addSelected = null;
+            renderConfigAddContent(activity, binding, state);
         });
         manual.setOnClickListener(v -> {
-            localMode[0] = false;
-            local.setChecked(false);
-            manual.setChecked(true);
-            render[0].run();
+            state.addLocalMode = false;
+            state.addSelected = null;
+            renderConfigAddContent(activity, binding, state);
         });
-        vod.setOnClickListener(v -> selectAddConfigType(selectedType, 0, vod, live, wall, render[0]));
-        live.setOnClickListener(v -> selectAddConfigType(selectedType, 1, vod, live, wall, render[0]));
-        wall.setOnClickListener(v -> selectAddConfigType(selectedType, 2, vod, live, wall, render[0]));
-        render[0].run();
-
-        MaterialButton back = outline(activity, activity.getString(R.string.remote_trust_back_devices));
-        back.setOnClickListener(v -> renderRemoteConfigList(activity, binding, state));
-        state.content.addView(back, topMargin(fixedHeight(activity, 34), 10));
+        renderConfigAddBody(activity, binding, state, body);
+        updateConfigActions(activity, state);
     }
 
-    private static void selectAddConfigType(int[] selectedType, int type, MaterialButton vod, MaterialButton live, MaterialButton wall, Runnable render) {
-        selectedType[0] = type;
-        vod.setChecked(type == 0);
-        live.setChecked(type == 1);
-        wall.setChecked(type == 2);
-        render.run();
-    }
-
-    private static void renderConfigAddBody(FragmentActivity activity, Binding binding, ConfigDialogState state, LinearLayoutCompat content, int type, boolean localMode) {
+    private static void renderConfigAddBody(FragmentActivity activity, Binding binding, ConfigDialogState state, LinearLayoutCompat content) {
         content.removeAllViews();
-        if (localMode) {
-            List<Config> configs = Config.getAll(type);
+        if (state.addLocalMode) {
+            List<Config> configs = Config.getAll(state.type);
             if (configs.isEmpty()) {
                 content.addView(emptyPanel(activity, activity.getString(R.string.remote_trust_config_local_empty)), matchWrap());
                 return;
             }
             for (Config config : configs) {
-                LinearLayoutCompat item = localConfigItem(activity, binding, state, configPayload(type, config.getUrl(), config.getName()));
+                LinearLayoutCompat item = localConfigItem(activity, binding, state, configPayload(state.type, config.getUrl(), config.getName()));
                 content.addView(item, topMargin(matchWrap(), 6));
             }
             return;
         }
-        renderConfigManualEditor(activity, binding, state, type, null);
+        state.addUrl = input(activity, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI, true);
+        state.addName = input(activity, InputType.TYPE_CLASS_TEXT, true);
+        content.addView(inputLayout(activity, R.string.remote_trust_config_url, state.addUrl), matchWrap());
+        content.addView(inputLayout(activity, R.string.remote_trust_config_name, state.addName), topMargin(matchWrap(), 8));
     }
 
     private static void renderConfigManualEditor(FragmentActivity activity, Binding binding, ConfigDialogState state, int type, JsonObject original) {
@@ -1506,24 +1553,42 @@ public final class RemoteTrustDialog {
     private static LinearLayoutCompat localConfigItem(FragmentActivity activity, Binding binding, ConfigDialogState state, JsonObject payload) {
         Context context = activity;
         LinearLayoutCompat item = card(context);
-        MaterialTextView title = text(context, configTitle(payload), 14, "#202124", true);
-        title.setMaxLines(1);
-        title.setEllipsize(TextUtils.TruncateAt.END);
-        item.addView(title, matchWrap());
-        MaterialTextView url = text(context, safe(payload, "url"), 12, "#5F6368", false);
-        url.setMaxLines(4);
+        boolean selected = sameConfig(state.addSelected, payload);
+        item.setBackground(configItemBackground(context, false, selected));
+        item.setClickable(true);
+        item.setFocusable(true);
+        MaterialTextView url = text(context, safe(payload, "url"), 13, "#202124", selected);
+        url.setTextIsSelectable(true);
+        url.setMaxLines(3);
         url.setEllipsize(TextUtils.TruncateAt.END);
-        url.setPadding(0, dp(context, 4), 0, 0);
         item.addView(url, matchWrap());
-        MaterialButton save = tonal(context, context.getString(R.string.remote_trust_config_save_remote));
-        save.setOnClickListener(v -> runConfigCommand(activity, binding, state, "config.upsert", payload, () -> {
+        item.setOnClickListener(v -> {
+            state.addSelected = payload;
+            renderConfigAddContent(activity, binding, state);
+        });
+        return item;
+    }
+
+    private static void saveConfigAdd(FragmentActivity activity, Binding binding, ConfigDialogState state) {
+        JsonObject payload;
+        if (state.addLocalMode) {
+            payload = state.addSelected;
+            if (payload == null) {
+                Notify.show(R.string.remote_trust_config_select);
+                return;
+            }
+        } else {
+            payload = configPayload(activity, state.type, state.addUrl, state.addName);
+            if (payload == null) return;
+        }
+        runConfigCommand(activity, binding, state, "config.upsert", payload, () -> {
             upsertConfig(state.items, payload);
             binding.configCache.put(remoteCacheKey(binding), state.items);
             state.selected = findConfig(state.items, payload);
+            state.adding = false;
+            state.addSelected = null;
             renderRemoteConfigList(activity, binding, state);
-        }));
-        item.addView(save, topMargin(fixedHeight(context, 34), 8));
-        return item;
+        });
     }
 
     private static int payloadType(JsonObject payload) {
@@ -2954,10 +3019,16 @@ public final class RemoteTrustDialog {
         private AlertDialog dialog;
         private NestedScrollView contentScroll;
         private LinearLayoutCompat content;
+        private LinearLayoutCompat actionsRow;
         private MaterialTextView summary;
         private MaterialButton vod;
         private MaterialButton live;
         private MaterialButton wall;
+        private MaterialButton add;
+        private MaterialButton refresh;
+        private MaterialButton addSave;
+        private MaterialButton addBack;
+        private MaterialButton addCancel;
         private MaterialButton home;
         private MaterialButton edit;
         private MaterialButton delete;
@@ -2973,6 +3044,11 @@ public final class RemoteTrustDialog {
         private String useStatusName = "";
         private int useStatus = HOME_STATUS_NONE;
         private int type;
+        private boolean adding;
+        private boolean addLocalMode = true;
+        private JsonObject addSelected;
+        private TextInputEditText addUrl;
+        private TextInputEditText addName;
     }
 
     private static final class Binding {
