@@ -322,9 +322,9 @@ public final class RemoteTrustDialog {
         binding.addDeviceButton.setVisibility(settings ? View.GONE : View.VISIBLE);
         binding.serviceButton.setVisibility(settings ? View.GONE : View.VISIBLE);
         binding.settingsBackButton.setVisibility(settings ? View.VISIBLE : View.GONE);
-        binding.addDeviceButton.setEnabled(!binding.busy && profile != null);
-        binding.serviceButton.setEnabled(!binding.busy);
-        binding.settingsBackButton.setEnabled(!binding.busy);
+        binding.addDeviceButton.setEnabled(profile != null);
+        binding.serviceButton.setEnabled(true);
+        binding.settingsBackButton.setEnabled(true);
         String status = statusText(context, binding, profile);
         binding.statusButton.setText(status);
         applyStatusStyle(context, binding.statusButton, profile, status);
@@ -382,7 +382,6 @@ public final class RemoteTrustDialog {
             binding.autoBindAttempted = false;
         }
         if (TextUtils.isEmpty(binding.bindCode) && !binding.autoBindAttempted) {
-            binding.creatingBindCode = true;
             createBindCode(activity, binding, false, true);
             return;
         }
@@ -858,6 +857,7 @@ public final class RemoteTrustDialog {
     }
 
     private static void createBindCode(FragmentActivity activity, Binding binding, boolean reopen, boolean quiet) {
+        if (binding.creatingBindCode) return;
         RemoteProfile profile = currentProfile(binding);
         if (profile == null) {
             binding.page = PAGE_SETTINGS;
@@ -872,7 +872,7 @@ public final class RemoteTrustDialog {
         grant.grantId = RemoteTokens.bindGrantId(profile.serverOrigin, grant.bindGrantToken);
         grant.createdAt = System.currentTimeMillis();
         RemoteStore.addBindGrant(profile.serverOrigin, grant);
-        setBusy(binding, true);
+        updateHeader(activity, binding);
         Task.execute(() -> {
             try {
                 RemoteClient client = new RemoteClient(profile);
@@ -881,7 +881,6 @@ public final class RemoteTrustDialog {
                 RemoteStore.upsertProfile(profile);
                 RemoteAgent.get().start();
                 App.post(() -> {
-                    setBusy(binding, false);
                     binding.creatingBindCode = false;
                     binding.bindCode = response == null ? "" : response.code;
                     binding.bindCodeExpiresAt = bindCodeExpiresAt(response);
@@ -892,10 +891,9 @@ public final class RemoteTrustDialog {
                 });
             } catch (Throwable e) {
                 App.post(() -> {
-                    setBusy(binding, false);
                     binding.creatingBindCode = false;
                     if (!quiet) Notify.show(e.getMessage());
-                    else render(activity, binding);
+                    render(activity, binding);
                 });
             }
         });
@@ -2162,11 +2160,9 @@ public final class RemoteTrustDialog {
         boolean failed = syncFailed(sync, timeout);
         builder.append(context.getString(R.string.remote_trust_action_sync));
         builder.append('\n').append(context.getString(R.string.remote_trust_sync_progress, step, REMOTE_SYNC_STEPS));
-        builder.append('\n').append(context.getString(R.string.remote_trust_sync_background_hint));
-        builder.append('\n').append(syncStepLines(context, step, failed));
         builder.append('\n').append(context.getString(R.string.remote_trust_result_status)).append(": ").append(syncStateText(context, sync, timeout));
+        builder.append('\n').append(syncStepLines(context, step, failed, TextUtils.equals(safe(sync, "status"), "done")));
         builder.append('\n').append(context.getString(R.string.remote_trust_sync_device)).append(": ").append(deviceName(selected.device));
-        if (!TextUtils.isEmpty(safe(sync, "id"))) builder.append('\n').append(context.getString(R.string.remote_trust_sync_task)).append(": ").append(shortId(safe(sync, "id")));
         String parts = syncPartsText(context, object(sync, "parts"));
         if (!TextUtils.isEmpty(parts)) builder.append('\n').append(context.getString(R.string.remote_trust_sync_uploaded)).append(": ").append(parts);
         String message = syncMessage(sync);
@@ -2195,19 +2191,19 @@ public final class RemoteTrustDialog {
         return timeout || resultFailed(sync, "exportResult") || resultFailed(sync, "restoreResult") || safe(sync, "status").endsWith("_failed") || TextUtils.equals(safe(sync, "status"), "failed");
     }
 
-    private static String syncStepLines(Context context, int current, boolean failed) {
+    private static String syncStepLines(Context context, int current, boolean failed, boolean completed) {
         StringBuilder builder = new StringBuilder();
-        addSyncStepLine(context, builder, 1, current, failed, R.string.remote_trust_sync_step_create);
-        addSyncStepLine(context, builder, 2, current, failed, R.string.remote_trust_sync_step_export);
-        addSyncStepLine(context, builder, 3, current, failed, R.string.remote_trust_sync_step_upload);
-        addSyncStepLine(context, builder, 4, current, failed, R.string.remote_trust_sync_step_restore);
-        addSyncStepLine(context, builder, 5, current, failed, R.string.remote_trust_sync_step_finish);
+        addSyncStepLine(context, builder, 1, current, failed, completed, R.string.remote_trust_sync_step_create);
+        addSyncStepLine(context, builder, 2, current, failed, completed, R.string.remote_trust_sync_step_export);
+        addSyncStepLine(context, builder, 3, current, failed, completed, R.string.remote_trust_sync_step_upload);
+        addSyncStepLine(context, builder, 4, current, failed, completed, R.string.remote_trust_sync_step_restore);
+        addSyncStepLine(context, builder, 5, current, failed, completed, R.string.remote_trust_sync_step_finish);
         return builder.toString();
     }
 
-    private static void addSyncStepLine(Context context, StringBuilder builder, int step, int current, boolean failed, int name) {
+    private static void addSyncStepLine(Context context, StringBuilder builder, int step, int current, boolean failed, boolean completed, int name) {
         if (builder.length() > 0) builder.append('\n');
-        int state = step < current ? R.string.remote_trust_sync_step_done : step == current ? (failed ? R.string.remote_trust_sync_step_failed : R.string.remote_trust_sync_step_current) : R.string.remote_trust_sync_step_pending;
+        int state = completed || step < current ? R.string.remote_trust_sync_step_done : step == current ? (failed ? R.string.remote_trust_sync_step_failed : R.string.remote_trust_sync_step_current) : R.string.remote_trust_sync_step_pending;
         builder.append(context.getString(R.string.remote_trust_sync_step_line, step, context.getString(name), context.getString(state)));
     }
 
@@ -2766,11 +2762,11 @@ public final class RemoteTrustDialog {
         binding.busy = busy;
         binding.bindCodeButton.setEnabled(!busy && hasFreshBindCode(binding));
         binding.enableToggle.setEnabled(!busy);
-        binding.statusButton.setEnabled(!busy);
-        binding.serviceButton.setEnabled(!busy);
-        if (binding.addDeviceButton != null) binding.addDeviceButton.setEnabled(!busy && currentProfile(binding) != null);
-        if (binding.settingsBackButton != null) binding.settingsBackButton.setEnabled(!busy);
-        binding.server.setEnabled(!busy);
+        binding.statusButton.setEnabled(true);
+        binding.serviceButton.setEnabled(true);
+        if (binding.addDeviceButton != null) binding.addDeviceButton.setEnabled(currentProfile(binding) != null);
+        if (binding.settingsBackButton != null) binding.settingsBackButton.setEnabled(true);
+        binding.server.setEnabled(true);
         binding.enabled.setEnabled(!busy);
         binding.keepOnline.setEnabled(!busy);
         for (MaterialButton button : binding.actions) button.setEnabled(!busy);
