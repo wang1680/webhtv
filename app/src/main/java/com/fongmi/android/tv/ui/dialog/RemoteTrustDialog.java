@@ -22,6 +22,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ImageView;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.LinearLayoutCompat;
@@ -55,6 +56,7 @@ import com.fongmi.android.tv.bean.SyncOptions;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.PermissionUtil;
+import com.fongmi.android.tv.utils.QRCode;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Task;
 import com.google.android.material.button.MaterialButton;
@@ -511,17 +513,12 @@ public final class RemoteTrustDialog {
         RemoteProfile profile = currentProfile(binding);
         if (profile == null) binding.serverEditing = true;
         if (binding.serverEditing) {
-            binding.content.addView(sectionTitle(context, R.string.remote_trust_settings_title), topMargin(matchWrap(), binding.statusExpanded ? 12 : 0));
+            binding.content.addView(serverTitleRow(context, binding), topMargin(matchWrap(), binding.statusExpanded ? 12 : 0));
             detach(binding.serverLayout);
             binding.content.addView(binding.serverLayout, topMargin(matchWrap(), 8));
-            LinearLayoutCompat actions = row(context);
             MaterialButton save = primaryAction(binding, context, R.string.remote_trust_done);
             save.setOnClickListener(v -> saveServerSettings((FragmentActivity) context, binding));
-            actions.addView(save, weight());
-            MaterialButton scan = tonalAction(binding, context, R.string.remote_trust_scan_server);
-            scan.setOnClickListener(v -> startScan((FragmentActivity) context, binding));
-            actions.addView(scan, leftWeight(context));
-            binding.content.addView(actions, topMargin(matchWrap(), 8));
+            binding.content.addView(save, topMargin(fixedHeight(context, 36), 8));
         } else {
             binding.content.addView(serverInfoPanel(context, binding, profile), topMargin(matchWrap(), binding.statusExpanded ? 12 : 0));
         }
@@ -984,12 +981,11 @@ public final class RemoteTrustDialog {
                 return;
             }
             for (Config config : configs) {
-                MaterialButton item = listButton(activity, config.getDesc() + "\n" + config.getUrl());
+                LinearLayoutCompat item = configItem(activity, config);
                 item.setOnClickListener(v -> {
                     if (dialogRef[0] != null) dialogRef[0].dismiss();
                     showConfigActionDialog(activity, binding, configPayload(type, config.getUrl(), config.getName()));
                 });
-                bindAction(binding, item);
                 content.addView(item, topMargin(matchWrap(), 6));
             }
             return;
@@ -1007,6 +1003,41 @@ public final class RemoteTrustDialog {
             }
         });
         content.addView(next, topMargin(fixedHeight(activity, 36), 8));
+    }
+
+    private static LinearLayoutCompat configItem(Context context, Config config) {
+        LinearLayoutCompat item = card(context);
+        item.setClickable(true);
+        item.setFocusable(true);
+        LinearLayoutCompat top = row(context);
+        MaterialTextView title = text(context, configTitle(config), 14, "#202124", true);
+        title.setMaxLines(1);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        top.addView(title, weight());
+        MaterialTextView action = text(context, context.getString(R.string.remote_trust_config_select), 12, "#0B57D0", true);
+        action.setPadding(dp(context, 8), 0, 0, 0);
+        top.addView(action, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        item.addView(top, matchWrap());
+        String subtitle = configSubtitle(config);
+        if (!TextUtils.isEmpty(subtitle)) {
+            MaterialTextView url = text(context, subtitle, 12, "#5F6368", false);
+            url.setMaxLines(2);
+            url.setEllipsize(TextUtils.TruncateAt.END);
+            url.setPadding(0, dp(context, 4), 0, 0);
+            item.addView(url, matchWrap());
+        }
+        return item;
+    }
+
+    private static String configTitle(Config config) {
+        if (config == null) return "";
+        if (!TextUtils.isEmpty(config.getName())) return config.getName();
+        return shortenMiddle(config.getUrl(), 48);
+    }
+
+    private static String configSubtitle(Config config) {
+        if (config == null || TextUtils.isEmpty(config.getUrl())) return "";
+        return TextUtils.isEmpty(config.getName()) ? "" : config.getUrl();
     }
 
     private static void showConfigActionDialog(FragmentActivity activity, Binding binding, JsonObject payload) {
@@ -1586,11 +1617,59 @@ public final class RemoteTrustDialog {
         return "\n" + binding.serviceDetailText;
     }
 
+    private static LinearLayoutCompat serverTitleRow(Context context, Binding binding) {
+        LinearLayoutCompat top = row(context);
+        MaterialTextView title = text(context, context.getString(R.string.remote_trust_settings_title), 15, "#202124", true);
+        title.setTypeface(title.getTypeface(), Typeface.BOLD);
+        top.addView(title, weight());
+        MaterialButton qr = iconButton(context, R.drawable.ic_remote_qr, context.getString(R.string.remote_trust_server_qr));
+        qr.setOnClickListener(v -> showServerQr((FragmentActivity) context, binding));
+        bindAction(binding, qr);
+        top.addView(qr, fixed(context, 36, 32));
+        MaterialButton scan = iconButton(context, R.drawable.ic_remote_scan, context.getString(R.string.remote_trust_scan_server));
+        scan.setOnClickListener(v -> startScan((FragmentActivity) context, binding));
+        bindAction(binding, scan);
+        top.addView(scan, fixed(context, 36, 32));
+        return top;
+    }
+
+    private static void showServerQr(FragmentActivity activity, Binding binding) {
+        String server = currentServerText(binding);
+        if (TextUtils.isEmpty(server)) {
+            Notify.show(R.string.remote_trust_server_required);
+            return;
+        }
+        LinearLayoutCompat root = dialogRoot(activity);
+        ImageView image = new ImageView(activity);
+        image.setImageBitmap(QRCode.getLightBitmap(server, 220, 1));
+        image.setAdjustViewBounds(true);
+        image.setBackgroundColor(Color.WHITE);
+        image.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
+        root.addView(image, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(activity, 240)));
+        MaterialTextView value = text(activity, server, 12, "#5F6368", false);
+        value.setGravity(Gravity.CENTER);
+        value.setTextIsSelectable(true);
+        value.setPadding(0, dp(activity, 8), 0, 0);
+        root.addView(value, matchWrap());
+        new MaterialAlertDialogBuilder(activity, R.style.ThemeOverlay_WebHTV_LightDialog)
+                .setTitle(R.string.remote_trust_server_qr)
+                .setView(root)
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .show();
+    }
+
+    private static String currentServerText(Binding binding) {
+        String server = textOf(binding.server);
+        if (!TextUtils.isEmpty(server)) return server;
+        RemoteProfile profile = currentProfile(binding);
+        if (profile == null) profile = RemoteStore.firstProfile();
+        if (profile == null) return "";
+        return TextUtils.isEmpty(profile.serverUrl) ? profile.serverOrigin : profile.serverUrl;
+    }
+
     private static LinearLayoutCompat serverInfoPanel(Context context, Binding binding, RemoteProfile profile) {
         LinearLayoutCompat card = card(context);
-        LinearLayoutCompat top = row(context);
-        MaterialTextView title = text(context, context.getString(R.string.remote_trust_settings_title), 14, "#202124", true);
-        top.addView(title, weight());
+        LinearLayoutCompat top = serverTitleRow(context, binding);
         MaterialButton edit = iconButton(context, R.drawable.ic_git_cloud_edit, context.getString(R.string.remote_trust_edit_server));
         edit.setOnClickListener(v -> {
             binding.serverEditing = true;

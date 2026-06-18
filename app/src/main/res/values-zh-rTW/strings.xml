@@ -202,6 +202,7 @@
     <string name="remote_trust_bind_code_loading">產生中...</string>
     <string name="remote_trust_bind_code_unavailable">未設定</string>
     <string name="remote_trust_command_result_title">執行結果</string>
+    <string name="remote_trust_command_log_title">日誌</string>
     <string name="remote_trust_result_action">操作</string>
     <string name="remote_trust_result_status">狀態</string>
     <string name="remote_trust_result_state">結果</string>
@@ -225,8 +226,13 @@
     <string name="remote_trust_back_devices">返回</string>
     <string name="remote_trust_send_search">發送搜尋</string>
     <string name="remote_trust_send_push">推送播放</string>
-    <string name="remote_trust_config_hint">類型：0 點播，1 直播，2 壁紙。查看列表無需填寫 URL。</string>
+    <string name="remote_trust_config_hint">選擇本機接口，或手動輸入接口 URL。</string>
     <string name="remote_trust_config_type">類型</string>
+    <string name="remote_trust_config_type_vod">點播</string>
+    <string name="remote_trust_config_type_live">直播</string>
+    <string name="remote_trust_config_type_wall">壁紙</string>
+    <string name="remote_trust_config_mode_local">本機配置</string>
+    <string name="remote_trust_config_mode_manual">手動輸入</string>
     <string name="remote_trust_config_url">接口 URL</string>
     <string name="remote_trust_config_name">接口名稱，可選</string>
     <string name="remote_trust_config_list">查看列表</string>
@@ -236,6 +242,9 @@
     <string name="remote_trust_config_delete">刪除接口</string>
     <string name="remote_trust_config_url_required">請輸入接口 URL</string>
     <string name="remote_trust_config_delete_message">刪除遠端設備上的接口？\n%1$s</string>
+    <string name="remote_trust_config_local_empty">沒有該類型的本機配置</string>
+    <string name="remote_trust_config_select">選擇</string>
+    <string name="remote_trust_result_config_count">接口：%1$d 個</string>
     <string name="remote_trust_sync_confirm">將本機預設同步資料發送到 %1$s，並覆蓋目標設備相關資料？</string>
     <string name="remote_trust_sync_started">同步任務已建立。來源設備會先上傳資料，目標設備隨後恢復。</string>
     <string name="remote_trust_sync_self_forbidden">不能把本機同步到本機</string>
@@ -255,6 +264,9 @@
     <string name="remote_trust_delete_device_message">刪除 %1$s 的本機託管資料？</string>
     <string name="remote_trust_delete_device_done">設備託管資料已刪除</string>
     <string name="remote_trust_reset_local">重置本機託管資料</string>
+    <string name="remote_trust_scan_server">掃碼</string>
+    <string name="remote_trust_scan_unavailable">目前設備不支援掃碼</string>
+    <string name="remote_trust_server_qr">中轉服務 QR Code</string>
     <string name="setting_login_state">登入狀態學習</string>
     <string name="setting_site_health_sort">站點健康排序</string>
     <string name="setting_site_health_enable">啟用站點健康排序</string>
@@ -573,6 +585,7 @@
     <string name="sync_item_history">觀看記錄</string>
     <string name="sync_item_keep">收藏資料</string>
     <string name="sync_item_settings">應用設定</string>
+    <string name="sync_item_remote_relay">中轉服務配置</string>
     <string name="sync_paths_title">同步目錄</string>
     <string name="sync_paths_edit">編輯</string>
     <string name="sync_paths_desc">每行一個外置儲存相對路徑，預設同步 TV、TVBox、TVData。可加入本地包目錄；目錄內容會隨 Jar/腳本保存資料一起同步。</string>

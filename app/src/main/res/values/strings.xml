@@ -266,6 +266,8 @@
     <string name="remote_trust_reset_local">Reset local trust data</string>
     <string name="remote_trust_scan_server">Scan</string>
     <string name="remote_trust_scan_unavailable">QR scan is unavailable on this device</string>
+    <string name="remote_trust_server_qr">Relay QR code</string>
+    <string name="remote_trust_config_select">Select</string>
     <string name="setting_login_state">Login state learning</string>
     <string name="setting_site_health_sort">Site health ranking</string>
     <string name="setting_site_health_enable">Enable site health ranking</string>
