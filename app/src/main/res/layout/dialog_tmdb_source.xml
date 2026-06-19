@@ -133,36 +133,13 @@
         android:paddingTop="4dp"
         android:paddingBottom="16dp" />
 
-    <!-- 全局启用开关 -->
-    <androidx.appcompat.widget.LinearLayoutCompat
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp">
-
-        <com.google.android.material.textview.MaterialTextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/dialog_tmdb_enable_label"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/enableSwitch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-
-    </androidx.appcompat.widget.LinearLayoutCompat>
-
     <com.google.android.material.textview.MaterialTextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/dialog_tmdb_enable_tip"
         android:textSize="12sp"
         android:textColor="?android:attr/textColorSecondary"
+        android:paddingTop="8dp"
         android:paddingBottom="16dp" />
 
     <!-- 启用站点规则 -->

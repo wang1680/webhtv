@@ -751,15 +751,17 @@
         <item>Select subtitle track</item>
     </string-array>
 
-    <string name="setting_tmdb_source">TMDB metadata config</string>
+    <string name="setting_tmdb_source">TMDB data config</string>
     <string name="setting_tmdb_model">TMDB interaction model</string>
     <string name="setting_tmdb_model_native">Native enhancement</string>
     <string name="setting_detail_open_mode">Detail page mode</string>
-    <string name="setting_detail_open_native">Embedded enhancement</string>
+    <string name="setting_detail_open_original">Original detail</string>
+    <string name="setting_detail_open_native">TMDB embedded enhancement</string>
     <string name="setting_detail_theme_mode">Detail page theme</string>
     <string name="setting_detail_theme_current">Current theme</string>
     <string name="setting_configured">Configured</string>
     <string name="setting_unconfigured">Unconfigured</string>
+    <string name="detail_tmdb_need_key">Configure TMDB data first</string>
     <string name="dialog_tmdb_api_key_label">TMDB API Key or Access Token</string>
     <string name="dialog_tmdb_api_key_hint">Enter API Key or v4 Access Token</string>
     <string name="dialog_tmdb_api_key_tip">Get your free API key at: https://www.themoviedb.org/settings/api</string>
@@ -773,7 +775,7 @@
     <string name="dialog_omdb_api_key_hint">Enter OMDb API Key</string>
     <string name="dialog_omdb_api_key_tip">Get free API Key (1000/day): https://www.omdbapi.com/apikey.aspx</string>
     <string name="dialog_tmdb_enable_label">Enable TMDB metadata</string>
-    <string name="dialog_tmdb_enable_tip">Auto-fetch metadata (overview, cast, ratings) from TMDB for video details</string>
+    <string name="dialog_tmdb_enable_tip">Configure TMDB data, language, image host, and source rules. The detail page mode controls whether it is used.</string>
     <string name="dialog_tmdb_enabled_sites_label">Enabled sources</string>
     <string name="dialog_tmdb_disabled_sites_label">Exclude rules</string>
     <string name="dialog_tmdb_add_rule_hint">Add keyword or source…</string>

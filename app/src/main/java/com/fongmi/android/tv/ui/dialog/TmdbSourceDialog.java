@@ -18,7 +18,6 @@ import com.fongmi.android.tv.setting.Setting;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +28,6 @@ import java.util.Locale;
  *
  * 仿照 {@link ShortDramaSourceDialog} 的交互：
  * - 配置 TMDB API Key（或 v4 Access Token）
- * - 全局启用 / 关闭 TMDB 增强
  * - 通过 Chip 标签维护启用站点规则与排除站点黑名单
  * 点"确定"才统一保存。
  */
@@ -45,7 +43,6 @@ public class TmdbSourceDialog {
     private EditText apiHostInput;
     private EditText imageHostInput;
     private EditText omdbApiKeyInput;
-    private MaterialSwitch enableSwitch;
     private Runnable onDismiss;
 
     private List<String> tempEnabledRules;
@@ -75,7 +72,6 @@ public class TmdbSourceDialog {
         apiHostInput = view.findViewById(R.id.apiHostInput);
         imageHostInput = view.findViewById(R.id.imageHostInput);
         omdbApiKeyInput = view.findViewById(R.id.omdbApiKeyInput);
-        enableSwitch = view.findViewById(R.id.enableSwitch);
         EditText ruleInput = view.findViewById(R.id.ruleInput);
         EditText disabledRuleInput = view.findViewById(R.id.disabledRuleInput);
         View addBtn = view.findViewById(R.id.add);
@@ -92,7 +88,6 @@ public class TmdbSourceDialog {
         apiHostInput.setText(config.getApiHost());
         imageHostInput.setText(config.getImageHost());
         omdbApiKeyInput.setText(config.getOmdbApiKey());
-        enableSwitch.setChecked(Setting.isTmdbEnabled());
         updateChipsDisplay();
 
         addBtn.setOnClickListener(v -> addRule(ruleInput));
@@ -152,7 +147,6 @@ public class TmdbSourceDialog {
         sb.append("\"disabledSites\":").append(toJsonArray(tempDisabledSites));
         sb.append('}');
         Setting.putTmdbConfig(TmdbConfig.objectFrom(sb.toString()).toJson());
-        Setting.putTmdbEnabled(enableSwitch.isChecked());
     }
 
     private void showSiteManage() {

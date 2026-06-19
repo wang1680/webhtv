@@ -25,6 +25,7 @@ public class Setting {
 
     public static final int TMDB_MODEL_NATIVE = 0;
     public static final int DETAIL_INTERACTION_SYSTEM = 0;
+    public static final int DETAIL_INTERACTION_ORIGINAL = 1;
     public static final int DETAIL_THEME_CURRENT = 0;
 
     public static String getDoh() {
@@ -398,15 +399,21 @@ public class Setting {
     }
 
     public static int getDetailInteractionMode() {
-        return clampDetailInteractionMode(Prefers.getInt("detail_interaction_mode", DETAIL_INTERACTION_SYSTEM));
+        if (!Prefers.getPrefers().contains("detail_interaction_mode")) {
+            return isTmdbEnabled() ? DETAIL_INTERACTION_SYSTEM : DETAIL_INTERACTION_ORIGINAL;
+        }
+        int mode = clampDetailInteractionMode(Prefers.getInt("detail_interaction_mode", DETAIL_INTERACTION_ORIGINAL));
+        return mode == DETAIL_INTERACTION_SYSTEM && !isTmdbEnabled() ? DETAIL_INTERACTION_ORIGINAL : mode;
     }
 
     public static void putDetailInteractionMode(int mode) {
-        Prefers.put("detail_interaction_mode", clampDetailInteractionMode(mode));
+        int value = clampDetailInteractionMode(mode);
+        Prefers.put("detail_interaction_mode", value);
+        putTmdbEnabled(value != DETAIL_INTERACTION_ORIGINAL);
     }
 
     private static int clampDetailInteractionMode(int mode) {
-        return mode == DETAIL_INTERACTION_SYSTEM ? DETAIL_INTERACTION_SYSTEM : DETAIL_INTERACTION_SYSTEM;
+        return mode == DETAIL_INTERACTION_SYSTEM ? DETAIL_INTERACTION_SYSTEM : DETAIL_INTERACTION_ORIGINAL;
     }
 
     public static int getDetailThemeMode() {
@@ -438,7 +445,7 @@ public class Setting {
     }
 
     public static boolean isTmdbDetailPage() {
-        return isTmdbEnabled() && getTmdbModel() == TMDB_MODEL_NATIVE && TmdbConfig.objectFrom(getTmdbConfig()).isReady();
+        return isTmdbMode(getDetailInteractionMode()) && isTmdbEnabled() && getTmdbModel() == TMDB_MODEL_NATIVE && TmdbConfig.objectFrom(getTmdbConfig()).isReady();
     }
 
     public static int getDetailOpenMode() {

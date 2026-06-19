@@ -287,6 +287,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private boolean isTmdbSourceEnabled() {
         if (isTmdbMode()) return true;
+        if (!Setting.isTmdbMode(Setting.getDetailOpenMode())) return false;
         if (!Setting.isTmdbEnabled()) return false;
         Site site = getSite();
         return Setting.isTmdbSiteEnabled(site == null ? getKey() : site.getKey(), site == null ? "" : site.getName());
