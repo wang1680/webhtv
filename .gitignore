@@ -23,3 +23,4 @@ nostr_副本*.html
 __pycache__/
 *.pyc
 third_party/sources/
+plans/
