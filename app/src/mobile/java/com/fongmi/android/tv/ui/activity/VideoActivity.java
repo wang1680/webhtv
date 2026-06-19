@@ -285,6 +285,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return getIntent().getBooleanExtra("tmdbMode", false);
     }
 
+    private boolean isTmdbSourceEnabled() {
+        if (isTmdbMode()) return true;
+        if (!Setting.isTmdbEnabled()) return false;
+        Site site = getSite();
+        return Setting.isTmdbSiteEnabled(site == null ? getKey() : site.getKey(), site == null ? "" : site.getName());
+    }
+
     private com.fongmi.android.tv.bean.TmdbItem getTmdbItem() {
         return (com.fongmi.android.tv.bean.TmdbItem) getIntent().getSerializableExtra("tmdbItem");
     }
@@ -590,7 +597,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         applyTmdbEpisodeTitles(item);
 
         // TMDB 模式下隐藏原生标题
-        boolean tmdbMode = (isTmdbMode() || Setting.isTmdbEnabled()) && mTmdbUIAdapter != null && mTmdbUIAdapter.isReady();
+        boolean tmdbMode = isTmdbSourceEnabled() && mTmdbUIAdapter != null && mTmdbUIAdapter.isReady();
         if (tmdbMode) {
             mBinding.name.setVisibility(View.GONE);
         } else {
@@ -626,7 +633,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
         // 非 TMDB 模式才填充原生字段
         // 基于 TMDB 开关和配置是否就绪
-        boolean tmdbMode = (isTmdbMode() || Setting.isTmdbEnabled()) && mTmdbUIAdapter != null && mTmdbUIAdapter.isReady();
+        boolean tmdbMode = isTmdbSourceEnabled() && mTmdbUIAdapter != null && mTmdbUIAdapter.isReady();
         if (!tmdbMode) {
             mBinding.name.setVisibility(View.VISIBLE);
             mBinding.contentLayout.setVisibility(View.VISIBLE);
@@ -657,7 +664,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void setContentVisible() {
         // TMDB 模式下不显示原生简介区域
-        boolean tmdbMode = (isTmdbMode() || Setting.isTmdbEnabled()) && mTmdbUIAdapter != null && mTmdbUIAdapter.isReady();
+        boolean tmdbMode = isTmdbSourceEnabled() && mTmdbUIAdapter != null && mTmdbUIAdapter.isReady();
         if (tmdbMode) {
             mBinding.contentLayout.setVisibility(View.GONE);
         } else {
@@ -1848,7 +1855,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void initTmdbMode() {
         // TMDB 模式：通过全局开关或 Intent 参数启用
-        if (!isTmdbMode() && !Setting.isTmdbEnabled()) return;
+        if (!isTmdbSourceEnabled()) return;
 
         mTmdbUIAdapter = new com.fongmi.android.tv.ui.helper.TmdbUIAdapter(this);
         if (!mTmdbUIAdapter.isReady()) {

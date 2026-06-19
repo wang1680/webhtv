@@ -16,7 +16,7 @@ public class TmdbConfig {
     private static final String DEFAULT_IMAGE_BASE = "https://image.tmdb.org/t/p/w342";
     private static final String DEFAULT_BACKDROP_BASE = "https://image.tmdb.org/t/p/w780";
     private static final String DEFAULT_LANGUAGE = "zh-CN";
-    private static final List<String> DEFAULT_EXCLUDE_KEYWORDS = List.of("[音]", "[听]", "[书]", "[漫]", "[短]");
+    private static final List<String> DEFAULT_DISABLED_RULES = List.of("[音]", "[听]", "[书]", "[漫]", "[短]");
 
     @SerializedName("apiBase")
     private String apiBase;
@@ -42,6 +42,8 @@ public class TmdbConfig {
     private Boolean excludeKeywordsConfigured;
     @SerializedName("disabledSites")
     private List<String> disabledSites;
+    @SerializedName(value = "allowedSites", alternate = {"includeSites", "whitelistSites"})
+    private List<String> allowedSites;
 
     public static TmdbConfig objectFrom(String json) {
         try {
@@ -66,15 +68,26 @@ public class TmdbConfig {
         if (isImageHost(imageBase)) imageBase = imageBase(imageBase, "w342");
         backdropBase = trimOr(backdropBase, DEFAULT_BACKDROP_BASE);
         enabledSites = cleanList(enabledSites);
-        excludeKeywords = cleanList(excludeKeywords);
-        disabledSites = cleanList(disabledSites);
-        if (excludeKeywordsConfigured == null) excludeKeywordsConfigured = !excludeKeywords.isEmpty();
-        if (!excludeKeywordsConfigured && excludeKeywords.isEmpty()) excludeKeywords = new ArrayList<>(DEFAULT_EXCLUDE_KEYWORDS);
+        disabledSites = mergeList(cleanList(excludeKeywords), cleanList(disabledSites));
+        excludeKeywords = null;
+        allowedSites = cleanList(allowedSites);
+        if (excludeKeywordsConfigured == null) excludeKeywordsConfigured = !disabledSites.isEmpty();
+        if (!excludeKeywordsConfigured && disabledSites.isEmpty()) disabledSites = getDefaultDisabledRules();
         return this;
+    }
+
+    public static List<String> getDefaultDisabledRules() {
+        return new ArrayList<>(DEFAULT_DISABLED_RULES);
     }
 
     public String getApiBase() {
         return apiBase;
+    }
+
+    public String getApiHost() {
+        String api = TextUtils.isEmpty(apiBase) ? DEFAULT_API_BASE : apiBase;
+        api = trimTrailingSlash(api);
+        return api.endsWith("/3") ? api.substring(0, api.length() - 2) : api;
     }
 
     public String getApiKey() {
@@ -105,7 +118,7 @@ public class TmdbConfig {
         String base = TextUtils.isEmpty(imageBase) ? DEFAULT_IMAGE_BASE : imageBase;
         base = stripImageSize(base);
         if (base.endsWith("/t/p")) return base.substring(0, base.length() - 4);
-        return DEFAULT_IMAGE_HOST;
+        return isHttpUrl(base) ? base : DEFAULT_IMAGE_HOST;
     }
 
     public List<String> getEnabledSites() {
@@ -120,6 +133,10 @@ public class TmdbConfig {
         return disabledSites == null ? new ArrayList<>() : disabledSites;
     }
 
+    public List<String> getAllowedSites() {
+        return allowedSites == null ? new ArrayList<>() : allowedSites;
+    }
+
     public boolean isExcludeKeywordsConfigured() {
         return Boolean.TRUE.equals(excludeKeywordsConfigured);
     }
@@ -129,19 +146,17 @@ public class TmdbConfig {
     }
 
     public boolean hasSiteRules() {
-        return !getEnabledSites().isEmpty() || !getExcludeKeywords().isEmpty();
+        return !getEnabledSites().isEmpty() || !getAllowedSites().isEmpty() || !getDisabledSites().isEmpty();
     }
 
     public boolean isSiteEnabled(String key, String name) {
         sanitize();
-        // 黑名单优先：disabledSites 中的站点直接排除
-        if (matches(getDisabledSites(), key) || matches(getDisabledSites(), name)) return false;
-        // 排除关键词（兼容旧版）
-        if (matches(getExcludeKeywords(), key) || matches(getExcludeKeywords(), name)) return false;
-        // enabledSites 为空代表"全部启用"（除了黑名单）
         List<String> sites = getEnabledSites();
-        if (sites.isEmpty()) return true;
-        return matches(sites, key) || matches(sites, name);
+        if (matchesExact(getDisabledSites(), key) || matchesExact(getDisabledSites(), name)) return false;
+        if (matchesExact(getAllowedSites(), key) || matchesExact(getAllowedSites(), name)) return true;
+        if (matchesExact(sites, key) || matchesExact(sites, name)) return true;
+        if (matches(getDisabledSites(), key) || matches(getDisabledSites(), name)) return false;
+        return sites.isEmpty() || matches(sites, key) || matches(sites, name);
     }
 
     public String toJson() {
@@ -160,7 +175,7 @@ public class TmdbConfig {
 
     private static boolean isImageHost(String value) {
         String image = trimTrailingSlash(value);
-        return image.endsWith("/t/p") || image.equals(DEFAULT_IMAGE_HOST) || image.endsWith(".tmdb.org");
+        return image.endsWith("/t/p") || image.equals(DEFAULT_IMAGE_HOST) || image.endsWith(".tmdb.org") || isHttpUrl(image);
     }
 
     private static String imageBase(String value, String size) {
@@ -186,6 +201,10 @@ public class TmdbConfig {
         return text;
     }
 
+    private static boolean isHttpUrl(String value) {
+        return value != null && (value.startsWith("http://") || value.startsWith("https://"));
+    }
+
     private static List<String> cleanList(List<String> values) {
         List<String> result = new ArrayList<>();
         if (values == null) return result;
@@ -197,12 +216,34 @@ public class TmdbConfig {
         return result;
     }
 
+    private static List<String> mergeList(List<String> first, List<String> second) {
+        List<String> result = new ArrayList<>();
+        addAllUnique(result, first);
+        addAllUnique(result, second);
+        return result;
+    }
+
+    private static void addAllUnique(List<String> result, List<String> values) {
+        if (values == null) return;
+        for (String value : values) if (!TextUtils.isEmpty(value) && !result.contains(value)) result.add(value);
+    }
+
     private static boolean matches(List<String> rules, String value) {
         if (rules == null || TextUtils.isEmpty(value)) return false;
         String target = value.toLowerCase(Locale.ROOT);
         for (String rule : rules) {
             if (TextUtils.isEmpty(rule)) continue;
             if (target.contains(rule.trim().toLowerCase(Locale.ROOT))) return true;
+        }
+        return false;
+    }
+
+    private static boolean matchesExact(List<String> rules, String value) {
+        if (rules == null || TextUtils.isEmpty(value)) return false;
+        String target = value.trim();
+        for (String rule : rules) {
+            if (TextUtils.isEmpty(rule)) continue;
+            if (target.equalsIgnoreCase(rule.trim())) return true;
         }
         return false;
     }

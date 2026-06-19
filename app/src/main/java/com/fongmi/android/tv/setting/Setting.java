@@ -15,12 +15,17 @@ import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.BuildConfig;
 import com.fongmi.android.tv.bean.AudioConfig;
 import com.fongmi.android.tv.bean.ShortDramaConfig;
+import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.utils.WebViewUtil;
 import com.github.catvod.crawler.DebugLogStore;
 import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.utils.Prefers;
 
 public class Setting {
+
+    public static final int TMDB_MODEL_NATIVE = 0;
+    public static final int DETAIL_INTERACTION_SYSTEM = 0;
+    public static final int DETAIL_THEME_CURRENT = 0;
 
     public static String getDoh() {
         return Prefers.getString("doh");
@@ -378,6 +383,90 @@ public class Setting {
 
     public static void putTmdbEnabled(boolean enabled) {
         Prefers.put("tmdb_enabled", enabled);
+    }
+
+    public static int getTmdbModel() {
+        return clampTmdbModel(Prefers.getInt("tmdb_model", TMDB_MODEL_NATIVE));
+    }
+
+    public static void putTmdbModel(int model) {
+        Prefers.put("tmdb_model", clampTmdbModel(model));
+    }
+
+    private static int clampTmdbModel(int model) {
+        return model == TMDB_MODEL_NATIVE ? TMDB_MODEL_NATIVE : TMDB_MODEL_NATIVE;
+    }
+
+    public static int getDetailInteractionMode() {
+        return clampDetailInteractionMode(Prefers.getInt("detail_interaction_mode", DETAIL_INTERACTION_SYSTEM));
+    }
+
+    public static void putDetailInteractionMode(int mode) {
+        Prefers.put("detail_interaction_mode", clampDetailInteractionMode(mode));
+    }
+
+    private static int clampDetailInteractionMode(int mode) {
+        return mode == DETAIL_INTERACTION_SYSTEM ? DETAIL_INTERACTION_SYSTEM : DETAIL_INTERACTION_SYSTEM;
+    }
+
+    public static int getDetailThemeMode() {
+        return clampDetailThemeMode(Prefers.getInt("detail_theme_mode", DETAIL_THEME_CURRENT));
+    }
+
+    public static void putDetailThemeMode(int mode) {
+        Prefers.put("detail_theme_mode", clampDetailThemeMode(mode));
+    }
+
+    private static int clampDetailThemeMode(int mode) {
+        return mode == DETAIL_THEME_CURRENT ? DETAIL_THEME_CURRENT : DETAIL_THEME_CURRENT;
+    }
+
+    public static int getTmdbMatchMode() {
+        return getTmdbModel();
+    }
+
+    public static void putTmdbMatchMode(int mode) {
+        putTmdbModel(mode);
+    }
+
+    public static boolean isTmdbDetailBackdropSlide() {
+        return Prefers.getBoolean("tmdb_detail_backdrop_slide", true);
+    }
+
+    public static void putTmdbDetailBackdropSlide(boolean enabled) {
+        Prefers.put("tmdb_detail_backdrop_slide", enabled);
+    }
+
+    public static boolean isTmdbDetailPage() {
+        return isTmdbEnabled() && getTmdbModel() == TMDB_MODEL_NATIVE && TmdbConfig.objectFrom(getTmdbConfig()).isReady();
+    }
+
+    public static int getDetailOpenMode() {
+        return getDetailInteractionMode();
+    }
+
+    public static void putDetailOpenMode(int mode) {
+        putDetailInteractionMode(mode);
+    }
+
+    public static boolean isTmdbMode(int mode) {
+        return clampDetailInteractionMode(mode) == DETAIL_INTERACTION_SYSTEM;
+    }
+
+    public static int getTmdbDetailStyle() {
+        return getDetailThemeMode();
+    }
+
+    public static void putTmdbDetailStyle(int style) {
+        putDetailThemeMode(style);
+    }
+
+    public static int getTmdbDetailTheme() {
+        return getDetailThemeMode();
+    }
+
+    public static void putTmdbDetailTheme(int theme) {
+        putDetailThemeMode(theme);
     }
 
     public static boolean isHomeHistory() {

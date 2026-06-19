@@ -732,17 +732,32 @@
     </string-array>
 
     <string name="setting_tmdb_source">TMDB 元数据配置</string>
+    <string name="setting_tmdb_model">TMDB 交互模型</string>
+    <string name="setting_tmdb_model_native">原生增强</string>
+    <string name="setting_detail_open_mode">详情页模式</string>
+    <string name="setting_detail_open_native">内嵌增强</string>
+    <string name="setting_detail_theme_mode">详情页主题</string>
+    <string name="setting_detail_theme_current">当前主题</string>
+    <string name="setting_configured">已配置</string>
+    <string name="setting_unconfigured">未配置</string>
     <string name="dialog_tmdb_api_key_label">TMDB API Key 或 Access Token</string>
     <string name="dialog_tmdb_api_key_hint">输入 API Key 或 v4 Access Token</string>
     <string name="dialog_tmdb_api_key_tip">免费获取 API Key: https://www.themoviedb.org/settings/api</string>
+    <string name="dialog_tmdb_language_label">TMDB 语言</string>
+    <string name="dialog_tmdb_language_hint">例如 zh-CN</string>
+    <string name="dialog_tmdb_api_host_label">API 域名</string>
+    <string name="dialog_tmdb_api_host_hint">例如 https://api.tmdb.org</string>
+    <string name="dialog_tmdb_image_host_label">图片域名</string>
+    <string name="dialog_tmdb_image_host_hint">例如 https://image.tmdb.org</string>
     <string name="dialog_omdb_api_key_label">OMDb API Key（可选，用于 IMDB 评分）</string>
     <string name="dialog_omdb_api_key_hint">输入 OMDb API Key</string>
     <string name="dialog_omdb_api_key_tip">免费获取 API Key（每天1000次）: https://www.omdbapi.com/apikey.aspx</string>
     <string name="dialog_tmdb_enable_label">启用 TMDB 元数据增强</string>
     <string name="dialog_tmdb_enable_tip">为视频详情页自动匹配并补充 TMDB 简介、演员、评分等信息</string>
     <string name="dialog_tmdb_enabled_sites_label">启用站点规则</string>
-    <string name="dialog_tmdb_disabled_sites_label">已排除站点</string>
+    <string name="dialog_tmdb_disabled_sites_label">排除规则</string>
     <string name="dialog_tmdb_add_rule_hint">添加关键词或站点…</string>
+    <string name="dialog_tmdb_add_disabled_rule_hint">添加排除关键词或站点…</string>
     <string name="dialog_tmdb_add">添加</string>
     <string name="dialog_tmdb_all_sites">全部站点</string>
     <string name="dialog_tmdb_site_manage">选择站点</string>

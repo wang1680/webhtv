@@ -297,6 +297,13 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         return getIntent().getBooleanExtra("tmdbMode", false);
     }
 
+    private boolean isTmdbSourceEnabled() {
+        if (isTmdbMode()) return true;
+        if (!Setting.isTmdbEnabled()) return false;
+        Site site = getSite();
+        return Setting.isTmdbSiteEnabled(site == null ? getKey() : site.getKey(), site == null ? "" : site.getName());
+    }
+
     private com.fongmi.android.tv.bean.TmdbItem getTmdbItem() {
         return (com.fongmi.android.tv.bean.TmdbItem) getIntent().getSerializableExtra("tmdbItem");
     }
@@ -839,7 +846,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mEpisodeAdapter.addAll(items);
 
         // 根据设置决定是否使用TMDB卡片模式
-        boolean useTmdbCard = Setting.isTmdbEnabled();
+        boolean useTmdbCard = isTmdbSourceEnabled();
         mEpisodeAdapter.setUseTmdbCard(useTmdbCard);
 
         // 横向滚动，所有模式都使用1列
@@ -1663,7 +1670,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                     target.mergeEpisodes(item.getEpisodes(), mHistory.isRevSort());
                     if (target.equals(activated)) {
                         // 检查是否是TMDB数据更新
-                        boolean useTmdbCard = Setting.isTmdbEnabled();
+                        boolean useTmdbCard = isTmdbSourceEnabled();
                         boolean hasTmdbData = useTmdbCard && item.getEpisodes().stream().anyMatch(ep -> ep.getTmdbEpisode() != null);
 
                         if (useTmdbCard && hasTmdbData && mBinding.episodeLoadingIndicator.getVisibility() == View.VISIBLE) {
@@ -2467,7 +2474,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void initTmdbMode() {
         // TMDB 模式：通过全局开关或 Intent 参数启用
-        if (!isTmdbMode() && !Setting.isTmdbEnabled()) return;
+        if (!isTmdbSourceEnabled()) return;
 
         mTmdbUIAdapter = new com.fongmi.android.tv.ui.helper.TmdbUIAdapter(this);
         if (!mTmdbUIAdapter.isReady()) {

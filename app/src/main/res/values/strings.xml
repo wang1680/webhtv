@@ -752,17 +752,32 @@
     </string-array>
 
     <string name="setting_tmdb_source">TMDB metadata config</string>
+    <string name="setting_tmdb_model">TMDB interaction model</string>
+    <string name="setting_tmdb_model_native">Native enhancement</string>
+    <string name="setting_detail_open_mode">Detail page mode</string>
+    <string name="setting_detail_open_native">Embedded enhancement</string>
+    <string name="setting_detail_theme_mode">Detail page theme</string>
+    <string name="setting_detail_theme_current">Current theme</string>
+    <string name="setting_configured">Configured</string>
+    <string name="setting_unconfigured">Unconfigured</string>
     <string name="dialog_tmdb_api_key_label">TMDB API Key or Access Token</string>
     <string name="dialog_tmdb_api_key_hint">Enter API Key or v4 Access Token</string>
     <string name="dialog_tmdb_api_key_tip">Get your free API key at: https://www.themoviedb.org/settings/api</string>
+    <string name="dialog_tmdb_language_label">TMDB language</string>
+    <string name="dialog_tmdb_language_hint">For example zh-CN</string>
+    <string name="dialog_tmdb_api_host_label">API host</string>
+    <string name="dialog_tmdb_api_host_hint">For example https://api.tmdb.org</string>
+    <string name="dialog_tmdb_image_host_label">Image host</string>
+    <string name="dialog_tmdb_image_host_hint">For example https://image.tmdb.org</string>
     <string name="dialog_omdb_api_key_label">OMDb API Key (Optional, for IMDB ratings)</string>
     <string name="dialog_omdb_api_key_hint">Enter OMDb API Key</string>
     <string name="dialog_omdb_api_key_tip">Get free API Key (1000/day): https://www.omdbapi.com/apikey.aspx</string>
     <string name="dialog_tmdb_enable_label">Enable TMDB metadata</string>
     <string name="dialog_tmdb_enable_tip">Auto-fetch metadata (overview, cast, ratings) from TMDB for video details</string>
     <string name="dialog_tmdb_enabled_sites_label">Enabled sources</string>
-    <string name="dialog_tmdb_disabled_sites_label">Excluded sources</string>
+    <string name="dialog_tmdb_disabled_sites_label">Exclude rules</string>
     <string name="dialog_tmdb_add_rule_hint">Add keyword or source…</string>
+    <string name="dialog_tmdb_add_disabled_rule_hint">Add excluded keyword or source…</string>
     <string name="dialog_tmdb_add">Add</string>
     <string name="dialog_tmdb_all_sites">All sources</string>
     <string name="dialog_tmdb_site_manage">Select sources</string>

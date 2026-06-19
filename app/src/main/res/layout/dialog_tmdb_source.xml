@@ -40,6 +40,68 @@
         android:paddingTop="4dp"
         android:paddingBottom="16dp" />
 
+    <com.google.android.material.textview.MaterialTextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/dialog_tmdb_language_label"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:paddingBottom="8dp" />
+
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/languageInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/dialog_tmdb_language_hint"
+        android:inputType="text"
+        android:maxLines="1"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:background="@android:drawable/editbox_background"
+        android:textSize="14sp" />
+
+    <com.google.android.material.textview.MaterialTextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/dialog_tmdb_api_host_label"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp" />
+
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/apiHostInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/dialog_tmdb_api_host_hint"
+        android:inputType="textUri"
+        android:maxLines="1"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:background="@android:drawable/editbox_background"
+        android:textSize="14sp" />
+
+    <com.google.android.material.textview.MaterialTextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/dialog_tmdb_image_host_label"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp" />
+
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/imageHostInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/dialog_tmdb_image_host_hint"
+        android:inputType="textUri"
+        android:maxLines="1"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:background="@android:drawable/editbox_background"
+        android:textSize="14sp" />
+
     <!-- OMDb API Key 输入框（可选） -->
     <com.google.android.material.textview.MaterialTextView
         android:layout_width="match_parent"
@@ -47,6 +109,7 @@
         android:text="@string/dialog_omdb_api_key_label"
         android:textSize="14sp"
         android:textStyle="bold"
+        android:paddingTop="16dp"
         android:paddingBottom="8dp" />
 
     <com.google.android.material.textfield.TextInputEditText
@@ -109,6 +172,7 @@
         android:text="@string/dialog_tmdb_enabled_sites_label"
         android:textSize="14sp"
         android:textStyle="bold"
+        android:paddingTop="16dp"
         android:paddingBottom="8dp" />
 
     <com.google.android.material.chip.ChipGroup
@@ -174,6 +238,43 @@
         app:chipSpacingHorizontal="8dp"
         app:chipSpacingVertical="4dp"
         android:visibility="gone" />
+
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:id="@+id/disabledInputLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/disabledRuleInput"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:hint="@string/dialog_tmdb_add_disabled_rule_hint"
+            android:imeOptions="actionDone"
+            android:inputType="text"
+            android:maxLines="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:background="@android:drawable/editbox_background"
+            android:textSize="14sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/addDisabled"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="64dp"
+            android:text="@string/dialog_tmdb_add"
+            android:textAllCaps="false"
+            android:textSize="13sp" />
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
 
     <!-- 操作按钮 -->
     <com.google.android.material.button.MaterialButton

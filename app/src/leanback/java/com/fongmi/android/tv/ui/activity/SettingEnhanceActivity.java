@@ -37,11 +37,15 @@ import com.fongmi.android.tv.utils.LoginStateSync;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.PermissionUtil;
 import com.fongmi.android.tv.web.ext.WebHomeExtensionRegistry;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 public class SettingEnhanceActivity extends BaseActivity {
 
     private static final String URL_GITHUB = "https://github.com/fish2018/webhtv";
     private static final String URL_CNB = "https://cnb.cool/fish2018/ext";
+    private static final int[] TMDB_MODELS = {Setting.TMDB_MODEL_NATIVE};
+    private static final int[] DETAIL_INTERACTION_MODES = {Setting.DETAIL_INTERACTION_SYSTEM};
+    private static final int[] DETAIL_THEME_MODES = {Setting.DETAIL_THEME_CURRENT};
 
     private ActivitySettingEnhanceBinding mBinding;
 
@@ -72,6 +76,9 @@ public class SettingEnhanceActivity extends BaseActivity {
         mBinding.audioSource.setOnClickListener(this::setAudioSource);
         mBinding.shortDramaSource.setOnClickListener(this::setShortDramaSource);
         mBinding.tmdbSource.setOnClickListener(this::setTmdbSource);
+        mBinding.tmdbModel.setOnClickListener(this::setTmdbModel);
+        mBinding.detailInteractionMode.setOnClickListener(this::setDetailInteractionMode);
+        mBinding.detailThemeMode.setOnClickListener(this::setDetailThemeMode);
         mBinding.debugLog.setOnClickListener(this::setDebugLog);
         mBinding.siteHealthSort.setOnClickListener(view -> SiteHealthDialog.show(this, this::setText));
         mBinding.siteHealthSort.setOnLongClickListener(this::clearSiteHealth);
@@ -97,7 +104,10 @@ public class SettingEnhanceActivity extends BaseActivity {
         mBinding.driveCheckText.setText(getSwitch(Setting.isDriveCheck()));
         mBinding.audioSourceText.setText(getSwitch(!AudioConfig.objectFrom(Setting.getAudioConfig()).getDisplayRules().isEmpty()));
         mBinding.shortDramaSourceText.setText(getSwitch(!ShortDramaConfig.objectFrom(Setting.getShortDramaConfig()).getDisplayRules().isEmpty()));
-        mBinding.tmdbSourceText.setText(getSwitch(Setting.isTmdbEnabled()) + (Setting.isTmdbReady() ? " · 已配置" : " · 未配置"));
+        mBinding.tmdbSourceText.setText(getSwitch(Setting.isTmdbEnabled()) + " · " + getString(Setting.isTmdbReady() ? R.string.setting_configured : R.string.setting_unconfigured));
+        mBinding.tmdbModelText.setText(getTmdbModelText());
+        mBinding.detailInteractionModeText.setText(getDetailInteractionModeText());
+        mBinding.detailThemeModeText.setText(getDetailThemeModeText());
         mBinding.debugLogText.setText(getSwitch(Setting.isDebugLog()));
         mBinding.siteHealthSortText.setText(getSwitch(Setting.isSiteHealthSort()));
         WebHomeExtensionRegistry.Snapshot webHomeExtension = WebHomeExtensionRegistry.get().snapshot();
@@ -139,6 +149,81 @@ public class SettingEnhanceActivity extends BaseActivity {
 
     private void setTmdbSource(View view) {
         TmdbSourceDialog.create(this).onDismiss(this::setText).show();
+    }
+
+    private String getTmdbModelText() {
+        String[] labels = getTmdbModels();
+        int mode = Setting.getTmdbModel();
+        for (int i = 0; i < TMDB_MODELS.length; i++) if (TMDB_MODELS[i] == mode) return labels[i];
+        return labels[0];
+    }
+
+    private String[] getTmdbModels() {
+        return new String[]{getString(R.string.setting_tmdb_model_native)};
+    }
+
+    private void setTmdbModel(View view) {
+        new MaterialAlertDialogBuilder(this).setTitle(R.string.setting_tmdb_model).setNegativeButton(R.string.dialog_negative, null).setSingleChoiceItems(getTmdbModels(), getTmdbModelIndex(), (dialog, which) -> {
+            Setting.putTmdbModel(TMDB_MODELS[which]);
+            setText();
+            dialog.dismiss();
+        }).show();
+    }
+
+    private int getTmdbModelIndex() {
+        int mode = Setting.getTmdbModel();
+        for (int i = 0; i < TMDB_MODELS.length; i++) if (TMDB_MODELS[i] == mode) return i;
+        return 0;
+    }
+
+    private String getDetailInteractionModeText() {
+        String[] labels = getDetailInteractionModes();
+        int mode = Setting.getDetailInteractionMode();
+        for (int i = 0; i < DETAIL_INTERACTION_MODES.length; i++) if (DETAIL_INTERACTION_MODES[i] == mode) return labels[i];
+        return labels[0];
+    }
+
+    private String[] getDetailInteractionModes() {
+        return new String[]{getString(R.string.setting_detail_open_native)};
+    }
+
+    private void setDetailInteractionMode(View view) {
+        new MaterialAlertDialogBuilder(this).setTitle(R.string.setting_detail_open_mode).setNegativeButton(R.string.dialog_negative, null).setSingleChoiceItems(getDetailInteractionModes(), getDetailInteractionModeIndex(), (dialog, which) -> {
+            Setting.putDetailInteractionMode(DETAIL_INTERACTION_MODES[which]);
+            setText();
+            dialog.dismiss();
+        }).show();
+    }
+
+    private int getDetailInteractionModeIndex() {
+        int mode = Setting.getDetailInteractionMode();
+        for (int i = 0; i < DETAIL_INTERACTION_MODES.length; i++) if (DETAIL_INTERACTION_MODES[i] == mode) return i;
+        return 0;
+    }
+
+    private String getDetailThemeModeText() {
+        String[] labels = getDetailThemeModes();
+        int mode = Setting.getDetailThemeMode();
+        for (int i = 0; i < DETAIL_THEME_MODES.length; i++) if (DETAIL_THEME_MODES[i] == mode) return labels[i];
+        return labels[0];
+    }
+
+    private String[] getDetailThemeModes() {
+        return new String[]{getString(R.string.setting_detail_theme_current)};
+    }
+
+    private void setDetailThemeMode(View view) {
+        new MaterialAlertDialogBuilder(this).setTitle(R.string.setting_detail_theme_mode).setNegativeButton(R.string.dialog_negative, null).setSingleChoiceItems(getDetailThemeModes(), getDetailThemeModeIndex(), (dialog, which) -> {
+            Setting.putDetailThemeMode(DETAIL_THEME_MODES[which]);
+            setText();
+            dialog.dismiss();
+        }).show();
+    }
+
+    private int getDetailThemeModeIndex() {
+        int mode = Setting.getDetailThemeMode();
+        for (int i = 0; i < DETAIL_THEME_MODES.length; i++) if (DETAIL_THEME_MODES[i] == mode) return i;
+        return 0;
     }
 
     private void setPlaybackArtworkWall(View view) {
