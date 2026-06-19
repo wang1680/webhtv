@@ -36,6 +36,10 @@ https://github.com/user-attachments/assets/7249b787-a720-406c-8365-acaa0995cb6a
 }
 ```
 
+## 社区分享
+
+- [网友自制分享](https://github.com/fish2018/webhtv/issues/13)
+
 ## 文档
 
 完整开发说明见 [**应用完整开发文档.md**](webhome-devkit/docs/应用完整开发文档.md),包含:
