@@ -10,6 +10,7 @@ public class PlayerSetting {
 
     public static final int EXO = 0;
     public static final int IJK = 1;
+    public static final int SYSTEM = 2;
     public static final int NONE = -1;
 
     public static int getPlayer() {
@@ -24,11 +25,11 @@ public class PlayerSetting {
     }
 
     public static boolean isPlayer(int player) {
-        return player == EXO || player == IJK;
+        return player == EXO || player == IJK || player == SYSTEM;
     }
 
     public static int sanitizePlayer(int player) {
-        return player == IJK ? IJK : EXO;
+        return isPlayer(player) ? player : EXO;
     }
 
     public static int resolvePlayer(int player) {

@@ -860,6 +860,12 @@
     <string name="times">倍</string>
     <string name="lines">行</string>
 
+    <string-array name="select_player">
+        <item>EXO</item>
+        <item>IJK</item>
+        <item>系統</item>
+    </string-array>
+
     <string-array name="select_decode">
         <item>軟解</item>
         <item>硬解</item>
@@ -868,6 +874,7 @@
     <string-array name="select_player_kernel">
         <item>EXO</item>
         <item>IJK</item>
+        <item>系統</item>
     </string-array>
 
     <string-array name="select_size">

@@ -28,6 +28,7 @@ import com.fongmi.android.tv.player.engine.ExoPlayerEngine;
 import com.fongmi.android.tv.player.engine.IjkPlayerEngine;
 import com.fongmi.android.tv.player.engine.PlaySpec;
 import com.fongmi.android.tv.player.engine.PlayerEngine;
+import com.fongmi.android.tv.player.engine.SystemPlayerEngine;
 import com.fongmi.android.tv.player.exo.TrackUtil;
 import com.fongmi.android.tv.setting.DanmakuSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
@@ -46,13 +47,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import tv.danmaku.ijk.media.player.exceptions.IjkMediaException;
-
 public class PlayerManager implements ParseCallback {
 
     private static final long LOCAL_PROXY_READY_TIMEOUT_MS = 5000;
     private static final long LOCAL_PROXY_RETRY_DELAY_MS = 1000;
     private static final int LOCAL_PROXY_MAX_RETRY = 2;
+    private static final int[] PLAYER_FALLBACK_ORDER = new int[]{PlayerSetting.EXO, PlayerSetting.IJK, PlayerSetting.SYSTEM};
     private static final float[] SPEED_PRESETS = new float[]{0.5f, 0.75f, 1f, 1.2f, 1.5f, 2f, 3f, 5f};
     private static final DecimalFormat SPEED_FORMAT = new DecimalFormat("0.##x");
 
@@ -70,11 +70,12 @@ public class PlayerManager implements ParseCallback {
     private int retry;
     private int localProxyRetry;
     private int prepareSeq;
-    private boolean ijkFallbackRetry;
+    private boolean[] playerFallbackTried;
 
     public PlayerManager(Callback callback) {
         this.runnable = () -> callback.onError(ResUtil.getString(R.string.error_play_timeout));
         this.playerType = PlayerSetting.getPlayer();
+        this.playerFallbackTried = new boolean[PLAYER_FALLBACK_ORDER.length];
         this.engine = buildEngine(playerType, PlayerEngine.HARD);
         this.player = engine.getPlayer();
         this.callback = callback;
@@ -229,7 +230,7 @@ public class PlayerManager implements ParseCallback {
     }
 
     public String getPlayerText() {
-        return ResUtil.getStringArray(R.array.select_player_kernel)[playerType];
+        return getPlayerText(playerType);
     }
 
     public int getPlayerType() {
@@ -238,6 +239,11 @@ public class PlayerManager implements ParseCallback {
 
     public boolean isIjk() {
         return playerType == PlayerSetting.IJK;
+    }
+
+    private String getPlayerText(int type) {
+        String[] items = ResUtil.getStringArray(R.array.select_player_kernel);
+        return type >= 0 && type < items.length ? items[type] : items[PlayerSetting.EXO];
     }
 
     private Format getSelectedFormat(int type) {
@@ -407,6 +413,7 @@ public class PlayerManager implements ParseCallback {
         App.removeCallbacks(runnable);
         retry = 0;
         localProxyRetry = 0;
+        resetPlayerFallback();
     }
 
     public void clear() {
@@ -425,26 +432,31 @@ public class PlayerManager implements ParseCallback {
     }
 
     public void togglePlayer() {
-        switchPlayer(playerType == PlayerSetting.EXO ? PlayerSetting.IJK : PlayerSetting.EXO);
+        switchPlayer(nextPlayer(playerType));
     }
 
     public void switchPlayer(int type) {
         if (engine == null || player == null) return;
         type = PlayerSetting.sanitizePlayer(type);
         if (type == playerType) return;
-        long position = getPosition();
-        float speed = getSpeed();
-        boolean repeat = isRepeatOne();
+        resetPlayerFallback();
+        switchEngine(type, true, true, true);
+    }
+
+    private void switchEngine(int type, boolean persist, boolean preserveState, boolean notifyPrepare) {
+        long position = preserveState ? getPosition() : 0;
+        float speed = preserveState ? getSpeed() : 1f;
+        boolean repeat = preserveState && isRepeatOne();
         int decode = engine.getDecode();
-        ijkFallbackRetry = false;
         engine.release();
         playerType = type;
-        PlayerSetting.putPlayer(type);
+        if (persist) PlayerSetting.putPlayer(type);
         engine = buildEngine(playerType, decode);
         player = engine.getPlayer();
         callback.onPlayerRebuild(player);
         if (spec == null || spec.getUrl() == null) return;
-        setMediaItem();
+        if (persist) setMediaItem();
+        else setMediaItemNow(Constant.TIMEOUT_PLAY, notifyPrepare);
         if (position > 0) seekTo(position);
         if (speed != 1f) setSpeed(speed);
         setRepeatOne(repeat);
@@ -456,7 +468,11 @@ public class PlayerManager implements ParseCallback {
     }
 
     private PlayerEngine buildEngine(int type, int decode) {
-        return type == PlayerSetting.IJK ? new IjkPlayerEngine(decode, listener) : new ExoPlayerEngine(decode, listener);
+        return switch (type) {
+            case PlayerSetting.IJK -> new IjkPlayerEngine(decode, listener);
+            case PlayerSetting.SYSTEM -> new SystemPlayerEngine(decode, listener);
+            default -> new ExoPlayerEngine(decode, listener);
+        };
     }
 
     public void browse(PlaySpec spec) {
@@ -469,7 +485,7 @@ public class PlayerManager implements ParseCallback {
     public void start(PlaySpec spec, long timeout) {
         this.spec = spec;
         localProxyRetry = 0;
-        ijkFallbackRetry = false;
+        resetPlayerFallback();
         setMediaItem(timeout);
     }
 
@@ -477,7 +493,7 @@ public class PlayerManager implements ParseCallback {
         stopParse();
         spec = PlaySpec.fromParse(result, key, metadata);
         localProxyRetry = 0;
-        ijkFallbackRetry = false;
+        resetPlayerFallback();
         parseJob = ParseJob.create(this).start(result, useParse);
     }
 
@@ -659,9 +675,10 @@ public class PlayerManager implements ParseCallback {
                 return;
             }
             if (action == PlayerEngine.ErrorAction.FATAL) {
-                if (fallbackIjkToExo(e)) return;
+                if (fallbackPlayer(e)) return;
                 callback.onError(engine.getErrorMessage(e));
             } else if (++retry > 1) {
+                if (fallbackPlayer(e)) return;
                 callback.onError(engine.getErrorMessage(e));
             } else {
                 toggleDecode();
@@ -684,29 +701,45 @@ public class PlayerManager implements ParseCallback {
         return true;
     }
 
-    private boolean fallbackIjkToExo(PlaybackException e) {
-        if (playerType != PlayerSetting.IJK || ijkFallbackRetry || !hasCause(e, IjkMediaException.class)) return false;
+    private boolean fallbackPlayer(PlaybackException e) {
         if (spec == null || spec.getUrl() == null || engine == null) return false;
-        ijkFallbackRetry = true;
-        int decode = engine.getDecode();
-        SpiderDebug.log("player", "ijk fallback to exo spec=%s cause=%s", debugSpec(), causeChain(e));
+        int next = nextFallbackPlayer();
+        if (next == PlayerSetting.NONE) return false;
+        SpiderDebug.log("player", "fallback player from=%s to=%s spec=%s cause=%s", getPlayerText(playerType), getPlayerText(next), debugSpec(), causeChain(e));
         App.removeCallbacks(runnable);
-        engine.release();
-        playerType = PlayerSetting.EXO;
-        engine = buildEngine(playerType, decode);
-        player = engine.getPlayer();
-        callback.onPlayerRebuild(player);
-        setMediaItemNow(Constant.TIMEOUT_PLAY, true);
+        retry = 0;
+        localProxyRetry = 0;
+        switchEngine(next, false, true, true);
         return true;
     }
 
-    private static boolean hasCause(Throwable error, Class<? extends Throwable> type) {
-        Throwable current = error;
-        int depth = 0;
-        while (current != null && depth++ < 8) {
-            if (type.isInstance(current)) return true;
-            current = current.getCause();
+    private int nextFallbackPlayer() {
+        markPlayerFallbackTried(playerType);
+        for (int type : PLAYER_FALLBACK_ORDER) {
+            if (type == playerType || isPlayerFallbackTried(type)) continue;
+            markPlayerFallbackTried(type);
+            return type;
         }
-        return false;
+        return PlayerSetting.NONE;
+    }
+
+    private int nextPlayer(int type) {
+        for (int i = 0; i < PLAYER_FALLBACK_ORDER.length; i++) {
+            if (PLAYER_FALLBACK_ORDER[i] != type) continue;
+            return PLAYER_FALLBACK_ORDER[(i + 1) % PLAYER_FALLBACK_ORDER.length];
+        }
+        return PlayerSetting.EXO;
+    }
+
+    private void resetPlayerFallback() {
+        playerFallbackTried = new boolean[PLAYER_FALLBACK_ORDER.length];
+    }
+
+    private void markPlayerFallbackTried(int type) {
+        if (type >= 0 && type < playerFallbackTried.length) playerFallbackTried[type] = true;
+    }
+
+    private boolean isPlayerFallbackTried(int type) {
+        return type >= 0 && type < playerFallbackTried.length && playerFallbackTried[type];
     }
 }

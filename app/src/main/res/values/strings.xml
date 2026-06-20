@@ -902,6 +902,7 @@
     <string-array name="select_player">
         <item>EXO</item>
         <item>IJK</item>
+        <item>System</item>
     </string-array>
 
     <string-array name="select_decode">
@@ -917,6 +918,7 @@
     <string-array name="select_player_kernel">
         <item>EXO</item>
         <item>IJK</item>
+        <item>System</item>
     </string-array>
 
     <string-array name="select_size">

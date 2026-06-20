@@ -112,7 +112,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
     }
 
     private void setKernel(View view) {
-        int index = PlayerSetting.getPlayer() == PlayerSetting.EXO ? PlayerSetting.IJK : PlayerSetting.EXO;
+        int index = (PlayerSetting.getPlayer() + 1) % kernel.length;
         mBinding.kernelText.setText(kernel[index]);
         PlayerSetting.putPlayer(index);
     }

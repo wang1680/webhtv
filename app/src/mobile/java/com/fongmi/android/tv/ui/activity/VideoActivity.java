@@ -1176,13 +1176,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void onChoose() {
-        String[] items = new String[]{"EXO", "IJK", "外调"};
+        String[] kernel = ResUtil.getStringArray(R.array.select_player_kernel);
+        String[] items = new String[kernel.length + 1];
+        System.arraycopy(kernel, 0, items, 0, kernel.length);
+        items[kernel.length] = "外调";
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setItems(items, (dialog, which) -> {
-            if (which == 0) {
-                player().switchPlayer(PlayerSetting.EXO);
-                setPlayer();
-            } else if (which == 1) {
-                player().switchPlayer(PlayerSetting.IJK);
+            if (which < kernel.length) {
+                player().switchPlayer(which);
                 setPlayer();
             } else {
                 PlayerHelper.choose(this, player().getUrl(), player().getHeaders(), player().isVod(), player().getPosition(), mBinding.control.title.getText());
@@ -1649,6 +1649,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     protected void onPrepare() {
         android.util.Log.d("VideoActivity", "onPrepare: setting Clock callback");
+        setPlayerKernel();
         setDecode();
         setPosition();
         mClock.setCallback(this);

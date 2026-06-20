@@ -889,6 +889,12 @@
     <string name="search_result_group">%1$s 搜索：%2$s</string>
     <string name="detail_site_not_searchable">当前站源不支持搜索</string>
 
+    <string-array name="select_player">
+        <item>EXO</item>
+        <item>IJK</item>
+        <item>系统</item>
+    </string-array>
+
     <string-array name="select_decode">
         <item>软解</item>
         <item>硬解</item>
@@ -897,6 +903,7 @@
     <string-array name="select_player_kernel">
         <item>EXO</item>
         <item>IJK</item>
+        <item>系统</item>
     </string-array>
 
     <string-array name="select_size">
