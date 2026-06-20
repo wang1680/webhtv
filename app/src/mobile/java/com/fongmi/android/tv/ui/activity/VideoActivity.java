@@ -397,6 +397,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.title.setOnClickListener(view -> onTitle());
         mBinding.control.action.player.setOnClickListener(view -> onPlayerKernel());
         mBinding.control.action.player.setOnLongClickListener(view -> onChooseLong());
+        mBinding.control.action.prev.setOnClickListener(view -> checkPrev());
+        mBinding.control.action.next.setOnClickListener(view -> checkNext());
         mBinding.control.action.decode.setOnClickListener(view -> onDecode());
         mBinding.control.action.ending.setOnClickListener(view -> onEnding());
         mBinding.control.action.repeat.setOnClickListener(view -> onRepeat());
@@ -696,6 +698,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void setEpisodeAdapter(List<Episode> items) {
         mBinding.control.action.episodes.setVisibility(items.size() < 2 ? View.GONE : View.VISIBLE);
+        mBinding.control.action.next.setVisibility(items.size() < 2 ? View.GONE : View.VISIBLE);
+        mBinding.control.action.prev.setVisibility(items.size() < 2 ? View.GONE : View.VISIBLE);
         mBinding.control.next.setVisibility(items.size() < 2 ? View.GONE : View.VISIBLE);
         mBinding.control.prev.setVisibility(items.size() < 2 ? View.GONE : View.VISIBLE);
         mBinding.reverse.setVisibility(items.size() < 2 ? View.GONE : View.VISIBLE);
@@ -871,15 +875,20 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void onSpeed() {
         mBinding.control.action.speed.setText(player().addSpeed());
-        mHistory.setSpeed(player().getSpeed());
+        saveDefaultSpeed();
         setR1Callback();
     }
 
     private boolean onSpeedLong() {
         mBinding.control.action.speed.setText(player().toggleSpeed());
-        mHistory.setSpeed(player().getSpeed());
+        saveDefaultSpeed();
         setR1Callback();
         return true;
+    }
+
+    private void saveDefaultSpeed() {
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
+        mHistory.setSpeed(player().getSpeed());
     }
 
     private void onReset() {
@@ -1222,7 +1231,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (Setting.isIncognito() && mHistory.getKey().equals(getHistoryKey())) mHistory.delete();
         mBinding.control.action.opening.setText(mHistory.getOpening() <= 0 ? getString(R.string.play_op) : Util.timeMs(mHistory.getOpening()));
         mBinding.control.action.ending.setText(mHistory.getEnding() <= 0 ? getString(R.string.play_ed) : Util.timeMs(mHistory.getEnding()));
-        mBinding.control.action.speed.setText(player().setSpeed(mHistory.getSpeed()));
+        mBinding.control.action.speed.setText(player().setSpeed(PlayerSetting.getDefaultSpeed()));
+        mHistory.setSpeed(player().getSpeed());
         mHistory.setVodName(item.getName());
         PlaybackEventCollector.get().updateHistory(mHistory);
         setArtwork(getInitialArtwork(item));
@@ -1753,7 +1763,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     public void onSpeedEnd() {
         mBinding.widget.speed.clearAnimation();
-        mBinding.control.action.speed.setText(player().setSpeed(mHistory.getSpeed()));
+        mBinding.control.action.speed.setText(player().setSpeed(PlayerSetting.getDefaultSpeed()));
+        mHistory.setSpeed(player().getSpeed());
     }
 
     @Override

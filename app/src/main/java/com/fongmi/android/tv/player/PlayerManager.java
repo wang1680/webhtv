@@ -37,9 +37,9 @@ import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.net.OkHttp;
 import com.google.common.net.HttpHeaders;
 
+import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 public class PlayerManager implements ParseCallback {
@@ -47,6 +47,8 @@ public class PlayerManager implements ParseCallback {
     private static final long LOCAL_PROXY_READY_TIMEOUT_MS = 5000;
     private static final long LOCAL_PROXY_RETRY_DELAY_MS = 1000;
     private static final int LOCAL_PROXY_MAX_RETRY = 2;
+    private static final float[] SPEED_PRESETS = new float[]{0.5f, 0.75f, 1f, 1.2f, 1.5f, 2f, 3f, 5f};
+    private static final DecimalFormat SPEED_FORMAT = new DecimalFormat("0.##x");
 
     private final Runnable runnable;
     private final Callback callback;
@@ -190,7 +192,7 @@ public class PlayerManager implements ParseCallback {
     }
 
     public String getSpeedText() {
-        return String.format(Locale.getDefault(), "%.2f", getSpeed());
+        return SPEED_FORMAT.format(getSpeed());
     }
 
     public String getDecodeText() {
@@ -269,10 +271,7 @@ public class PlayerManager implements ParseCallback {
     }
 
     public String addSpeed() {
-        float speed = getSpeed();
-        float addon = speed >= 2 ? 1f : 0.25f;
-        speed = speed >= 5 ? 0.25f : Math.min(speed + addon, 5.0f);
-        return setSpeed(speed);
+        return setSpeed(nextPresetSpeed());
     }
 
     public String addSpeed(float value) {
@@ -285,6 +284,12 @@ public class PlayerManager implements ParseCallback {
 
     public String toggleSpeed() {
         return setSpeed(getSpeed() == 1 ? PlayerSetting.getSpeed() : 1);
+    }
+
+    private float nextPresetSpeed() {
+        float speed = getSpeed();
+        for (float preset : SPEED_PRESETS) if (speed < preset - 0.01f) return preset;
+        return SPEED_PRESETS[0];
     }
 
     public void setTrack(List<Track> tracks) {

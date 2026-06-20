@@ -399,11 +399,13 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
 
     private void onSpeed() {
         mBinding.control.action.speed.setText(player().addSpeed());
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
         setR1Callback();
     }
 
     private boolean onSpeedLong() {
         mBinding.control.action.speed.setText(player().toggleSpeed());
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
         setR1Callback();
         return true;
     }
@@ -714,6 +716,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     private void start(Result result) {
         mPlaybackKey = result.getRealUrl();
         startPlayer(mPlaybackKey, result, false, getHome().getTimeout(), buildMetadata());
+        mBinding.control.action.speed.setText(player().setSpeed(PlayerSetting.getDefaultSpeed()));
     }
 
     private void checkControl() {
@@ -1032,7 +1035,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     @Override
     public void onSpeedEnd() {
         mBinding.widget.speed.clearAnimation();
-        mBinding.control.action.speed.setText(player().setSpeed(1.0f));
+        mBinding.control.action.speed.setText(player().setSpeed(PlayerSetting.getDefaultSpeed()));
     }
 
     @Override

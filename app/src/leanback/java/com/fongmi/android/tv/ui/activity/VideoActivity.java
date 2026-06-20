@@ -977,23 +977,28 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void onSpeed() {
         mBinding.control.action.speed.setText(player().addSpeed());
-        mHistory.setSpeed(player().getSpeed());
+        saveDefaultSpeed();
     }
 
     private void onSpeedAdd() {
         mBinding.control.action.speed.setText(player().addSpeed(0.25f));
-        mHistory.setSpeed(player().getSpeed());
+        saveDefaultSpeed();
     }
 
     private void onSpeedSub() {
         mBinding.control.action.speed.setText(player().subSpeed(0.25f));
-        mHistory.setSpeed(player().getSpeed());
+        saveDefaultSpeed();
     }
 
     private boolean onSpeedLong() {
         mBinding.control.action.speed.setText(player().toggleSpeed());
-        mHistory.setSpeed(player().getSpeed());
+        saveDefaultSpeed();
         return true;
+    }
+
+    private void saveDefaultSpeed() {
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
+        mHistory.setSpeed(player().getSpeed());
     }
 
     private void onReset() {
@@ -1295,7 +1300,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (Setting.isIncognito() && mHistory.getKey().equals(getHistoryKey())) mHistory.delete();
         mBinding.control.action.opening.setText(mHistory.getOpening() <= 0 ? getString(R.string.play_op) : Util.timeMs(mHistory.getOpening()));
         mBinding.control.action.ending.setText(mHistory.getEnding() <= 0 ? getString(R.string.play_ed) : Util.timeMs(mHistory.getEnding()));
-        mBinding.control.action.speed.setText(player().setSpeed(mHistory.getSpeed()));
+        mBinding.control.action.speed.setText(player().setSpeed(PlayerSetting.getDefaultSpeed()));
+        mHistory.setSpeed(player().getSpeed());
         mHistory.setVodName(item.getName());
         PlaybackEventCollector.get().updateHistory(mHistory);
         setArtwork(getInitialArtwork(item));
@@ -1781,7 +1787,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     public void onSpeedEnd() {
         mBinding.widget.speed.clearAnimation();
         mBinding.widget.speed.setVisibility(View.GONE);
-        mBinding.control.action.speed.setText(player().setSpeed(mHistory.getSpeed()));
+        mBinding.control.action.speed.setText(player().setSpeed(PlayerSetting.getDefaultSpeed()));
+        mHistory.setSpeed(player().getSpeed());
     }
 
     @Override

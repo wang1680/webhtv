@@ -18,6 +18,7 @@ import com.fongmi.android.tv.bean.Parse;
 import com.fongmi.android.tv.databinding.ActivityVideoBinding;
 import com.fongmi.android.tv.databinding.DialogControlBinding;
 import com.fongmi.android.tv.player.PlayerManager;
+import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.ui.adapter.ParseAdapter;
 import com.fongmi.android.tv.ui.base.ViewType;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
@@ -34,6 +35,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     private DialogControlBinding binding;
     private ActivityVideoBinding parent;
     private List<TextView> scales;
+    private List<TextView> speeds;
     private PlayerManager player;
     private History history;
     private boolean parse;
@@ -76,6 +78,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     protected ViewBinding getBinding(@NonNull LayoutInflater inflater, @Nullable ViewGroup container) {
         binding = DialogControlBinding.inflate(inflater, container, false);
         scales = Arrays.asList(binding.scale0, binding.scale1, binding.scale2, binding.scale3, binding.scale4);
+        speeds = Arrays.asList(binding.speed05, binding.speed075, binding.speed10, binding.speed12, binding.speed15, binding.speed20, binding.speed30);
         return binding;
     }
 
@@ -97,6 +100,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     protected void initEvent() {
         binding.timer.setOnClickListener(this::onTimer);
         binding.speed.addOnChangeListener(this::setSpeed);
+        for (TextView view : speeds) view.setOnClickListener(this::setSpeedPreset);
         for (TextView view : scales) view.setOnClickListener(this::setScale);
         binding.text.setOnClickListener(v -> dismiss(parent.control.action.text));
         binding.audio.setOnClickListener(v -> dismiss(parent.control.action.audio));
@@ -119,8 +123,25 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     }
 
     private void setSpeed(@NonNull Slider slider, float value, boolean fromUser) {
-        parent.control.action.speed.setText(player.setSpeed(value));
+        if (!fromUser) return;
+        applySpeed(value);
+    }
+
+    private void applySpeed(float speed) {
+        PlayerSetting.putDefaultSpeed(speed);
+        parent.control.action.speed.setText(player.setSpeed(speed));
+        setSpeedPresets();
+        binding.speed.setValue(Math.max(player.getSpeed(), 0.5f));
         if (history != null) history.setSpeed(player.getSpeed());
+    }
+
+    private void setSpeedPreset(View view) {
+        applySpeed(Float.parseFloat(view.getTag().toString()));
+    }
+
+    private void setSpeedPresets() {
+        float speed = player.getSpeed();
+        for (TextView view : speeds) view.setSelected(Math.abs(Float.parseFloat(view.getTag().toString()) - speed) < 0.01f);
     }
 
     private void setScaleText() {
@@ -167,6 +188,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
 
     public void setPlayer() {
         binding.speed.setValue(Math.max(player.getSpeed(), 0.5f));
+        setSpeedPresets();
         binding.player.setText(parent.control.action.player.getText());
         binding.decode.setVisibility(parent.control.action.decode.getVisibility());
         binding.danmaku.setVisibility(parent.control.action.danmaku.getVisibility());

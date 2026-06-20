@@ -92,6 +92,16 @@
             tools:visibility="visible" />
 
         <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/prev"
+            style="@style/Control"
+            android:text="@string/play_prev" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/next"
+            style="@style/Control"
+            android:text="@string/play_next" />
+
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/episodes"
             style="@style/Control"
             android:text="@string/detail_episode" />

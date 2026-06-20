@@ -90,6 +90,14 @@ public class PlayerSetting {
         Prefers.put("speed", speed);
     }
 
+    public static float getDefaultSpeed() {
+        return Math.min(Math.max(Prefers.getFloat("play_speed", 1), 0.5f), 5);
+    }
+
+    public static void putDefaultSpeed(float speed) {
+        Prefers.put("play_speed", Math.min(Math.max(speed, 0.5f), 5));
+    }
+
     public static boolean isCaption() {
         return Prefers.getBoolean("caption");
     }

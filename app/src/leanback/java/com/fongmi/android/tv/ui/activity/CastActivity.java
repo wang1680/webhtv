@@ -161,7 +161,7 @@ public class CastActivity extends PlaybackActivity implements CustomKeyDownVod.L
     private void resetMedia() {
         hideError();
         hideControl();
-        player().setSpeed(1.0f);
+        mBinding.control.action.speed.setText(player().setSpeed(PlayerSetting.getDefaultSpeed()));
         player().setRepeatOne(false);
     }
 
@@ -191,18 +191,22 @@ public class CastActivity extends PlaybackActivity implements CustomKeyDownVod.L
 
     private void onSpeed() {
         mBinding.control.action.speed.setText(player().addSpeed());
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
     }
 
     private void onSpeedAdd() {
         mBinding.control.action.speed.setText(player().addSpeed(0.25f));
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
     }
 
     private void onSpeedSub() {
         mBinding.control.action.speed.setText(player().subSpeed(0.25f));
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
     }
 
     private boolean onSpeedLong() {
         mBinding.control.action.speed.setText(player().toggleSpeed());
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
         return true;
     }
 
@@ -471,7 +475,7 @@ public class CastActivity extends PlaybackActivity implements CustomKeyDownVod.L
     public void onSpeedEnd() {
         mBinding.widget.speed.clearAnimation();
         mBinding.widget.speed.setVisibility(View.GONE);
-        mBinding.control.action.speed.setText(player().setSpeed(1.0f));
+        mBinding.control.action.speed.setText(player().setSpeed(PlayerSetting.getDefaultSpeed()));
     }
 
     @Override

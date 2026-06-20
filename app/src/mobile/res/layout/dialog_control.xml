@@ -21,10 +21,101 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="-12dp"
         android:layout_marginEnd="-12dp"
-        android:stepSize="0.25"
+        android:stepSize="0.05"
         android:valueFrom="0.5"
         android:valueTo="5"
         app:tickVisible="false" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/speed_05"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/shape_accent"
+                android:tag="0.5"
+                android:text="0.5x"
+                android:textColor="@color/selector_control"
+                android:textSize="14sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/speed_075"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/shape_accent"
+                android:tag="0.75"
+                android:text="0.75x"
+                android:textColor="@color/selector_control"
+                android:textSize="14sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/speed_10"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/shape_accent"
+                android:tag="1"
+                android:text="1x"
+                android:textColor="@color/selector_control"
+                android:textSize="14sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/speed_12"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/shape_accent"
+                android:tag="1.2"
+                android:text="1.2x"
+                android:textColor="@color/selector_control"
+                android:textSize="14sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/speed_15"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/shape_accent"
+                android:tag="1.5"
+                android:text="1.5x"
+                android:textColor="@color/selector_control"
+                android:textSize="14sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/speed_20"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/shape_accent"
+                android:tag="2"
+                android:text="2x"
+                android:textColor="@color/selector_control"
+                android:textSize="14sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/speed_30"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/shape_accent"
+                android:tag="3"
+                android:text="3x"
+                android:textColor="@color/selector_control"
+                android:textSize="14sp" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+    </HorizontalScrollView>
 
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/parseText"

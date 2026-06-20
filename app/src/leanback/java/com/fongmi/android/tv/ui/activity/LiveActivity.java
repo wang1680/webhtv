@@ -387,18 +387,22 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
 
     private void onSpeed() {
         mBinding.control.action.speed.setText(player().addSpeed());
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
     }
 
     private void onSpeedAdd() {
         mBinding.control.action.speed.setText(player().addSpeed(0.25f));
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
     }
 
     private void onSpeedSub() {
         mBinding.control.action.speed.setText(player().subSpeed(0.25f));
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
     }
 
     private boolean onSpeedLong() {
         mBinding.control.action.speed.setText(player().toggleSpeed());
+        PlayerSetting.putDefaultSpeed(player().getSpeed());
         return true;
     }
 
@@ -762,6 +766,7 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
     private void start(Result result) {
         mPlaybackKey = result.getRealUrl();
         startPlayer(mPlaybackKey, result, false, getHome().getTimeout(), buildMetadata());
+        mBinding.control.action.speed.setText(player().setSpeed(PlayerSetting.getDefaultSpeed()));
     }
 
     private void resetAdapter() {
