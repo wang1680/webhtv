@@ -85,6 +85,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     @Override
     protected void initView() {
         binding.decode.setText(parent.control.action.decode.getText());
+        binding.lut.setText(parent.control.action.lut.getText());
         binding.ending.setText(parent.control.action.ending.getText());
         binding.opening.setText(parent.control.action.opening.getText());
         binding.repeat.setSelected(parent.control.action.repeat.isSelected());
@@ -110,6 +111,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.danmaku.setOnClickListener(v -> dismiss(parent.control.action.danmaku));
         binding.repeat.setOnClickListener(v -> active(binding.repeat, parent.control.action.repeat));
         binding.decode.setOnClickListener(v -> click(binding.decode, parent.control.action.decode));
+        binding.lut.setOnClickListener(v -> onLut());
         binding.ending.setOnClickListener(v -> click(binding.ending, parent.control.action.ending));
         binding.opening.setOnClickListener(v -> click(binding.opening, parent.control.action.opening));
         binding.player.setOnLongClickListener(v -> longClick(binding.player, parent.control.action.player));
@@ -120,6 +122,13 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     private void onTimer(View view) {
         TimerDialog.create().show(getActivity());
         dismiss();
+    }
+
+    private void onLut() {
+        LutDialog.show(requireActivity(), player, () -> {
+            parent.control.action.lut.setText(player.getLutText());
+            binding.lut.setText(parent.control.action.lut.getText());
+        });
     }
 
     private void setSpeed(@NonNull Slider slider, float value, boolean fromUser) {

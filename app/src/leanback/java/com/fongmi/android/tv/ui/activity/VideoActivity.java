@@ -74,6 +74,7 @@ import com.fongmi.android.tv.ui.custom.CustomSeekView;
 import com.fongmi.android.tv.ui.custom.PlayerOsdController;
 import com.fongmi.android.tv.ui.dialog.ContentDialog;
 import com.fongmi.android.tv.ui.dialog.DanmakuDialog;
+import com.fongmi.android.tv.ui.dialog.LutDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
 import com.fongmi.android.tv.ui.dialog.TitleDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
@@ -309,6 +310,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         player().setDanmakuController(mBinding.exo.getDanmakuController());
         setPlayerKernel();
         setDecode();
+        setLut();
         if (!detailRequested) checkId();
         if (mPendingDetail != null) {
             Result result = mPendingDetail;
@@ -396,6 +398,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.control.action.next.setOnClickListener(view -> checkNext());
         mBinding.control.action.prev.setOnClickListener(view -> checkPrev());
         mBinding.control.action.scale.setOnClickListener(view -> onScale());
+        mBinding.control.action.lut.setOnClickListener(view -> onLut());
         mBinding.control.action.speed.setOnClickListener(view -> onSpeed());
         mBinding.control.action.reset.setOnClickListener(view -> onReset());
         mBinding.control.action.title.setOnClickListener(view -> onTitle());
@@ -490,6 +493,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mHistory.setScale(scale);
         mBinding.exo.setResizeMode(scale);
         mBinding.control.action.scale.setText(ResUtil.getStringArray(R.array.select_scale)[scale]);
+    }
+
+    private void setLut() {
+        mBinding.control.action.lut.setText(player().getLutText());
     }
 
     private void setViewModel() {
@@ -983,6 +990,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         int index = getScale();
         String[] array = ResUtil.getStringArray(R.array.select_scale);
         setScale(index == array.length - 1 ? 0 : ++index);
+    }
+
+    private void onLut() {
+        LutDialog.show(this, player(), this::setLut);
     }
 
     private void onSpeed() {
@@ -1482,6 +1493,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     @Override
     protected void onPrepare() {
         setDecode();
+        setLut();
         setPosition();
     }
 

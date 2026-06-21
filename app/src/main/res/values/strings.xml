@@ -42,6 +42,7 @@
     <string name="play_timer">Timer</string>
     <string name="play_title">Chapter</string>
     <string name="play_scale">Default</string>
+    <string name="play_lut">LUT</string>
     <string name="play_config">Config</string>
     <string name="play_change">Change</string>
     <string name="play_search">Search</string>
@@ -749,6 +750,7 @@
     <string name="player_render">Render</string>
     <string name="player_kernel">Player engine</string>
     <string name="player_scale">Scale</string>
+    <string name="player_lut">LUT color</string>
     <string name="player_libass">libass</string>
     <string name="player_caption">Caption style</string>
     <string name="player_background">Background play</string>
@@ -765,6 +767,20 @@
     <string name="player_speed">Press speed</string>
     <string name="player_ua">User-Agent</string>
     <string name="player_osd">On-screen display</string>
+    <string name="lut_original">Original</string>
+    <string name="lut_missing">Preset missing</string>
+    <string name="lut_summary">%1$s · %2$d%%</string>
+    <string name="lut_title_value">%1$s · %2$s</string>
+    <string name="lut_strength_value">Strength %1$d%%</string>
+    <string name="lut_empty_presets">No LUT presets</string>
+    <string name="lut_apply_failed">LUT color has been disabled temporarily</string>
+    <string name="lut_unavailable_player">Current player engine does not support LUT color</string>
+    <string name="lut_unavailable_drm">DRM protected videos do not support LUT color</string>
+    <string name="lut_unavailable_tunnel">Tunnel mode does not support LUT color</string>
+    <string name="lut_unavailable_soft_decode">Software decode does not support LUT color</string>
+    <string name="lut_unavailable_video_prefer">Extension video decode does not support LUT color</string>
+    <string name="lut_unavailable_hdr">HDR/Dolby Vision content does not support LUT color yet</string>
+    <string name="lut_unavailable_no_video">Current content has no video track</string>
 
     <!-- Danmaku -->
     <string name="danmaku_load">Danmaku load</string>

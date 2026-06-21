@@ -68,6 +68,12 @@
             android:layout_marginEnd="12dp"
             android:text="@string/play_scale" />
 
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/lut"
+            style="@style/Control"
+            android:layout_marginEnd="12dp"
+            android:text="@string/play_lut" />
+
         <com.fongmi.android.tv.ui.custom.CustomUpDownView
             android:id="@+id/text"
             style="@style/Control"

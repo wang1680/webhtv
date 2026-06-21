@@ -1,5 +1,7 @@
 package com.fongmi.android.tv.player.engine;
 
+import androidx.media3.common.Effect;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.MediaTitle;
 import androidx.media3.common.PlaybackException;
@@ -45,6 +47,17 @@ public interface PlayerEngine {
     boolean haveTrack(int type);
 
     Tracks getCurrentTracks();
+
+    default boolean supportsVideoEffects() {
+        return false;
+    }
+
+    default void setVideoEffects(List<Effect> effects) {
+    }
+
+    default Format getVideoFormat() {
+        return null;
+    }
 
     default boolean haveTitle() {
         return false;

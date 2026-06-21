@@ -19,8 +19,10 @@ import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.base.BaseFragment;
 import com.fongmi.android.tv.ui.dialog.BufferDialog;
+import com.fongmi.android.tv.ui.dialog.LutDialog;
 import com.fongmi.android.tv.ui.dialog.SpeedDialog;
 import com.fongmi.android.tv.ui.dialog.UaDialog;
+import com.fongmi.android.tv.player.lut.LutSetting;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -72,6 +74,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.osdText.setText(getOsdText(osd = ResUtil.getStringArray(R.array.select_player_osd)));
         mBinding.kernelText.setText((kernel = ResUtil.getStringArray(R.array.select_player_kernel))[PlayerSetting.getPlayer()]);
         mBinding.scaleText.setText((scale = ResUtil.getStringArray(R.array.select_scale))[PlayerSetting.getScale()]);
+        mBinding.lutText.setText(LutSetting.getSummary());
         mBinding.renderText.setText((render = ResUtil.getStringArray(R.array.select_render))[PlayerSetting.getRender()]);
         mBinding.captionText.setText((caption = ResUtil.getStringArray(R.array.select_caption))[PlayerSetting.isCaption() ? 1 : 0]);
         mBinding.backgroundText.setText((background = ResUtil.getStringArray(R.array.select_background))[PlayerSetting.getBackground()]);
@@ -83,6 +86,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.aac.setOnClickListener(this::setAAC);
         mBinding.kernel.setOnClickListener(this::onKernel);
         mBinding.scale.setOnClickListener(this::onScale);
+        mBinding.lut.setOnClickListener(this::onLut);
         mBinding.osd.setOnClickListener(this::onOsd);
         mBinding.speed.setOnClickListener(this::onSpeed);
         mBinding.buffer.setOnClickListener(this::onBuffer);
@@ -129,6 +133,10 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
             PlayerSetting.putScale(which);
             dialog.dismiss();
         }).show();
+    }
+
+    private void onLut(View view) {
+        LutDialog.show(this, () -> mBinding.lutText.setText(LutSetting.getSummary()));
     }
 
     private void onOsd(View view) {

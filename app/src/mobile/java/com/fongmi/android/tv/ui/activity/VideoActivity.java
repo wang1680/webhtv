@@ -87,6 +87,7 @@ import com.fongmi.android.tv.ui.dialog.DanmakuDialog;
 import com.fongmi.android.tv.ui.dialog.EpisodeGridDialog;
 import com.fongmi.android.tv.ui.dialog.EpisodeListDialog;
 import com.fongmi.android.tv.ui.dialog.InfoDialog;
+import com.fongmi.android.tv.ui.dialog.LutDialog;
 import com.fongmi.android.tv.ui.dialog.ReceiveDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
 import com.fongmi.android.tv.ui.dialog.TitleDialog;
@@ -310,6 +311,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         player().setDanmakuEnabled(DanmakuSetting.isShow());
         setPlayerKernel();
         setDecode();
+        setLut();
         checkLand();
         checkId();
     }
@@ -394,6 +396,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.audio.setOnClickListener(this::onTrack);
         mBinding.control.action.video.setOnClickListener(this::onTrack);
         mBinding.control.action.scale.setOnClickListener(view -> onScale());
+        mBinding.control.action.lut.setOnClickListener(view -> onLut());
         mBinding.control.action.speed.setOnClickListener(view -> onSpeed());
         mBinding.control.action.reset.setOnClickListener(view -> onReset());
         mBinding.control.action.title.setOnClickListener(view -> onTitle());
@@ -481,6 +484,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mHistory.setScale(scale);
         mBinding.exo.setResizeMode(scale);
         mBinding.control.action.scale.setText(ResUtil.getStringArray(R.array.select_scale)[scale]);
+    }
+
+    private void setLut() {
+        mBinding.control.action.lut.setText(player().getLutText());
     }
 
     private void setViewModel() {
@@ -879,6 +886,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         String[] array = ResUtil.getStringArray(R.array.select_scale);
         if (mKeyDown.getScale() != 1.0f) mKeyDown.resetScale();
         else setScale(index == array.length - 1 ? 0 : ++index);
+        setR1Callback();
+    }
+
+    private void onLut() {
+        LutDialog.show(this, player(), this::setLut);
         setR1Callback();
     }
 
@@ -1431,6 +1443,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     protected void onPrepare() {
         setDecode();
+        setLut();
         setPosition();
     }
 

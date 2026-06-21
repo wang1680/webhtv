@@ -4,6 +4,7 @@ import android.net.Uri;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
+import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.MediaTitle;
@@ -26,6 +27,11 @@ import com.fongmi.android.tv.player.engine.ExoPlayerEngine;
 import com.fongmi.android.tv.player.engine.IjkPlayerEngine;
 import com.fongmi.android.tv.player.engine.PlaySpec;
 import com.fongmi.android.tv.player.engine.PlayerEngine;
+import com.fongmi.android.tv.player.lut.LutEffectFactory;
+import com.fongmi.android.tv.player.lut.LutEligibility;
+import com.fongmi.android.tv.player.lut.LutPreset;
+import com.fongmi.android.tv.player.lut.LutSetting;
+import com.fongmi.android.tv.player.lut.LutStore;
 import com.fongmi.android.tv.setting.DanmakuSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.utils.LocalProxyDebug;
@@ -38,6 +44,7 @@ import com.github.catvod.net.OkHttp;
 import com.google.common.net.HttpHeaders;
 
 import java.text.DecimalFormat;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +72,7 @@ public class PlayerManager implements ParseCallback {
     private int retry;
     private int localProxyRetry;
     private int prepareSeq;
+    private int lutApplySeq;
 
     public PlayerManager(Callback callback) {
         this.runnable = () -> callback.onError(ResUtil.getString(R.string.error_play_timeout));
@@ -76,6 +84,7 @@ public class PlayerManager implements ParseCallback {
 
     public void release() {
         prepareSeq++;
+        lutApplySeq++;
         player.removeListener(listener);
         App.removeCallbacks(runnable);
         if (engine == null) return;
@@ -202,6 +211,14 @@ public class PlayerManager implements ParseCallback {
 
     public String getPlayerText() {
         return ResUtil.getStringArray(R.array.select_player_kernel)[playerType];
+    }
+
+    public String getLutText() {
+        return LutSetting.getButtonText();
+    }
+
+    public String getLutUnavailableReason() {
+        return LutEligibility.getUnavailableReason(engine, spec);
     }
 
     public boolean isIjk() {
@@ -352,6 +369,7 @@ public class PlayerManager implements ParseCallback {
 
     public void clear() {
         prepareSeq++;
+        lutApplySeq++;
         spec = null;
     }
 
@@ -471,10 +489,71 @@ public class PlayerManager implements ParseCallback {
         if (spec == null || spec.getUrl() == null || engine == null) return;
         if (SpiderDebug.isEnabled()) SpiderDebug.log("player", "setMediaItem timeout=%d notify=%s spec=%s", timeout, notifyPrepare, debugSpec());
         setDanmakus(spec.getDanmakus());
+        prepareLutPipeline();
         engine.start(spec.checkUa());
         App.post(runnable, timeout);
         if (notifyPrepare) callback.onPrepare();
         initTrack = false;
+    }
+
+    private void prepareLutPipeline() {
+        safeSetVideoEffects(Collections.emptyList(), "prepare");
+        if (LutSetting.isEnabled()) applyLut(false);
+    }
+
+    public void applyLut(boolean notify) {
+        if (engine == null) return;
+        int seq = ++lutApplySeq;
+        if (!LutSetting.isEnabled()) {
+            safeSetVideoEffects(Collections.emptyList(), "off");
+            return;
+        }
+        LutPreset preset = LutStore.find(LutSetting.getPresetId());
+        if (preset == null) {
+            safeSetVideoEffects(Collections.emptyList(), "missing");
+            if (notify) Notify.show(R.string.lut_missing);
+            return;
+        }
+        String reason = getLutUnavailableReason();
+        if (!TextUtils.isEmpty(reason)) {
+            safeSetVideoEffects(Collections.emptyList(), reason);
+            if (notify) Notify.show(reason);
+            return;
+        }
+        int strength = LutSetting.getStrength();
+        Task.execute(() -> {
+            try {
+                List<Effect> effects = LutEffectFactory.create(preset, strength);
+                App.post(() -> applyLutEffects(seq, effects, notify));
+            } catch (Throwable e) {
+                if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "create failed preset=%s strength=%d error=%s", preset.getId(), strength, causeChain(e));
+                App.post(() -> {
+                    if (seq != lutApplySeq || engine == null) return;
+                    safeSetVideoEffects(Collections.emptyList(), "error");
+                    if (notify) Notify.show(R.string.lut_apply_failed);
+                });
+            }
+        });
+    }
+
+    private void applyLutEffects(int seq, List<Effect> effects, boolean notify) {
+        if (seq != lutApplySeq || engine == null) return;
+        String reason = getLutUnavailableReason();
+        if (!TextUtils.isEmpty(reason)) {
+            safeSetVideoEffects(Collections.emptyList(), reason);
+            if (notify) Notify.show(reason);
+            return;
+        }
+        safeSetVideoEffects(effects, "apply");
+    }
+
+    private void safeSetVideoEffects(List<Effect> effects, String reason) {
+        try {
+            if (engine != null) engine.setVideoEffects(effects);
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "set effects=%d reason=%s", effects == null ? 0 : effects.size(), reason);
+        } catch (Throwable e) {
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "set effects failed reason=%s error=%s", reason, causeChain(e));
+        }
     }
 
     private void setDanmakus(List<Danmaku> items) {
@@ -588,6 +667,7 @@ public class PlayerManager implements ParseCallback {
             if (tracks.isEmpty() || initTrack) return;
             setTrack(Track.find(getKey()));
             callback.onTracksChanged();
+            applyLut(false);
             initTrack = true;
         }
 

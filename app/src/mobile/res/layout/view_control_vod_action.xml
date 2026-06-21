@@ -35,6 +35,11 @@
             android:text="@string/play_scale" />
 
         <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/lut"
+            style="@style/Control"
+            android:text="@string/play_lut" />
+
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/reset"
             style="@style/Control"
             android:text="@string/play_reset" />

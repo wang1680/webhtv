@@ -1,12 +1,15 @@
 package com.fongmi.android.tv.player.engine;
 
 import androidx.media3.common.C;
+import androidx.media3.common.Effect;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.MediaTitle;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Tracks;
+import androidx.media3.exoplayer.ExoPlayer;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.Track;
@@ -23,7 +26,7 @@ public class ExoPlayerEngine implements PlayerEngine {
 
     private final ErrorMsgProvider provider;
     private PlaySpec spec;
-    private Player player;
+    private ExoPlayer player;
     private int decode;
 
     public ExoPlayerEngine(int decode, Player.Listener listener) {
@@ -120,6 +123,21 @@ public class ExoPlayerEngine implements PlayerEngine {
     @Override
     public Tracks getCurrentTracks() {
         return player.getCurrentTracks();
+    }
+
+    @Override
+    public boolean supportsVideoEffects() {
+        return true;
+    }
+
+    @Override
+    public void setVideoEffects(List<Effect> effects) {
+        player.setVideoEffects(effects);
+    }
+
+    @Override
+    public Format getVideoFormat() {
+        return player.getVideoFormat();
     }
 
     @Override
