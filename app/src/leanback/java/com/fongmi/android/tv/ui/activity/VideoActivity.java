@@ -390,12 +390,15 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     @Override
     protected void onNewIntent(Intent intent) {
+        String oldKey = getKey();
         String oldId = getId();
         super.onNewIntent(intent);
+        String key = Objects.toString(intent.getStringExtra("key"), "");
         String id = Objects.toString(intent.getStringExtra("id"), "");
-        if (TextUtils.isEmpty(id) || id.equals(oldId)) return;
+        if (TextUtils.isEmpty(id) || (id.equals(oldId) && key.equals(oldKey))) return;
         getIntent().putExtras(intent);
         saveHistory();
+        resetDetailForNewIntent();
         checkId();
     }
 
@@ -608,6 +611,83 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (getId().startsWith("push://")) getIntent().putExtra("key", SiteApi.PUSH).putExtra("id", getId().substring(7));
         if (getId().isEmpty() || getId().startsWith("msearch:")) setEmpty(false);
         else getDetail();
+    }
+
+    private void resetDetailForNewIntent() {
+        detailRequested = false;
+        detailHealthRecorded = false;
+        playHealthRecorded = false;
+        revealManualSearch = false;
+        episodeGridMode = false;
+        mPendingDetail = null;
+        mPendingPlayer = null;
+        mVod = null;
+        mTmdbAutoDialogShown = false;
+        mTmdbDetailLoading = false;
+        mTmdbDetailRevealed = false;
+        mPersonalRecommendationGeneration++;
+        mTmdbDialogGeneration++;
+        App.removeCallbacks(mR4);
+        App.removeCallbacks(mTmdbDetailTimeout);
+        stopBackdropAutoScroll();
+        if (mViewModel != null) mViewModel.stopSearch();
+        if (mBroken != null) mBroken.clear();
+        clearDetailAdapters();
+        clearTmdbDetailViews();
+        mBinding.scroll.scrollTo(0, 0);
+        mBinding.name.setText(getName());
+        mBinding.widget.title.setText(getName());
+        mBinding.video.requestFocus();
+        updateNavigationKey();
+        if (service() != null) {
+            player().reset();
+            player().stop();
+        }
+        mBinding.progressLayout.showProgress();
+    }
+
+    private void clearDetailAdapters() {
+        if (mFlagAdapter != null) mFlagAdapter.clear();
+        if (mEpisodeAdapter != null) {
+            mEpisodeAdapter.setUseTmdbCard(false);
+            mEpisodeAdapter.clear();
+        }
+        if (mEpisodeGridAdapter != null) {
+            mEpisodeGridAdapter.setUseTmdbCard(false);
+            mEpisodeGridAdapter.clear();
+        }
+        if (mArrayAdapter != null) mArrayAdapter.clear();
+        if (mQualityAdapter != null) mQualityAdapter.addAll(Result.empty());
+        if (mPartAdapter != null) mPartAdapter.clear();
+        if (mQuickAdapter != null) mQuickAdapter.clear();
+        mBinding.episodeContainer.setVisibility(View.GONE);
+        mBinding.episodeHeader.setVisibility(View.GONE);
+        mBinding.episodeReverse.setVisibility(View.GONE);
+        mBinding.episodeViewMode.setVisibility(View.GONE);
+        mBinding.episodeLoadingIndicator.setVisibility(View.GONE);
+        mBinding.quality.setVisibility(View.GONE);
+    }
+
+    private void clearTmdbDetailViews() {
+        clearTmdbGrid(mBinding.tmdbCast, R.id.tmdbCastLabel);
+        clearTmdbGrid(mBinding.tmdbPhotos, R.id.tmdbPhotosLabel);
+        clearTmdbGrid(mBinding.tmdbCrew, R.id.tmdbCrewLabel);
+        clearTmdbGrid(mBinding.tmdbRecommendations, R.id.tmdbRecommendationsLabel);
+        clearNativePersonalRecommendations();
+        mBinding.tmdbOverview.setText("");
+        mBinding.tmdbOverview.setVisibility(View.GONE);
+        View ratingsLabel = mBinding.getRoot().findViewById(R.id.tmdbOmdbRatingsLabel);
+        View ratings = mBinding.getRoot().findViewById(R.id.tmdbOmdbRatings);
+        if (ratingsLabel != null) ratingsLabel.setVisibility(View.GONE);
+        if (ratings != null) ratings.setVisibility(View.GONE);
+        setTmdbRematchVisible(false);
+    }
+
+    private void clearTmdbGrid(RecyclerView grid, int labelId) {
+        grid.setAdapter(null);
+        grid.setVisibility(View.GONE);
+        View label = mBinding.getRoot().findViewById(labelId);
+        if (label != null) label.setVisibility(View.GONE);
     }
 
     private void getDetail() {
@@ -848,6 +928,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             SpiderDebug.log("video-flow", "player pending service key=%s id=%s", getKey(), getId());
             return;
         }
+        if (!canApplyPlayerResult()) {
+            SpiderDebug.log("video-flow", "drop player result before detail ready key=%s id=%s", getKey(), getId());
+            return;
+        }
         mQualityAdapter.addAll(result);
         setUseParse(result.shouldUseParse());
         setQualityVisible(result.getUrl().isMulti());
@@ -868,6 +952,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         boolean handled = com.fongmi.android.tv.content.ContentDispatcher.dispatchResult(this, getHistoryKey(), getKey(), getFlag().getFlag(), mHistory.getVodName(), mHistory.getVodPic(), mEpisodeAdapter.getItems(), mEpisodeAdapter.getPosition(), result, getSite().getTimeout());
         if (handled) finish();
         return handled;
+    }
+
+    private boolean canApplyPlayerResult() {
+        return mFlagAdapter != null && mFlagAdapter.getItemCount() > 0 && mEpisodeAdapter != null && mEpisodeAdapter.getItemCount() > 0;
     }
 
     private void recordDetailHealth(Result result, long cost) {
@@ -1951,6 +2039,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     @Override
     protected void onReclaim() {
+        if (!canApplyPlayerResult()) return;
         Result result = mViewModel.getPlayer().getValue();
         if (result != null) setPlayer(result);
     }
@@ -2024,6 +2113,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (event.getType() == RefreshEvent.Type.DETAIL) getDetail();
         else if (event.getType() == RefreshEvent.Type.PLAYER) onRefresh();
         else if (event.getType() == RefreshEvent.Type.VOD) {
+            if (!isCurrentVodEvent(event.getVod())) {
+                SpiderDebug.log("tmdb-tv", "drop stale vod event current=%s/%s event=%s/%s", getKey(), getId(), event.getVod() == null ? "" : event.getVod().getSiteKey(), event.getVod() == null ? "" : event.getVod().getId());
+                return;
+            }
             updateVod(event.getVod());
             // 绑定 TMDB 数据到 UI
             bindTmdbData();
@@ -2038,6 +2131,14 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         }
         else if (event.getType() == RefreshEvent.Type.SUBTITLE) player().setSub(Sub.from(event.getPath()));
         else if (event.getType() == RefreshEvent.Type.DANMAKU) player().setDanmaku(Danmaku.from(event.getPath()));
+    }
+
+    private boolean isCurrentVodEvent(Vod item) {
+        if (item == null) return false;
+        String id = item.getId();
+        String siteKey = item.getSiteKey();
+        if (!TextUtils.isEmpty(id) && !TextUtils.equals(id, getId())) return false;
+        return TextUtils.isEmpty(siteKey) || TextUtils.equals(siteKey, getKey());
     }
 
     private void loadNativePersonalRecommendations(Vod item) {

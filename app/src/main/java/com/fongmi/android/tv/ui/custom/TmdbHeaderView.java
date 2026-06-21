@@ -15,6 +15,7 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.TmdbItem;
 import com.fongmi.android.tv.ui.adapter.TmdbCastAdapter;
 import com.fongmi.android.tv.ui.helper.TmdbUIAdapter;
+import com.fongmi.android.tv.ui.helper.TmdbNavigation;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.button.MaterialButton;
 import com.google.gson.JsonArray;
@@ -349,88 +350,12 @@ public class TmdbHeaderView {
      * 点击"猜你喜欢"卡片：以新的 TMDB 条目打开详情页。
      */
     private void onRecommendationClick(TmdbItem item) {
-        if (item == null) return;
-        com.fongmi.android.tv.bean.Site site = currentSite();
-        if (site == null || site.isEmpty() || !site.isSearchable()) {
-            com.fongmi.android.tv.ui.activity.SearchActivity.direct(activity, item.getTitle(), null, item.getPosterUrl(), item.getBackdropUrl());
-            return;
-        }
-        com.fongmi.android.tv.utils.Notify.show(activity.getString(com.fongmi.android.tv.R.string.detail_work_searching, item.getTitle()));
-        com.fongmi.android.tv.utils.Task.execute(() -> {
-            com.fongmi.android.tv.bean.Vod match = com.fongmi.android.tv.ui.helper.TmdbNavigation.searchCurrentSite(item.getTitle(), site);
-            java.util.ArrayList<String> episodeTitles = fetchEpisodeTitles(item);
-            activity.runOnUiThread(() -> {
-                if (activity.isFinishing()) return;
-                if (match == null) {
-                    com.fongmi.android.tv.utils.Notify.show(activity.getString(com.fongmi.android.tv.R.string.detail_work_global_searching, item.getTitle()));
-                    com.fongmi.android.tv.ui.activity.SearchActivity.direct(activity, item.getTitle(), null, item.getPosterUrl(), item.getBackdropUrl());
-                    return;
-                }
-                startVideoActivityWithEpisodes(site.getKey(), match.getId(), match.getName(), match.getPic(), episodeTitles);
-            });
-        });
+        TmdbNavigation.open(activity, item, currentSite());
     }
 
     private com.fongmi.android.tv.bean.Site currentSite() {
         String key = activity == null || activity.getIntent() == null ? "" : activity.getIntent().getStringExtra("key");
         return com.fongmi.android.tv.api.config.VodConfig.get().getSite(key);
-    }
-
-    private java.util.ArrayList<String> fetchEpisodeTitles(TmdbItem item) {
-        java.util.ArrayList<String> titles = new java.util.ArrayList<>();
-        if (item == null || !item.isTv()) return titles;
-        try {
-            com.fongmi.android.tv.service.TmdbService service = new com.fongmi.android.tv.service.TmdbService();
-            com.fongmi.android.tv.bean.TmdbConfig config = com.fongmi.android.tv.bean.TmdbConfig.objectFrom(com.fongmi.android.tv.setting.Setting.getTmdbConfig());
-            if (config == null || !config.isReady()) return titles;
-
-            com.google.gson.JsonObject season = null;
-            try {
-                season = service.season(item, 1, config);
-            } catch (Exception ignored) {
-            }
-
-            if (season == null) {
-                try {
-                    season = service.season(item, 0, config);
-                } catch (Exception ignored) {
-                }
-            }
-
-            if (season == null) return titles;
-
-            java.util.List<com.fongmi.android.tv.bean.TmdbEpisode> episodes = service.episodes(season, config);
-            for (com.fongmi.android.tv.bean.TmdbEpisode ep : episodes) {
-                if (!ep.getTitle().isEmpty()) {
-                    titles.add(ep.getNumber() + "\t" + ep.getTitle());
-                }
-            }
-        } catch (Exception e) {
-            android.util.Log.w("TmdbHeaderView", "获取剧集信息失败: " + e.getMessage());
-        }
-        return titles;
-    }
-
-    private void startVideoActivityWithEpisodes(String key, String id, String name, String pic, java.util.ArrayList<String> episodeTitles) {
-        android.content.Intent intent = new android.content.Intent(activity, com.fongmi.android.tv.ui.activity.VideoActivity.class);
-        intent.putExtra("key", key);
-        intent.putExtra("id", id);
-        intent.putExtra("name", name);
-        intent.putExtra("pic", pic);
-        if (episodeTitles != null && !episodeTitles.isEmpty()) {
-            intent.putStringArrayListExtra("tmdb_episode_titles", episodeTitles);
-        }
-        activity.startActivity(intent);
-    }
-
-    private void finishDelayed() {
-        if (activity != null && !activity.isFinishing()) {
-            activity.getWindow().getDecorView().postDelayed(() -> {
-                if (activity != null && !activity.isFinishing()) {
-                    activity.finish();
-                }
-            }, 300);  // 300ms 延迟
-        }
     }
 
     private String extractYear(JsonObject detail) {

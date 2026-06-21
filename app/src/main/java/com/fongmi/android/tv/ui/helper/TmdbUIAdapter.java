@@ -49,6 +49,7 @@ public class TmdbUIAdapter {
     private List<TmdbItem> personalTmdbRecommendations;
     private List<TmdbItem> personalDoubanRecommendations;
     private boolean loaded;
+    private volatile int loadGeneration;
 
     public TmdbUIAdapter(Activity activity) {
         this.activity = activity;
@@ -102,10 +103,10 @@ public class TmdbUIAdapter {
      */
     public void load(TmdbItem item, Vod vod) {
         if (item == null) return;
-        resetLoadState();
+        int generation = resetLoadState();
         this.tmdbItem = item;
         saveMatch(vod, item);
-        loadDetail(vod);
+        loadDetail(vod, item, generation);
     }
 
     /**
@@ -115,29 +116,31 @@ public class TmdbUIAdapter {
      * @param vod       待增强的 Vod；增强后通过事件推回 UI
      */
     public void autoMatch(String videoName, Vod vod) {
-        resetLoadState();
+        int generation = resetLoadState();
         if (!isReady()) {
             SpiderDebug.log("tmdb", "skip auto match: config not ready");
-            notifyLoadComplete(vod);
+            notifyLoadComplete(vod, generation);
             return;
         }
         if (TextUtils.isEmpty(videoName)) {
-            notifyLoadComplete(vod);
+            notifyLoadComplete(vod, generation);
             return;
         }
         Task.execute(() -> {
+            if (!isCurrentGeneration(generation)) return;
             TmdbItem matched = getCachedMatch(vod);
             if (matched != null) SpiderDebug.log("tmdb", "use cached match title=%s", matched.getTitle());
             if (matched == null) matched = tmdbMatcher.searchAndMatch(videoName, vod);
+            if (!isCurrentGeneration(generation)) return;
             if (matched == null) {
                 SpiderDebug.log("tmdb", "auto match miss name=%s", videoName);
                 tmdbItem = null;
-                notifyLoadComplete(vod);
+                notifyLoadComplete(vod, generation);
                 return;
             }
             saveMatch(vod, matched);
             tmdbItem = matched;
-            loadDetailSync(vod);
+            loadDetailSync(vod, matched, generation);
         });
     }
 
@@ -153,49 +156,59 @@ public class TmdbUIAdapter {
         return tmdbMatcher.cleanVideoName(keyword);
     }
 
-    private void loadDetail(Vod vod) {
-        if (tmdbItem == null || !isReady()) {
-            notifyLoadComplete(vod);
+    private void loadDetail(Vod vod, TmdbItem item, int generation) {
+        if (item == null || !isReady()) {
+            notifyLoadComplete(vod, generation);
             return;
         }
-        Task.execute(() -> loadDetailSync(vod));
+        Task.execute(() -> loadDetailSync(vod, item, generation));
     }
 
-    private void resetLoadState() {
+    private int resetLoadState() {
+        int generation = ++loadGeneration;
         tmdbItem = null;
         tmdbDetail = null;
         tmdbCast = null;
         personalTmdbRecommendations = null;
         personalDoubanRecommendations = null;
         loaded = false;
+        return generation;
     }
 
-    private void loadDetailSync(Vod vod) {
+    private boolean isCurrentGeneration(int generation) {
+        return generation == loadGeneration;
+    }
+
+    private void loadDetailSync(Vod vod, TmdbItem item, int generation) {
         try {
-            tmdbDetail = tmdbService.detail(tmdbItem, tmdbConfig);
-            tmdbCast = tmdbService.cast(tmdbDetail, tmdbConfig);
-            PersonalRecommendationService.Recommendations recommendations = new PersonalRecommendationService(tmdbService, tmdbConfig).load(vod, tmdbItem, tmdbDetail);
+            JsonObject detail = tmdbService.detail(item, tmdbConfig);
+            List<TmdbPerson> cast = tmdbService.cast(detail, tmdbConfig);
+            PersonalRecommendationService.Recommendations recommendations = new PersonalRecommendationService(tmdbService, tmdbConfig).load(vod, item, detail);
+            if (!isCurrentGeneration(generation)) return;
+            tmdbDetail = detail;
+            tmdbCast = cast;
             personalTmdbRecommendations = recommendations.getTmdb();
             personalDoubanRecommendations = recommendations.getDouban();
             loaded = true;
             if (vod != null) {
-                enrichVod(vod);
+                enrichVod(vod, item, detail);
                 // 如果是电视剧，自动获取并应用集数信息
-                if (tmdbItem.isTv()) {
-                    applyEpisodeTitles(vod);
+                if (item.isTv()) {
+                    applyEpisodeTitles(vod, item);
                 }
+                if (!isCurrentGeneration(generation)) return;
                 activity.runOnUiThread(() -> RefreshEvent.vod(vod));
             }
-            SpiderDebug.log("tmdb", "detail loaded title=%s cast=%d", tmdbItem.getTitle(), getCast().size());
+            SpiderDebug.log("tmdb", "detail loaded title=%s cast=%d", item.getTitle(), getCast().size());
         } catch (Exception e) {
             SpiderDebug.log("tmdb", "detail load failed: %s", e.getMessage());
-            notifyLoadComplete(vod);
+            notifyLoadComplete(vod, generation);
         }
     }
 
-    private void notifyLoadComplete(Vod vod) {
+    private void notifyLoadComplete(Vod vod, int generation) {
         // TMDB 加载失败或跳过时，仍然发送 RefreshEvent 让 UI 继续
-        if (vod != null) {
+        if (vod != null && isCurrentGeneration(generation)) {
             activity.runOnUiThread(() -> RefreshEvent.vod(vod));
         }
     }
@@ -230,17 +243,21 @@ public class TmdbUIAdapter {
      * 把 TMDB 详情写回 Vod。仅在源数据缺失时补充，避免覆盖站点已有信息。
      */
     public void enrichVod(Vod vod) {
-        if (vod == null || tmdbDetail == null) return;
+        enrichVod(vod, tmdbItem, tmdbDetail);
+    }
+
+    private void enrichVod(Vod vod, TmdbItem item, JsonObject detail) {
+        if (vod == null || item == null || detail == null) return;
 
         // 简介：优先使用 TMDB 翻译后的简介
-        String overview = tmdbService.translatedOverview(tmdbDetail, tmdbConfig);
+        String overview = tmdbService.translatedOverview(detail, tmdbConfig);
         if (!TextUtils.isEmpty(overview) && overview.length() > vod.getContent().length()) {
             vod.setContent(overview);
         }
 
         // 海报：源站缺失时使用 TMDB 海报
-        if (TextUtils.isEmpty(vod.getPic()) && !TextUtils.isEmpty(tmdbItem.getPosterUrl())) {
-            vod.setPic(tmdbItem.getPosterUrl());
+        if (TextUtils.isEmpty(vod.getPic()) && !TextUtils.isEmpty(item.getPosterUrl())) {
+            vod.setPic(item.getPosterUrl());
         }
 
         // 演员：源站缺失时使用 TMDB 演员表（无法直接设置，Vod 无 setter）
@@ -248,7 +265,7 @@ public class TmdbUIAdapter {
 
         // 导演 / 主创：源站缺失时使用 TMDB 主创
         if (TextUtils.isEmpty(vod.getDirector())) {
-            List<TmdbPerson> creators = tmdbService.creators(tmdbDetail, tmdbConfig);
+            List<TmdbPerson> creators = tmdbService.creators(detail, tmdbConfig);
             List<String> names = new ArrayList<>();
             for (TmdbPerson person : creators) {
                 if (!TextUtils.isEmpty(person.getName())) names.add(person.getName());
@@ -261,14 +278,14 @@ public class TmdbUIAdapter {
     /**
      * 获取并应用 TMDB 集数标题到 Vod（仅针对电视剧）。
      */
-    private void applyEpisodeTitles(Vod vod) {
-        if (vod == null || vod.getFlags() == null) return;
+    private void applyEpisodeTitles(Vod vod, TmdbItem item) {
+        if (vod == null || item == null || vod.getFlags() == null) return;
         try {
             // 尝试获取第1季
             JsonObject season = null;
             int seasonNumber = 1;
             try {
-                season = tmdbService.season(tmdbItem, 1, tmdbConfig);
+                season = tmdbService.season(item, 1, tmdbConfig);
             } catch (Exception ignored) {
             }
 
@@ -276,14 +293,14 @@ public class TmdbUIAdapter {
             if (season == null) {
                 try {
                     seasonNumber = 0;
-                    season = tmdbService.season(tmdbItem, 0, tmdbConfig);
+                    season = tmdbService.season(item, 0, tmdbConfig);
                 } catch (Exception ignored) {
                 }
             }
 
             if (season == null) return;
 
-            List<TmdbEpisode> episodes = tmdbService.episodes(season, tmdbConfig, tmdbItem.getTmdbId(), seasonNumber);
+            List<TmdbEpisode> episodes = tmdbService.episodes(season, tmdbConfig, item.getTmdbId(), seasonNumber);
             if (episodes.isEmpty()) return;
 
             // 先排序集数
