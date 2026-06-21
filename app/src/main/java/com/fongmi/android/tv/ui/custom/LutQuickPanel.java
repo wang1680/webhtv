@@ -1,19 +1,11 @@
 package com.fongmi.android.tv.ui.custom;
 
-import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
-import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.Gravity;
-import android.view.PixelCopy;
-import android.view.SurfaceView;
-import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
 import androidx.media3.ui.PlayerView;
@@ -30,14 +22,9 @@ import com.google.android.material.textview.MaterialTextView;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 public class LutQuickPanel extends FrameLayout {
 
-    private final Handler handler;
-    private final FrameLayout compareLayer;
-    private FrameLayout originalClip;
-    private ImageView originalImage;
     private MaterialTextView delay;
     private MaterialTextView empty;
     private RecyclerView recycler;
@@ -51,14 +38,11 @@ public class LutQuickPanel extends FrameLayout {
 
     public LutQuickPanel(android.content.Context context, android.util.AttributeSet attrs) {
         super(context, attrs);
-        handler = new Handler(Looper.getMainLooper());
         setVisibility(GONE);
         setClipChildren(true);
-        compareLayer = createCompareLayer();
         panel = createPanel();
         adapter = new PanelAdapter();
         recycler.setAdapter(adapter);
-        addView(compareLayer);
         addView(panel);
     }
 
@@ -110,7 +94,6 @@ public class LutQuickPanel extends FrameLayout {
     }
 
     private void hide() {
-        hideCompare();
         panel.animate().translationX(panel.getWidth()).setDuration(160).withEndAction(() -> {
             setVisibility(GONE);
             panel.setTranslationX(0);
@@ -123,45 +106,18 @@ public class LutQuickPanel extends FrameLayout {
         if (preset == null) {
             LutSetting.select(null);
             player.applyLut(true);
-            hideCompare();
             notifyChanged();
             return;
         }
-        captureFrame(playerView, bitmap -> {
-            if (seq != selectSeq) return;
-            LutSetting.select(preset);
-            player.applyLut(true);
-            showCompare(bitmap);
-            notifyChanged();
-        });
+        if (seq != selectSeq) return;
+        LutSetting.select(preset);
+        player.applyLutPreview(true);
+        notifyChanged();
     }
 
     private void notifyChanged() {
         if (refresh != null) refresh.run();
         adapter.notifyDataSetChanged();
-    }
-
-    private FrameLayout createCompareLayer() {
-        FrameLayout layer = new FrameLayout(getContext());
-        layer.setVisibility(GONE);
-        layer.setClipChildren(true);
-        layer.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
-        originalClip = new FrameLayout(getContext());
-        originalClip.setClipChildren(true);
-        originalClip.setBackgroundColor(Color.BLACK);
-        originalImage = new ImageView(getContext());
-        originalImage.setScaleType(ImageView.ScaleType.FIT_XY);
-        originalClip.addView(originalImage, new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
-        MaterialTextView label = label(R.string.lut_original);
-        FrameLayout.LayoutParams labelParams = new FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.START | Gravity.TOP);
-        labelParams.setMargins(dp(12), dp(12), 0, 0);
-        originalClip.addView(label, labelParams);
-        View divider = new View(getContext());
-        divider.setBackgroundColor(0xCCFFFFFF);
-        FrameLayout.LayoutParams dividerParams = new FrameLayout.LayoutParams(dp(1), LayoutParams.MATCH_PARENT, Gravity.CENTER_HORIZONTAL);
-        layer.addView(originalClip);
-        layer.addView(divider, dividerParams);
-        return layer;
     }
 
     private View createPanel() {
@@ -181,15 +137,27 @@ public class LutQuickPanel extends FrameLayout {
 
         MaterialTextView title = text(R.string.player_lut, 16, true);
         header.addView(title, new androidx.appcompat.widget.LinearLayoutCompat.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1));
+        MaterialTextView close = chip();
+        close.setText(R.string.lut_close);
+        close.setOnClickListener(view -> hide());
+        header.addView(close);
+
+        androidx.appcompat.widget.LinearLayoutCompat tools = new androidx.appcompat.widget.LinearLayoutCompat(getContext());
+        tools.setGravity(Gravity.CENTER_VERTICAL);
+        tools.setOrientation(androidx.appcompat.widget.LinearLayoutCompat.HORIZONTAL);
+        androidx.appcompat.widget.LinearLayoutCompat.LayoutParams toolsParams = new androidx.appcompat.widget.LinearLayoutCompat.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        toolsParams.setMargins(0, dp(10), 0, 0);
+        column.addView(tools, toolsParams);
+
         delay = chip();
         delay.setOnClickListener(view -> cycleDelay());
-        header.addView(delay);
+        tools.addView(delay);
         MaterialTextView importView = chip();
         importView.setText(R.string.lut_import);
         importView.setOnClickListener(view -> {
             if (importCallback != null) importCallback.onImportLut();
         });
-        header.addView(importView);
+        tools.addView(importView);
 
         empty = text(R.string.lut_empty_presets, 14, false);
         empty.setGravity(Gravity.CENTER);
@@ -237,53 +205,6 @@ public class LutQuickPanel extends FrameLayout {
         view.setTextSize(sp);
         if (bold) view.setTypeface(view.getTypeface(), android.graphics.Typeface.BOLD);
         return view;
-    }
-
-    private MaterialTextView label(int resId) {
-        MaterialTextView view = text(resId, 12, false);
-        view.setPadding(dp(8), dp(4), dp(8), dp(4));
-        view.setBackgroundColor(0x99000000);
-        return view;
-    }
-
-    private void showCompare(Bitmap bitmap) {
-        hideCompare();
-        if (bitmap == null || getWidth() <= 0 || getHeight() <= 0) return;
-        compareLayer.setVisibility(VISIBLE);
-        originalImage.setImageBitmap(bitmap);
-        FrameLayout.LayoutParams clipParams = new FrameLayout.LayoutParams(getWidth() / 2, LayoutParams.MATCH_PARENT, Gravity.START);
-        originalClip.setLayoutParams(clipParams);
-        ViewGroup.LayoutParams imageParams = originalImage.getLayoutParams();
-        imageParams.width = getWidth();
-        imageParams.height = getHeight();
-        originalImage.setLayoutParams(imageParams);
-        originalClip.setTranslationX(0);
-        handler.postDelayed(() -> originalClip.animate().translationX(-originalClip.getWidth()).setDuration(360).withEndAction(this::hideCompare).start(), LutSetting.getPreviewSeconds() * 1000L);
-    }
-
-    private void hideCompare() {
-        handler.removeCallbacksAndMessages(null);
-        originalClip.animate().cancel();
-        compareLayer.setVisibility(GONE);
-        originalImage.setImageDrawable(null);
-    }
-
-    private void captureFrame(PlayerView view, Consumer<Bitmap> callback) {
-        if (view == null || view.getWidth() <= 0 || view.getHeight() <= 0) {
-            callback.accept(null);
-            return;
-        }
-        View surface = view.getVideoSurfaceView();
-        if (surface instanceof TextureView texture && texture.getWidth() > 0 && texture.getHeight() > 0) {
-            callback.accept(texture.getBitmap(texture.getWidth(), texture.getHeight()));
-            return;
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && surface instanceof SurfaceView surfaceView && surfaceView.getWidth() > 0 && surfaceView.getHeight() > 0) {
-            Bitmap bitmap = Bitmap.createBitmap(surfaceView.getWidth(), surfaceView.getHeight(), Bitmap.Config.ARGB_8888);
-            PixelCopy.request(surfaceView, bitmap, result -> callback.accept(result == PixelCopy.SUCCESS ? bitmap : null), handler);
-            return;
-        }
-        callback.accept(null);
     }
 
     private void applyBg(MaterialTextView view, boolean selected, boolean focused) {

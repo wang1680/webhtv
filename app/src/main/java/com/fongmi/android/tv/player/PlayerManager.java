@@ -502,6 +502,14 @@ public class PlayerManager implements ParseCallback {
     }
 
     public void applyLut(boolean notify) {
+        applyLut(notify, false);
+    }
+
+    public void applyLutPreview(boolean notify) {
+        applyLut(notify, true);
+    }
+
+    private void applyLut(boolean notify, boolean preview) {
         if (engine == null) return;
         int seq = ++lutApplySeq;
         if (!LutSetting.isEnabled()) {
@@ -523,8 +531,8 @@ public class PlayerManager implements ParseCallback {
         int strength = LutSetting.getStrength();
         Task.execute(() -> {
             try {
-                List<Effect> effects = LutEffectFactory.create(preset, strength);
-                App.post(() -> applyLutEffects(seq, effects, notify));
+                List<Effect> effects = preview ? LutEffectFactory.createPreview(preset, strength, LutSetting.getPreviewSeconds()) : LutEffectFactory.create(preset, strength);
+                App.post(() -> applyLutEffects(seq, effects, notify, preview));
             } catch (Throwable e) {
                 if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "create failed preset=%s strength=%d error=%s", preset.getId(), strength, causeChain(e));
                 App.post(() -> {
@@ -537,6 +545,10 @@ public class PlayerManager implements ParseCallback {
     }
 
     private void applyLutEffects(int seq, List<Effect> effects, boolean notify) {
+        applyLutEffects(seq, effects, notify, false);
+    }
+
+    private void applyLutEffects(int seq, List<Effect> effects, boolean notify, boolean preview) {
         if (seq != lutApplySeq || engine == null) return;
         String reason = getLutUnavailableReason();
         if (!TextUtils.isEmpty(reason)) {
@@ -544,7 +556,7 @@ public class PlayerManager implements ParseCallback {
             if (notify) Notify.show(reason);
             return;
         }
-        safeSetVideoEffects(effects, "apply");
+        safeSetVideoEffects(effects, preview ? "preview" : "apply");
     }
 
     private void safeSetVideoEffects(List<Effect> effects, String reason) {

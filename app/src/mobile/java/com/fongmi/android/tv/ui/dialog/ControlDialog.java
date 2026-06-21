@@ -9,6 +9,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.App;
@@ -18,14 +20,19 @@ import com.fongmi.android.tv.bean.Parse;
 import com.fongmi.android.tv.databinding.ActivityVideoBinding;
 import com.fongmi.android.tv.databinding.DialogControlBinding;
 import com.fongmi.android.tv.player.PlayerManager;
+import com.fongmi.android.tv.player.lut.LutPreset;
+import com.fongmi.android.tv.player.lut.LutSetting;
+import com.fongmi.android.tv.player.lut.LutStore;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.ui.adapter.ParseAdapter;
 import com.fongmi.android.tv.ui.base.ViewType;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Timer;
+import com.google.android.material.textview.MaterialTextView;
 import com.google.android.material.slider.Slider;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -36,6 +43,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     private ActivityVideoBinding parent;
     private List<TextView> scales;
     private List<TextView> speeds;
+    private LutAdapter lutAdapter;
     private PlayerManager player;
     private History history;
     private boolean parse;
@@ -95,6 +103,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         setScaleText();
         setPlayer();
         setParse();
+        setLut();
     }
 
     @Override
@@ -111,7 +120,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.danmaku.setOnClickListener(v -> dismiss(parent.control.action.danmaku));
         binding.repeat.setOnClickListener(v -> active(binding.repeat, parent.control.action.repeat));
         binding.decode.setOnClickListener(v -> click(binding.decode, parent.control.action.decode));
-        binding.lut.setOnClickListener(v -> dismiss(parent.control.action.lut));
+        binding.lut.setOnClickListener(v -> toggleLutList());
         binding.ending.setOnClickListener(v -> click(binding.ending, parent.control.action.ending));
         binding.opening.setOnClickListener(v -> click(binding.opening, parent.control.action.opening));
         binding.player.setOnLongClickListener(v -> longClick(binding.player, parent.control.action.player));
@@ -161,6 +170,14 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.parse.setAdapter(new ParseAdapter(this, ViewType.LIGHT));
     }
 
+    private void setLut() {
+        binding.lutList.setHasFixedSize(true);
+        binding.lutList.setItemAnimator(null);
+        binding.lutList.setLayoutManager(new LinearLayoutManager(getContext(), RecyclerView.HORIZONTAL, false));
+        binding.lutList.setAdapter(lutAdapter = new LutAdapter());
+        lutAdapter.refresh();
+    }
+
     private void setScale(View view) {
         for (TextView textView : scales) textView.setSelected(false);
         ((Listener) requireActivity()).onScale(Integer.parseInt(view.getTag().toString()));
@@ -175,6 +192,24 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     private void click(TextView view, TextView target) {
         target.performClick();
         view.setText(target.getText());
+    }
+
+    private void toggleLutList() {
+        boolean show = binding.lutList.getVisibility() != View.VISIBLE;
+        binding.lutText.setVisibility(show ? View.VISIBLE : View.GONE);
+        binding.lutList.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (show) lutAdapter.refresh();
+    }
+
+    private void selectLut(LutEntry entry) {
+        if (entry.importFile) {
+            ((Listener) requireActivity()).onLutImport();
+            dismiss();
+            return;
+        }
+        ((Listener) requireActivity()).onLutSelected(entry.preset);
+        binding.lut.setText(parent.control.action.lut.getText());
+        lutAdapter.refresh();
     }
 
     private boolean longClick(TextView view, TextView target) {
@@ -223,5 +258,82 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         void onScale(int tag);
 
         void onParse(Parse item);
+
+        void onLutSelected(LutPreset preset);
+
+        void onLutImport();
+    }
+
+    private static class LutEntry {
+
+        private final LutPreset preset;
+        private final boolean importFile;
+
+        private LutEntry(LutPreset preset, boolean importFile) {
+            this.preset = preset;
+            this.importFile = importFile;
+        }
+
+        static LutEntry original() {
+            return new LutEntry(null, false);
+        }
+
+        static LutEntry importFile() {
+            return new LutEntry(null, true);
+        }
+
+        static LutEntry preset(LutPreset preset) {
+            return new LutEntry(preset, false);
+        }
+
+        String getText() {
+            if (importFile) return ResUtil.getString(R.string.lut_import);
+            return preset == null ? ResUtil.getString(R.string.lut_original) : preset.getName();
+        }
+
+        boolean isSelected() {
+            return !importFile && (preset == null ? !LutSetting.isEnabled() : LutSetting.isEnabled() && preset.getId().equals(LutSetting.getPresetId()));
+        }
+    }
+
+    private class LutAdapter extends RecyclerView.Adapter<LutAdapter.ViewHolder> {
+
+        private final List<LutEntry> items = new ArrayList<>();
+
+        void refresh() {
+            items.clear();
+            items.add(LutEntry.original());
+            items.add(LutEntry.importFile());
+            for (LutPreset preset : LutStore.getPresets()) items.add(LutEntry.preset(preset));
+            notifyDataSetChanged();
+        }
+
+        @NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            return new ViewHolder((MaterialTextView) LayoutInflater.from(parent.getContext()).inflate(R.layout.adapter_value, parent, false));
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+            LutEntry entry = items.get(position);
+            holder.text.setText(entry.getText());
+            holder.text.setSelected(entry.isSelected());
+            holder.text.setOnClickListener(view -> selectLut(entry));
+        }
+
+        @Override
+        public int getItemCount() {
+            return items.size();
+        }
+
+        private class ViewHolder extends RecyclerView.ViewHolder {
+            private final MaterialTextView text;
+
+            private ViewHolder(@NonNull MaterialTextView itemView) {
+                super(itemView);
+                this.text = itemView;
+            }
+        }
     }
 }

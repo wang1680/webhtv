@@ -774,6 +774,7 @@
     <string name="lut_strength_value">Strength %1$d%%</string>
     <string name="lut_preview_delay_value">%1$ds</string>
     <string name="lut_import">Import</string>
+    <string name="lut_close">Close</string>
     <string name="lut_imported">LUT preset imported</string>
     <string name="lut_import_failed">LUT import failed</string>
     <string name="lut_empty_presets">No LUT presets</string>

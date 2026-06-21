@@ -768,6 +768,7 @@
     <string name="lut_strength_value">強度 %1$d%%</string>
     <string name="lut_preview_delay_value">%1$d秒</string>
     <string name="lut_import">導入</string>
+    <string name="lut_close">關閉</string>
     <string name="lut_imported">LUT 預設已導入</string>
     <string name="lut_import_failed">LUT 導入失敗</string>
     <string name="lut_empty_presets">暫無 LUT 預設</string>

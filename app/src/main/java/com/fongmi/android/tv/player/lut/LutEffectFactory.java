@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.util.LruCache;
 
 import androidx.media3.common.Effect;
+import androidx.media3.effect.ColorLut;
 import androidx.media3.effect.SingleColorLut;
 
 import com.fongmi.android.tv.App;
@@ -25,11 +26,16 @@ public class LutEffectFactory {
     public static List<Effect> create(LutPreset preset, int strength) throws IOException {
         long start = System.currentTimeMillis();
         if (preset == null || strength <= 0) return Collections.emptyList();
-        Effect effect = switch (preset.getFormat()) {
-            case CUBE -> SingleColorLut.createFromCube(mixCube(loadCube(preset), strength));
-            case BITMAP -> SingleColorLut.createFromBitmap(mixBitmap(loadBitmap(preset), strength));
-        };
+        Effect effect = createColorLut(preset, strength);
         if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "create preset=%s format=%s strength=%d cost=%dms", preset.getId(), preset.getFormat(), strength, System.currentTimeMillis() - start);
+        return Collections.singletonList(effect);
+    }
+
+    public static List<Effect> createPreview(LutPreset preset, int strength, int previewSeconds) throws IOException {
+        long start = System.currentTimeMillis();
+        if (preset == null || strength <= 0) return Collections.emptyList();
+        Effect effect = new SplitColorLutEffect(createColorLut(preset, strength), previewSeconds);
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "create preview preset=%s format=%s strength=%d seconds=%d cost=%dms", preset.getId(), preset.getFormat(), strength, previewSeconds, System.currentTimeMillis() - start);
         return Collections.singletonList(effect);
     }
 
@@ -84,6 +90,13 @@ public class LutEffectFactory {
 
     private static boolean isMedia3BitmapLut(int width, int height) {
         return width > 1 && width <= MAX_BITMAP_LUT_SIZE && height == width * width;
+    }
+
+    private static ColorLut createColorLut(LutPreset preset, int strength) throws IOException {
+        return switch (preset.getFormat()) {
+            case CUBE -> SingleColorLut.createFromCube(mixCube(loadCube(preset), strength));
+            case BITMAP -> SingleColorLut.createFromBitmap(mixBitmap(loadBitmap(preset), strength));
+        };
     }
 
     private static int[][][] mixCube(int[][][] source, int strength) {

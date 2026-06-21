@@ -68,6 +68,7 @@ import com.fongmi.android.tv.playback.PlaybackEventCollector;
 import com.fongmi.android.tv.player.PlayerHelper;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.player.lut.LutPreset;
+import com.fongmi.android.tv.player.lut.LutSetting;
 import com.fongmi.android.tv.player.lut.LutStore;
 import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.setting.DanmakuSetting;
@@ -167,7 +168,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 LutPreset preset = LutStore.importFile(path);
                 App.post(() -> {
                     Notify.show(R.string.lut_imported);
-                    mBinding.lutQuick.selectImported(preset, player(), mBinding.exo, this::setLut);
+                    if (isFullscreen()) mBinding.lutQuick.selectImported(preset, player(), mBinding.exo, this::setLut);
+                    else onLutSelected(preset);
                 });
             } catch (Exception e) {
                 if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "import failed path=%s error=%s", path, e.getMessage());
@@ -918,8 +920,18 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         setR1Callback();
     }
 
-    private void onLutImport() {
+    @Override
+    public void onLutImport() {
         FileChooser.from(mLutFile).show("*/*", new String[]{"application/octet-stream", "text/*", "image/*", "*/*"});
+    }
+
+    @Override
+    public void onLutSelected(LutPreset preset) {
+        LutSetting.select(preset);
+        if (preset == null) player().applyLut(true);
+        else player().applyLutPreview(true);
+        setLut();
+        setR1Callback();
     }
 
     private void onSpeed() {
