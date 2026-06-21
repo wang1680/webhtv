@@ -12,6 +12,7 @@ import com.fongmi.android.tv.App;
 import com.github.catvod.crawler.SpiderDebug;
 
 import java.io.IOException;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
@@ -32,11 +33,18 @@ public class LutEffectFactory {
         return Collections.singletonList(effect);
     }
 
+    public static void validate(LutPreset preset) throws IOException {
+        switch (preset.getFormat()) {
+            case CUBE -> loadCube(preset);
+            case BITMAP -> loadBitmap(preset);
+        }
+    }
+
     private static int[][][] loadCube(LutPreset preset) throws IOException {
         String key = "cube:" + preset.getId();
         Object cached = SOURCE_CACHE.get(key);
         if (cached instanceof int[][][] cube) return cube;
-        try (InputStream stream = App.get().getAssets().open(preset.getAssetPath())) {
+        try (InputStream stream = open(preset)) {
             int[][][] cube = LutCubeParser.parse(stream);
             SOURCE_CACHE.put(key, cube);
             return cube;
@@ -49,14 +57,14 @@ public class LutEffectFactory {
         if (cached instanceof Bitmap bitmap && !bitmap.isRecycled()) return bitmap;
         BitmapFactory.Options bounds = new BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
-        try (InputStream stream = App.get().getAssets().open(preset.getAssetPath())) {
+        try (InputStream stream = open(preset)) {
             BitmapFactory.decodeStream(stream, null, bounds);
         }
         if (!isMedia3BitmapLut(bounds.outWidth, bounds.outHeight)) throw new IOException("Bitmap LUT must be N x N^2, N <= " + MAX_BITMAP_LUT_SIZE);
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inPreferredConfig = Bitmap.Config.ARGB_8888;
         Bitmap bitmap;
-        try (InputStream stream = App.get().getAssets().open(preset.getAssetPath())) {
+        try (InputStream stream = open(preset)) {
             bitmap = BitmapFactory.decodeStream(stream, null, options);
         }
         if (bitmap == null) throw new IOException("Unable to decode bitmap LUT");
@@ -68,6 +76,10 @@ public class LutEffectFactory {
         if (!isMedia3BitmapLut(bitmap.getWidth(), bitmap.getHeight())) throw new IOException("Invalid bitmap LUT size");
         SOURCE_CACHE.put(key, bitmap);
         return bitmap;
+    }
+
+    private static InputStream open(LutPreset preset) throws IOException {
+        return preset.isAsset() ? App.get().getAssets().open(preset.getPath()) : new FileInputStream(preset.getPath());
     }
 
     private static boolean isMedia3BitmapLut(int width, int height) {

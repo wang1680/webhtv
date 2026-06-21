@@ -772,6 +772,10 @@
     <string name="lut_summary">%1$s · %2$d%%</string>
     <string name="lut_title_value">%1$s · %2$s</string>
     <string name="lut_strength_value">Strength %1$d%%</string>
+    <string name="lut_preview_delay_value">%1$ds</string>
+    <string name="lut_import">Import</string>
+    <string name="lut_imported">LUT preset imported</string>
+    <string name="lut_import_failed">LUT import failed</string>
     <string name="lut_empty_presets">No LUT presets</string>
     <string name="lut_apply_failed">LUT color has been disabled temporarily</string>
     <string name="lut_unavailable_player">Current player engine does not support LUT color</string>

@@ -15,12 +15,18 @@ public class LutPreset {
     private final String name;
     private final String assetPath;
     private final Format format;
+    private final boolean asset;
 
     public LutPreset(String id, String name, String assetPath, Format format) {
+        this(id, name, assetPath, format, true);
+    }
+
+    public LutPreset(String id, String name, String assetPath, Format format, boolean asset) {
         this.id = id;
         this.name = name;
         this.assetPath = assetPath;
         this.format = format;
+        this.asset = asset;
     }
 
     public String getId() {
@@ -40,8 +46,16 @@ public class LutPreset {
         return assetPath;
     }
 
+    public String getPath() {
+        return assetPath;
+    }
+
     public Format getFormat() {
         return format;
+    }
+
+    public boolean isAsset() {
+        return asset;
     }
 
     public static Format formatOf(String file) {

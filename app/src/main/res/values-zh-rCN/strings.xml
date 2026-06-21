@@ -771,6 +771,10 @@
     <string name="lut_summary">%1$s · %2$d%%</string>
     <string name="lut_title_value">%1$s · %2$s</string>
     <string name="lut_strength_value">强度 %1$d%%</string>
+    <string name="lut_preview_delay_value">%1$d秒</string>
+    <string name="lut_import">导入</string>
+    <string name="lut_imported">LUT 预设已导入</string>
+    <string name="lut_import_failed">LUT 导入失败</string>
     <string name="lut_empty_presets">暂无 LUT 预设</string>
     <string name="lut_apply_failed">LUT 调色已临时关闭</string>
     <string name="lut_unavailable_player">当前播放器内核不支持 LUT 调色</string>

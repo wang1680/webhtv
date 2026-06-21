@@ -20,6 +20,8 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.view.ViewCompat;
@@ -65,6 +67,8 @@ import com.fongmi.android.tv.model.SiteViewModel;
 import com.fongmi.android.tv.playback.PlaybackEventCollector;
 import com.fongmi.android.tv.player.PlayerHelper;
 import com.fongmi.android.tv.player.PlayerManager;
+import com.fongmi.android.tv.player.lut.LutPreset;
+import com.fongmi.android.tv.player.lut.LutStore;
 import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.setting.DanmakuSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
@@ -87,7 +91,6 @@ import com.fongmi.android.tv.ui.dialog.DanmakuDialog;
 import com.fongmi.android.tv.ui.dialog.EpisodeGridDialog;
 import com.fongmi.android.tv.ui.dialog.EpisodeListDialog;
 import com.fongmi.android.tv.ui.dialog.InfoDialog;
-import com.fongmi.android.tv.ui.dialog.LutDialog;
 import com.fongmi.android.tv.ui.dialog.ReceiveDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
 import com.fongmi.android.tv.ui.dialog.TitleDialog;
@@ -151,6 +154,27 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private String playHealthKey;
     private long detailStartTime;
     private long playerStartTime;
+
+    private final ActivityResultLauncher<Intent> mLutFile = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) return;
+        String path = FileChooser.getPathFromUri(result.getData().getData());
+        if (TextUtils.isEmpty(path)) {
+            Notify.show(R.string.lut_import_failed);
+            return;
+        }
+        Task.execute(() -> {
+            try {
+                LutPreset preset = LutStore.importFile(path);
+                App.post(() -> {
+                    Notify.show(R.string.lut_imported);
+                    mBinding.lutQuick.selectImported(preset, player(), mBinding.exo, this::setLut);
+                });
+            } catch (Exception e) {
+                if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "import failed path=%s error=%s", path, e.getMessage());
+                App.post(() -> Notify.show(Notify.getError(R.string.lut_import_failed, e)));
+            }
+        });
+    });
 
     public static void push(FragmentActivity activity, String text) {
         if (FileChooser.isValid(activity, Uri.parse(text))) file(activity, FileChooser.getPathFromUri(Uri.parse(text)));
@@ -890,8 +914,12 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void onLut() {
-        LutDialog.show(this, player(), this::setLut);
+        mBinding.lutQuick.toggle(player(), mBinding.exo, this::setLut, this::onLutImport);
         setR1Callback();
+    }
+
+    private void onLutImport() {
+        FileChooser.from(mLutFile).show("*/*", new String[]{"application/octet-stream", "text/*", "image/*", "*/*"});
     }
 
     private void onSpeed() {
@@ -1950,7 +1978,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected void onBackInvoked() {
-        if (isVisible(mBinding.control.getRoot())) {
+        if (mBinding.lutQuick.hideIfVisible()) {
+            return;
+        } else if (isVisible(mBinding.control.getRoot())) {
             hideControl();
         } else if (isFullscreen() && !isLock()) {
             exitFullscreen();

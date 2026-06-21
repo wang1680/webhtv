@@ -68,6 +68,11 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
+        <com.fongmi.android.tv.ui.custom.LutQuickPanel
+            android:id="@+id/lutQuick"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
     </FrameLayout>
 
     <View

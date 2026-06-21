@@ -11,6 +11,7 @@ public class LutSetting {
     private static final String KEY_ENABLED = "lut_enabled";
     private static final String KEY_PRESET = "lut_preset";
     private static final String KEY_STRENGTH = "lut_strength";
+    private static final String KEY_PREVIEW_SECONDS = "lut_preview_seconds";
 
     public static boolean isEnabled() {
         return Prefers.getBoolean(KEY_ENABLED);
@@ -35,6 +36,14 @@ public class LutSetting {
 
     public static void putStrength(int strength) {
         Prefers.put(KEY_STRENGTH, Math.min(Math.max(strength, 25), 100));
+    }
+
+    public static int getPreviewSeconds() {
+        return Math.min(Math.max(Prefers.getInt(KEY_PREVIEW_SECONDS, 3), 1), 8);
+    }
+
+    public static void putPreviewSeconds(int seconds) {
+        Prefers.put(KEY_PREVIEW_SECONDS, Math.min(Math.max(seconds, 1), 8));
     }
 
     public static void select(LutPreset preset) {
