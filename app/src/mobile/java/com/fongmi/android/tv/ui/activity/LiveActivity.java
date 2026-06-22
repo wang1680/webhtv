@@ -103,6 +103,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     private int count;
     private PiP mPiP;
     private boolean liveMenuRendered;
+    private Boolean embeddedUiMode;
 
     public static void start(Context context) {
         context.startActivity(new Intent(context, LiveActivity.class).putExtra("empty", LiveConfig.isEmpty()));
@@ -374,6 +375,10 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     }
 
     private void onBack() {
+        if (!isEmbeddedLiveUi()) {
+            exitFullscreenLive();
+            return;
+        }
         finish();
     }
 
@@ -394,9 +399,25 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     }
 
     private void onRotate() {
-        setR1Callback();
-        setRotate(!isRotate());
-        setRequestedOrientation(ResUtil.isLand(this) ? ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        if (isEmbeddedLiveUi()) enterFullscreenLive();
+        else exitFullscreenLive();
+    }
+
+    private void enterFullscreenLive() {
+        setRotate(true);
+        hideInfo();
+        hideControl();
+        hideUI();
+        updateEmbeddedUiMode();
+        Util.hideSystemUI(this);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+    }
+
+    private void exitFullscreenLive() {
+        setRotate(false);
+        hideInfo();
+        hideControl();
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT);
     }
 
     private void checkPlay() {
@@ -629,9 +650,9 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         if (isEmbeddedLiveUi()) {
             if (isVisible(mBinding.control.getRoot())) hideControl();
             else showControl();
-        } else if (isVisible(mBinding.control.getRoot())) hideControl();
-        else if (isVisible(mBinding.recycler)) hideUI();
-        else showUI();
+        } else {
+            exitFullscreenLive();
+        }
         hideInfo();
     }
 
@@ -668,6 +689,12 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     @Override
     public void onItemClick(Channel item) {
         if (!item.getData(mViewModel.getZoneId()).getList().isEmpty() && item.isSelected() && mChannel != null && mChannel.equals(item) && mChannel.getGroup().equals(mGroup)) {
+            if (!isEmbeddedLiveUi()) {
+                hideUI();
+                hideControl();
+                hideInfo();
+                return;
+            }
             showEpg(item);
         } else if (mGroup != null) {
             mGroup.setPosition(mChannelAdapter.setSelected(item.group(mGroup)));
@@ -1155,6 +1182,10 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
 
     @Override
     public void onDoubleTap() {
+        if (!isEmbeddedLiveUi()) {
+            exitFullscreenLive();
+            return;
+        }
         if (isVisible(mBinding.recycler)) hideUI();
         if (isVisible(mBinding.control.getRoot())) hideControl();
         else showControl();
@@ -1208,6 +1239,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     }
 
     private void updateSystemUI() {
+        updateEmbeddedUiMode();
         updateLiveMenuInsets();
         if (isEmbeddedLiveUi()) {
             Util.showSystemUI(this);
@@ -1221,6 +1253,18 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
             getWindow().setNavigationBarColor(Color.TRANSPARENT);
             Util.hideSystemUI(this);
         }
+    }
+
+    private void updateEmbeddedUiMode() {
+        boolean embedded = isEmbeddedLiveUi();
+        mBinding.navigation.setVisibility(embedded ? View.VISIBLE : View.GONE);
+        if (embeddedUiMode != null && embeddedUiMode && !embedded) {
+            hideControl();
+            hideUI();
+        } else if (embedded) {
+            keepLiveMenuVisible();
+        }
+        embeddedUiMode = embedded;
     }
 
     private void updateLiveMenuInsets() {
