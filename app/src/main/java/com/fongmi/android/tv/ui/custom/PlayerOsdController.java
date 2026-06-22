@@ -32,6 +32,7 @@ public class PlayerOsdController {
     private final TextView topRight;
     private final TextView bottomLeft;
     private final TextView bottomRight;
+    private final MiniProgressView miniProgress;
     private final Runnable update;
     private final Source source;
     private final View root;
@@ -41,8 +42,9 @@ public class PlayerOsdController {
     private long lastTotalRxBytes;
     private long lastTimeStamp;
 
-    public PlayerOsdController(View root, TextView topLeft, TextView topRight, TextView bottomLeft, TextView bottomRight, Source source, float normalSp, float miniSp) {
+    public PlayerOsdController(View root, TextView topLeft, TextView topRight, TextView bottomLeft, TextView bottomRight, MiniProgressView miniProgress, Source source, float normalSp, float miniSp) {
         this.timeFormat = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+        this.miniProgress = miniProgress;
         this.bottomRight = bottomRight;
         this.bottomLeft = bottomLeft;
         this.topRight = topRight;
@@ -81,6 +83,7 @@ public class PlayerOsdController {
         setTopRight();
         setBottomLeft(player);
         setBottomRight();
+        setMiniProgress(player);
         App.post(update, 1000);
     }
 
@@ -119,6 +122,20 @@ public class PlayerOsdController {
         String speed = getSpeed();
         bottomRight.setText(speed);
         bottomRight.setVisibility(TextUtils.isEmpty(speed) ? View.GONE : View.VISIBLE);
+    }
+
+    private void setMiniProgress(PlayerManager player) {
+        if (!PlayerSetting.isOsdProgress() || player == null || player.isLive()) {
+            miniProgress.setVisibility(View.GONE);
+            return;
+        }
+        long duration = Math.max(0, player.getDuration());
+        if (duration <= 0) {
+            miniProgress.setVisibility(View.GONE);
+            return;
+        }
+        miniProgress.setProgress(player.getPosition(), duration);
+        miniProgress.setVisibility(View.VISIBLE);
     }
 
     private void setTextSize(float sp) {
