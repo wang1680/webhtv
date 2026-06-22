@@ -182,6 +182,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private boolean mNativePersonalDoubanLoading;
     private final Map<String, java.util.List<String[]>> mTmdbOmdbRatingCache = Collections.synchronizedMap(new HashMap<>());
     private final Set<String> mTmdbOmdbRatingLoading = Collections.synchronizedSet(new HashSet<>());
+    private final Map<String, PersonalRecommendationService.DoubanRating> mTmdbDoubanRatingCache = Collections.synchronizedMap(new HashMap<>());
+    private final Set<String> mTmdbDoubanRatingLoading = Collections.synchronizedSet(new HashSet<>());
     private View mFocus2;
     private Result mPendingDetail;
     private Result mPendingPlayer;
@@ -2531,6 +2533,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         }
 
         java.util.List<String[]> baseChips = buildTmdbRatingChips();
+        fetchTmdbDoubanRating();
 
         com.google.gson.JsonObject externalIds = detail.has("external_ids") && !detail.get("external_ids").isJsonNull()
                 ? detail.getAsJsonObject("external_ids") : null;
@@ -2557,14 +2560,12 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         java.util.List<String[]> cached = mTmdbOmdbRatingCache.get(cacheKey);
         if (cached != null) {
             container.setTag(cacheKey);
-            renderTmdbRatingChips(label, container, cached);
+            renderTmdbRatingChips(label, container, mergeRatingChips(baseChips, cached));
             return;
         }
         if (mTmdbOmdbRatingLoading.contains(cacheKey)) {
-            if (!cacheKey.equals(container.getTag())) {
-                container.setTag(cacheKey);
-                renderTmdbRatingChips(label, container, baseChips);
-            }
+            container.setTag(cacheKey);
+            renderTmdbRatingChips(label, container, baseChips);
             SpiderDebug.log("tmdb-omdb", "跳过：请求进行中 imdbId=%s", imdbId);
             return;
         }
@@ -2573,7 +2574,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         renderTmdbRatingChips(label, container, baseChips);
         mTmdbOmdbRatingLoading.add(cacheKey);
         SpiderDebug.log("tmdb-omdb", "开始请求 imdbId=%s", imdbId);
-        fetchTmdbOmdbRatings(imdbId, omdbApiKey, cacheKey, label, container, baseChips);
+        fetchTmdbOmdbRatings(imdbId, omdbApiKey, cacheKey, label, container);
     }
 
     private boolean shouldShowAutoTmdbMatchDialog(Vod item) {
@@ -2663,7 +2664,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         return mTmdbUIAdapter == null ? name : mTmdbUIAdapter.cleanSearchQuery(name);
     }
 
-    private void fetchTmdbOmdbRatings(String imdbId, String omdbApiKey, String cacheKey, View label, ViewGroup container, java.util.List<String[]> baseChips) {
+    private void fetchTmdbOmdbRatings(String imdbId, String omdbApiKey, String cacheKey, View label, ViewGroup container) {
         Task.execute(() -> {
             try {
                 String url = "https://www.omdbapi.com/?i=" + imdbId + "&apikey=" + omdbApiKey;
@@ -2685,16 +2686,15 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                     return;
                 }
 
-                java.util.List<String[]> chips = new java.util.ArrayList<>(baseChips);
-                chips.addAll(buildOmdbRatingChips(jsonObj));
-                SpiderDebug.log("tmdb-omdb", "评分卡片数=%d", chips.size());
-                if (chips.isEmpty()) return;
-                mTmdbOmdbRatingCache.put(cacheKey, chips);
+                java.util.List<String[]> omdbChips = buildOmdbRatingChips(jsonObj);
+                SpiderDebug.log("tmdb-omdb", "评分卡片数=%d", omdbChips.size());
+                if (omdbChips.isEmpty()) return;
+                mTmdbOmdbRatingCache.put(cacheKey, omdbChips);
 
                 runOnUiThread(() -> {
                     if (isFinishing()) return;
                     if (!cacheKey.equals(container.getTag())) return;
-                    renderTmdbRatingChips(label, container, chips);
+                    renderTmdbRatingChips(label, container, mergeRatingChips(buildTmdbRatingChips(), omdbChips));
                 });
             } catch (Exception e) {
                 SpiderDebug.log("tmdb-omdb", "获取失败: %s", e.getMessage());
@@ -2738,6 +2738,78 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (!TextUtils.isEmpty(tmdbRating)) {
             chips.add(new String[]{"TMDB", tmdbRating + "/10", "#21D07A"});
         }
+        PersonalRecommendationService.DoubanRating doubanRating = mTmdbDoubanRatingCache.get(currentTmdbDoubanRatingKey());
+        if (doubanRating != null && !doubanRating.isEmpty()) {
+            String rating = formatRating(doubanRating.getRating());
+            if (!TextUtils.isEmpty(rating)) chips.add(new String[]{"豆瓣", rating + "/10", "#00B51D"});
+        }
+        return chips;
+    }
+
+    private void fetchTmdbDoubanRating() {
+        if (mTmdbUIAdapter == null || mTmdbUIAdapter.getTmdbItem() == null) return;
+        String title = currentTmdbDoubanTitle();
+        if (TextUtils.isEmpty(title)) return;
+        String mediaType = currentTmdbMediaType();
+        int year = parseTmdbYear(mTmdbUIAdapter.getYear());
+        String cacheKey = tmdbDoubanRatingCacheKey(title, mediaType, year);
+        if (mTmdbDoubanRatingCache.containsKey(cacheKey) || !mTmdbDoubanRatingLoading.add(cacheKey)) return;
+        Task.execute(() -> {
+            PersonalRecommendationService.DoubanRating rating = PersonalRecommendationService.DoubanRating.empty();
+            try {
+                rating = new PersonalRecommendationService().loadDoubanRating(title, mediaType, year);
+            } catch (Throwable e) {
+                SpiderDebug.log("tmdb-douban", "评分获取失败 title=%s error=%s", title, e.getMessage());
+            }
+            mTmdbDoubanRatingCache.put(cacheKey, rating);
+            mTmdbDoubanRatingLoading.remove(cacheKey);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (!cacheKey.equals(currentTmdbDoubanRatingKey())) return;
+                bindTmdbOmdbRatings();
+            });
+        });
+    }
+
+    private String currentTmdbDoubanRatingKey() {
+        return tmdbDoubanRatingCacheKey(currentTmdbDoubanTitle(), currentTmdbMediaType(), parseTmdbYear(mTmdbUIAdapter == null ? "" : mTmdbUIAdapter.getYear()));
+    }
+
+    private String currentTmdbDoubanTitle() {
+        TmdbItem item = mTmdbUIAdapter == null ? null : mTmdbUIAdapter.getTmdbItem();
+        return item == null ? "" : item.getTitle();
+    }
+
+    private String currentTmdbMediaType() {
+        TmdbItem item = mTmdbUIAdapter == null ? null : mTmdbUIAdapter.getTmdbItem();
+        return item == null ? "" : item.getMediaType();
+    }
+
+    private String tmdbDoubanRatingCacheKey(String title, String mediaType, int year) {
+        return nullToEmpty(mediaType) + "|" + nullToEmpty(title).toLowerCase(Locale.ROOT) + "|" + year;
+    }
+
+    private int parseTmdbYear(String year) {
+        if (TextUtils.isEmpty(year)) return 0;
+        try {
+            return Integer.parseInt(year);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private String formatRating(double rating) {
+        return rating <= 0 ? "" : String.format(Locale.US, "%.1f", rating);
+    }
+
+    private String nullToEmpty(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private java.util.List<String[]> mergeRatingChips(java.util.List<String[]> baseChips, java.util.List<String[]> extraChips) {
+        java.util.List<String[]> chips = new java.util.ArrayList<>();
+        if (baseChips != null) chips.addAll(baseChips);
+        if (extraChips != null) chips.addAll(extraChips);
         return chips;
     }
 

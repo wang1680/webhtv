@@ -367,7 +367,7 @@ public class TmdbUIAdapter {
     }
 
     /**
-     * 把 TMDB 详情写回 Vod。仅在源数据缺失时补充，避免覆盖站点已有信息。
+     * 把 TMDB 详情写回 Vod。
      */
     public void enrichVod(Vod vod) {
         enrichVod(vod, tmdbItem, tmdbDetail);
@@ -375,6 +375,8 @@ public class TmdbUIAdapter {
 
     private void enrichVod(Vod vod, TmdbItem item, JsonObject detail) {
         if (vod == null || item == null || detail == null) return;
+
+        applyTmdbTitle(vod, item);
 
         // 简介：优先使用 TMDB 翻译后的简介
         String overview = tmdbService.translatedOverview(detail, tmdbConfig);
@@ -400,6 +402,14 @@ public class TmdbUIAdapter {
             }
             if (!names.isEmpty()) vod.setDirector(TextUtils.join(" / ", names));
         }
+    }
+
+    static boolean applyTmdbTitle(Vod vod, TmdbItem item) {
+        if (vod == null || item == null) return false;
+        String title = item.getTitle();
+        if (title == null || title.length() == 0) return false;
+        vod.setName(title);
+        return true;
     }
 
     /**

@@ -53,6 +53,7 @@ public class PersonalRecommendationService {
     private static final long DOUBAN_CACHE_TTL = DAY * 7;
     private static final long TMDB_SEED_CACHE_TTL = DAY * 7;
     private static final String DOUBAN_SUGGEST_URL = "https://movie.douban.com/j/subject_suggest";
+    private static final String DOUBAN_ABSTRACT_URL = "https://movie.douban.com/j/subject_abstract";
     private static final String DOUBAN_REFERER = "https://movie.douban.com/";
     private static final String DOUBAN_MOBILE_REFERER = "https://m.douban.com/movie/subject/%s/";
     private static final String DOUBAN_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -117,6 +118,51 @@ public class PersonalRecommendationService {
     public List<TmdbItem> loadDouban(@Nullable Vod currentVod) {
         if (!Setting.isPersonalRecommendation()) return new ArrayList<>();
         return loadFromDouban(currentVod, 0, DEFAULT_PAGE_SIZE).getItems();
+    }
+
+    public DoubanRating loadDoubanRating(@Nullable String title, @Nullable String mediaType, int year) {
+        if (isBlank(title)) return DoubanRating.empty();
+        List<DoubanSubject> subjects = fetchDoubanSuggest(title);
+        DoubanRating rating = bestDoubanRating(title, mediaType, year, subjects);
+        if (!rating.isEmpty()) return rating;
+        for (DoubanSubject subject : rankDoubanSubjects(title, mediaType, year, subjects, false)) {
+            rating = fetchDoubanAbstractRating(subject);
+            if (!rating.isEmpty()) return rating;
+        }
+        return DoubanRating.empty();
+    }
+
+    static DoubanRating bestDoubanRating(@Nullable String title, @Nullable String mediaType, int year, @Nullable List<DoubanSubject> subjects) {
+        List<DoubanSubject> ranked = rankDoubanSubjects(title, mediaType, year, subjects, true);
+        return ranked.isEmpty() ? DoubanRating.empty() : DoubanRating.from(ranked.get(0));
+    }
+
+    static List<DoubanSubject> rankDoubanSubjects(@Nullable String title, @Nullable String mediaType, int year, @Nullable List<DoubanSubject> subjects, boolean requireRating) {
+        List<DoubanSubject> ranked = new ArrayList<>();
+        if (isBlank(title) || subjects == null || subjects.isEmpty()) return ranked;
+        String normalizedTitle = normalizeTitle(title);
+        String targetType = isBlank(mediaType) ? "" : DoubanSubject.mediaType(mediaType);
+        List<DoubanSubjectScore> scored = new ArrayList<>();
+        int order = 0;
+        for (DoubanSubject subject : subjects) {
+            if (subject == null || isBlank(subject.title) || (requireRating && subject.rating <= 0)) {
+                order++;
+                continue;
+            }
+            String normalizedSubject = normalizeTitle(subject.title);
+            int score = -order;
+            if (normalizedSubject.equals(normalizedTitle)) score += 100;
+            else if (normalizedSubject.contains(normalizedTitle) || normalizedTitle.contains(normalizedSubject)) score += 40;
+            if (!isBlank(targetType) && targetType.equals(subject.mediaType)) score += 20;
+            if (year > 0 && subject.year == year) score += 20;
+            scored.add(new DoubanSubjectScore(subject, score, order));
+            order++;
+        }
+        scored.sort(Comparator
+                .comparingInt((DoubanSubjectScore item) -> item.score).reversed()
+                .thenComparingInt(item -> item.order));
+        for (DoubanSubjectScore item : scored) ranked.add(item.subject);
+        return ranked;
     }
 
     public RecommendationPage loadDoubanPage(@Nullable Vod currentVod, int offset, int pageSize) {
@@ -439,6 +485,17 @@ public class PersonalRecommendationService {
         return parseDoubanSubjects(body);
     }
 
+    private DoubanRating fetchDoubanAbstractRating(DoubanSubject subject) {
+        if (subject == null || isBlank(subject.id)) return DoubanRating.empty();
+        HttpUrl base = HttpUrl.parse(DOUBAN_ABSTRACT_URL);
+        if (base == null) return DoubanRating.empty();
+        HttpUrl url = base.newBuilder().addQueryParameter("subject_id", subject.id).build();
+        String body = requestDouban(url, DOUBAN_REFERER, "abstract");
+        DoubanRating rating = parseDoubanSubjectAbstract(body);
+        if (!rating.isEmpty()) return rating;
+        return DoubanRating.from(subject);
+    }
+
     private List<DoubanSubject> fetchDoubanRelated(DoubanSubject subject) {
         if (subject == null || isBlank(subject.id)) return new ArrayList<>();
         List<DoubanSubject> subjects = fetchDoubanRelated("movie", subject.id);
@@ -507,6 +564,22 @@ public class PersonalRecommendationService {
             return new ArrayList<>();
         }
         return subjects;
+    }
+
+    static DoubanRating parseDoubanSubjectAbstract(String body) {
+        if (isBlank(body)) return DoubanRating.empty();
+        try {
+            JsonElement element = JsonParser.parseString(body);
+            if (element == null || !element.isJsonObject()) return DoubanRating.empty();
+            JsonObject root = element.getAsJsonObject();
+            JsonObject subject = root.has("subject") && root.get("subject").isJsonObject()
+                    ? root.getAsJsonObject("subject")
+                    : root;
+            DoubanSubject parsed = DoubanSubject.from(subject);
+            return DoubanRating.from(parsed);
+        } catch (Throwable ignored) {
+            return DoubanRating.empty();
+        }
     }
 
     static List<DoubanSubject> parseDoubanRelatedSubjects(String body) {
@@ -710,6 +783,19 @@ public class PersonalRecommendationService {
         }
     }
 
+    private static final class DoubanSubjectScore {
+
+        private final DoubanSubject subject;
+        private final int score;
+        private final int order;
+
+        private DoubanSubjectScore(DoubanSubject subject, int score, int order) {
+            this.subject = subject;
+            this.score = score;
+            this.order = order;
+        }
+    }
+
     static final class TmdbContext {
 
         final Set<Integer> genreIds;
@@ -895,6 +981,58 @@ public class PersonalRecommendationService {
         }
     }
 
+    public static final class DoubanRating {
+
+        private static final DoubanRating EMPTY = new DoubanRating("", "", "", 0, 0.0);
+
+        private final String id;
+        private final String title;
+        private final String mediaType;
+        private final int year;
+        private final double rating;
+
+        private DoubanRating(String id, String title, String mediaType, int year, double rating) {
+            this.id = id == null ? "" : id.trim();
+            this.title = title == null ? "" : title.trim();
+            this.mediaType = mediaType == null ? "" : mediaType.trim();
+            this.year = year;
+            this.rating = rating;
+        }
+
+        static DoubanRating from(DoubanSubject subject) {
+            if (subject == null || subject.rating <= 0) return empty();
+            return new DoubanRating(subject.id, subject.title, subject.mediaType, subject.year, subject.rating);
+        }
+
+        public static DoubanRating empty() {
+            return EMPTY;
+        }
+
+        public boolean isEmpty() {
+            return rating <= 0 || isBlank(title);
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public String getMediaType() {
+            return mediaType;
+        }
+
+        public int getYear() {
+            return year;
+        }
+
+        public double getRating() {
+            return rating;
+        }
+    }
+
     static final class DoubanSubject {
 
         final String id;
@@ -916,8 +1054,9 @@ public class PersonalRecommendationService {
         static DoubanSubject from(@NonNull JsonObject object) {
             String title = string(object, "title", "name");
             if (isBlank(title)) return null;
-            String type = mediaType(string(object, "type"));
-            int year = firstYear(string(object, "year", "sub_title", "card_subtitle"));
+            String type = mediaType(string(object, "type", "subtype"));
+            if ("movie".equals(type) && isTvLike(object)) type = "tv";
+            int year = firstYear(string(object, "year", "release_year", "sub_title", "card_subtitle"));
             String poster = highResPoster(poster(object));
             return new DoubanSubject(string(object, "id"), title, type, year, poster, rating(object));
         }
@@ -947,8 +1086,13 @@ public class PersonalRecommendationService {
 
         private static String mediaType(String value) {
             String type = nullToEmpty(value).toLowerCase(Locale.ROOT);
-            if (type.contains("tv") || type.contains("series") || type.contains("电视剧") || type.contains("劇集")) return "tv";
+            if (type.contains("tv") || type.contains("series") || type.contains("电视剧") || type.contains("劇集") || type.contains("电视")) return "tv";
             return "movie";
+        }
+
+        private static boolean isTvLike(JsonObject object) {
+            if (bool(object, "is_tv")) return true;
+            return number(object, "episode", "episodes_count") > 0;
         }
 
         private static int firstYear(String text) {
@@ -996,6 +1140,15 @@ public class PersonalRecommendationService {
                 }
             }
             return 0.0;
+        }
+
+        private static boolean bool(JsonObject object, String key) {
+            if (object == null || !object.has(key) || object.get(key).isJsonNull() || !object.get(key).isJsonPrimitive()) return false;
+            try {
+                return object.get(key).getAsBoolean();
+            } catch (Throwable ignored) {
+                return false;
+            }
         }
 
         private static JsonObject jsonObject(JsonObject object, String key) {

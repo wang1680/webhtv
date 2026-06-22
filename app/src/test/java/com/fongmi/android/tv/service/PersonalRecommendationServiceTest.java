@@ -63,6 +63,64 @@ public class PersonalRecommendationServiceTest {
     }
 
     @Test
+    public void parseDoubanSubjects_marksEpisodeSuggestItemAsTv() {
+        String body = "[{\"id\":\"30468961\",\"title\":\"想见你\",\"type\":\"movie\",\"year\":\"2019\",\"episode\":\"13\"}]";
+
+        List<PersonalRecommendationService.DoubanSubject> subjects = PersonalRecommendationService.parseDoubanSubjects(body);
+
+        assertEquals(1, subjects.size());
+        assertEquals("tv", subjects.get(0).mediaType);
+    }
+
+    @Test
+    public void parseDoubanSubjectAbstract_readsCurrentRating() {
+        String body = "{"
+                + "\"r\":0,"
+                + "\"subject\":{"
+                + "\"id\":\"30468961\","
+                + "\"title\":\"想见你 想見你‎ (2019)\","
+                + "\"is_tv\":true,"
+                + "\"release_year\":\"2019\","
+                + "\"rate\":\"9.3\""
+                + "}}";
+
+        PersonalRecommendationService.DoubanRating rating = PersonalRecommendationService.parseDoubanSubjectAbstract(body);
+
+        assertFalse(rating.isEmpty());
+        assertEquals("30468961", rating.getId());
+        assertEquals("tv", rating.getMediaType());
+        assertEquals(2019, rating.getYear());
+        assertEquals(9.3, rating.getRating(), 0.01);
+    }
+
+    @Test
+    public void bestDoubanRating_prefersCurrentTitleYearAndType() {
+        String body = "[{"
+                + "\"id\":\"1292720\","
+                + "\"title\":\"想见你电影版\","
+                + "\"type\":\"movie\","
+                + "\"year\":\"2022\","
+                + "\"rating\":{\"value\":9.9}"
+                + "},{"
+                + "\"id\":\"30391241\","
+                + "\"title\":\"想见你\","
+                + "\"type\":\"tv\","
+                + "\"year\":\"2019\","
+                + "\"rating\":{\"value\":\"9.2\"}"
+                + "}]";
+
+        PersonalRecommendationService.DoubanRating rating = PersonalRecommendationService.bestDoubanRating(
+                "想见你", "tv", 2019, PersonalRecommendationService.parseDoubanSubjects(body));
+
+        assertFalse(rating.isEmpty());
+        assertEquals("30391241", rating.getId());
+        assertEquals("想见你", rating.getTitle());
+        assertEquals("tv", rating.getMediaType());
+        assertEquals(2019, rating.getYear());
+        assertEquals(9.2, rating.getRating(), 0.01);
+    }
+
+    @Test
     public void rankCandidates_sortsByScoreAndBoostsDuplicateSignals() {
         List<PersonalRecommendationService.RecommendationCandidate> candidates = List.of(
                 new PersonalRecommendationService.RecommendationCandidate(null, "movie:1", "low", 70.0, 0),

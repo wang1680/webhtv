@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import com.bumptech.glide.Glide;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.TmdbItem;
+import com.fongmi.android.tv.service.PersonalRecommendationService;
 import com.fongmi.android.tv.ui.adapter.TmdbCastAdapter;
 import com.fongmi.android.tv.ui.helper.TmdbUIAdapter;
 import com.fongmi.android.tv.ui.helper.TmdbNavigation;
@@ -72,6 +73,8 @@ public class TmdbHeaderView {
     private boolean loadingPersonalTmdbRecommendations;
     private boolean loadingPersonalDoubanRecommendations;
     private final java.util.Map<String, java.util.List<String[]>> omdbRatingCache = new java.util.HashMap<>();
+    private final java.util.Map<String, PersonalRecommendationService.DoubanRating> doubanRatingCache = new java.util.HashMap<>();
+    private final java.util.Map<String, java.util.List<String[]>> ratingDisplayChips = new java.util.HashMap<>();
 
     private OnImagesLoadedListener imagesLoadedListener;
     private ActionListener actionListener;
@@ -436,6 +439,15 @@ public class TmdbHeaderView {
         return "";
     }
 
+    private int parseYear(String year) {
+        if (TextUtils.isEmpty(year)) return 0;
+        try {
+            return Integer.parseInt(year);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
     /**
      * 设置背景图幻灯片模式
      */
@@ -542,15 +554,18 @@ public class TmdbHeaderView {
     /**
      * 添加评分展示区域（在简介上方）
      */
-    private void addRatingsDisplay(ViewGroup container, String tmdbRating, com.google.gson.JsonObject externalIds, int tmdbId, String mediaType) {
+    private void addRatingsDisplay(ViewGroup container, String tmdbRating, com.google.gson.JsonObject externalIds, int tmdbId, String mediaType, String title, int year, com.google.android.material.textview.MaterialTextView doubanRatingView) {
         container.removeAllViews();
-        container.setTag(null);
+        String displayKey = ratingDisplayKey(title, mediaType, year, tmdbId);
+        container.setTag(displayKey);
 
         List<String[]> baseChips = new ArrayList<>();
         if (!TextUtils.isEmpty(tmdbRating)) {
             baseChips.add(new String[]{"TMDB", tmdbRating + "/10", "#21D07A"});
         }
-        renderRatingChips(container, baseChips);
+        setRatingDisplayChips(displayKey, baseChips);
+        renderRatingChips(container, getRatingDisplayChips(displayKey));
+        fetchDoubanRatingForDisplay(title, mediaType, year, displayKey, container, doubanRatingView);
 
         if (externalIds == null || !externalIds.has("imdb_id") || externalIds.get("imdb_id").isJsonNull()) return;
         String imdbId = externalIds.get("imdb_id").getAsString();
@@ -563,12 +578,12 @@ public class TmdbHeaderView {
         String cacheKey = omdbRatingCacheKey(imdbId, omdbApiKey);
         java.util.List<String[]> cachedChips = getCachedOmdbRatingChips(cacheKey);
         if (cachedChips != null) {
-            renderRatingChips(container, mergeRatingChips(baseChips, cachedChips));
+            putRatingDisplayChips(displayKey, cachedChips);
+            renderRatingChips(container, getRatingDisplayChips(displayKey));
             return;
         }
 
-        container.setTag(cacheKey);
-        fetchRatingChipsForDisplay(imdbId, omdbApiKey, cacheKey, container, baseChips);
+        fetchRatingChipsForDisplay(imdbId, omdbApiKey, cacheKey, displayKey, container);
     }
 
     /**
@@ -602,7 +617,7 @@ public class TmdbHeaderView {
         return chip;
     }
 
-    private void fetchRatingChipsForDisplay(String imdbId, String omdbApiKey, String cacheKey, ViewGroup container, List<String[]> baseChips) {
+    private void fetchRatingChipsForDisplay(String imdbId, String omdbApiKey, String cacheKey, String displayKey, ViewGroup container) {
         com.fongmi.android.tv.utils.Task.execute(() -> {
             try {
                 String url = "https://www.omdbapi.com/?i=" + imdbId + "&apikey=" + omdbApiKey;
@@ -621,18 +636,52 @@ public class TmdbHeaderView {
 
                 List<String[]> omdbChips = buildRatingChips(jsonObj);
                 putCachedOmdbRatingChips(cacheKey, omdbChips);
-                List<String[]> chips = mergeRatingChips(baseChips, omdbChips);
-                if (chips.isEmpty()) return;
+                if (omdbChips.isEmpty()) return;
 
                 activity.runOnUiThread(() -> {
                     if (headerRoot == null) return;
-                    if (!(container.getTag() instanceof String) || !cacheKey.equals(container.getTag())) return;
-                    renderRatingChips(container, chips);
+                    if (!(container.getTag() instanceof String) || !displayKey.equals(container.getTag())) return;
+                    putRatingDisplayChips(displayKey, omdbChips);
+                    renderRatingChips(container, getRatingDisplayChips(displayKey));
                 });
             } catch (Exception e) {
                 android.util.Log.w("TmdbHeaderView", "获取顶部评分失败: " + e.getMessage());
             }
         });
+    }
+
+    private void fetchDoubanRatingForDisplay(String title, String mediaType, int year, String displayKey, ViewGroup container, com.google.android.material.textview.MaterialTextView externalRatingView) {
+        if (TextUtils.isEmpty(title)) return;
+        String cacheKey = doubanRatingCacheKey(title, mediaType, year);
+        PersonalRecommendationService.DoubanRating cached = getCachedDoubanRating(cacheKey);
+        if (cached != null) {
+            applyDoubanRating(displayKey, container, externalRatingView, cached);
+            return;
+        }
+        com.fongmi.android.tv.utils.Task.execute(() -> {
+            PersonalRecommendationService.DoubanRating rating = PersonalRecommendationService.DoubanRating.empty();
+            try {
+                rating = new PersonalRecommendationService().loadDoubanRating(title, mediaType, year);
+            } catch (Throwable e) {
+                android.util.Log.w("TmdbHeaderView", "获取豆瓣评分失败: " + e.getMessage());
+            }
+            putCachedDoubanRating(cacheKey, rating);
+            PersonalRecommendationService.DoubanRating finalRating = rating;
+            activity.runOnUiThread(() -> {
+                if (headerRoot == null) return;
+                if (!(container.getTag() instanceof String) || !displayKey.equals(container.getTag())) return;
+                applyDoubanRating(displayKey, container, externalRatingView, finalRating);
+            });
+        });
+    }
+
+    private void applyDoubanRating(String displayKey, ViewGroup container, com.google.android.material.textview.MaterialTextView externalRatingView, PersonalRecommendationService.DoubanRating rating) {
+        if (rating == null || rating.isEmpty()) return;
+        String value = formatRating(rating.getRating());
+        if (TextUtils.isEmpty(value)) return;
+        putRatingDisplayChips(displayKey, java.util.Collections.singletonList(new String[]{"豆瓣", value + "/10", "#00B51D"}));
+        renderRatingChips(container, getRatingDisplayChips(displayKey));
+        setExternalRating(externalRatingView, value);
     }
 
     private void renderRatingChips(ViewGroup container, List<String[]> chips) {
@@ -651,6 +700,79 @@ public class TmdbHeaderView {
     private void setRatingContainerVisible(ViewGroup container, boolean visible) {
         int visibility = visible ? View.VISIBLE : View.GONE;
         container.setVisibility(visibility);
+    }
+
+    private void setRatingDisplayChips(String displayKey, List<String[]> chips) {
+        synchronized (ratingDisplayChips) {
+            ratingDisplayChips.put(displayKey, chips == null ? new ArrayList<>() : new ArrayList<>(chips));
+        }
+    }
+
+    private void putRatingDisplayChips(String displayKey, List<String[]> chips) {
+        if (TextUtils.isEmpty(displayKey) || chips == null || chips.isEmpty()) return;
+        synchronized (ratingDisplayChips) {
+            List<String[]> current = ratingDisplayChips.get(displayKey);
+            if (current == null) current = new ArrayList<>();
+            for (String[] chip : chips) replaceRatingChip(current, chip);
+            current.sort(java.util.Comparator.comparingInt(chip -> ratingChipOrder(chip[0])));
+            ratingDisplayChips.put(displayKey, current);
+        }
+    }
+
+    private List<String[]> getRatingDisplayChips(String displayKey) {
+        synchronized (ratingDisplayChips) {
+            List<String[]> chips = ratingDisplayChips.get(displayKey);
+            return chips == null ? new ArrayList<>() : new ArrayList<>(chips);
+        }
+    }
+
+    private void replaceRatingChip(List<String[]> chips, String[] chip) {
+        if (chips == null || chip == null || chip.length < 3 || TextUtils.isEmpty(chip[0]) || TextUtils.isEmpty(chip[1])) return;
+        for (int i = 0; i < chips.size(); i++) {
+            if (chip[0].equals(chips.get(i)[0])) {
+                chips.set(i, chip);
+                return;
+            }
+        }
+        chips.add(chip);
+    }
+
+    private int ratingChipOrder(String platform) {
+        if ("TMDB".equals(platform)) return 0;
+        if ("豆瓣".equals(platform)) return 1;
+        if ("IMDB".equals(platform)) return 2;
+        if ("烂番茄".equals(platform)) return 3;
+        if ("Metacritic".equals(platform) || "Metascore".equals(platform)) return 4;
+        return 5;
+    }
+
+    private String ratingDisplayKey(String title, String mediaType, int year, int tmdbId) {
+        return tmdbId + "|" + nullToEmpty(mediaType) + "|" + nullToEmpty(title) + "|" + year;
+    }
+
+    private String doubanRatingCacheKey(String title, String mediaType, int year) {
+        return nullToEmpty(mediaType) + "|" + nullToEmpty(title).toLowerCase(Locale.ROOT) + "|" + year;
+    }
+
+    private PersonalRecommendationService.DoubanRating getCachedDoubanRating(String key) {
+        synchronized (doubanRatingCache) {
+            return doubanRatingCache.get(key);
+        }
+    }
+
+    private void putCachedDoubanRating(String key, PersonalRecommendationService.DoubanRating rating) {
+        if (TextUtils.isEmpty(key) || rating == null) return;
+        synchronized (doubanRatingCache) {
+            doubanRatingCache.put(key, rating);
+        }
+    }
+
+    private String formatRating(double rating) {
+        return rating <= 0 ? "" : String.format(Locale.US, "%.1f", rating);
+    }
+
+    private String nullToEmpty(String value) {
+        return value == null ? "" : value.trim();
     }
 
     /**
@@ -779,13 +901,6 @@ public class TmdbHeaderView {
         synchronized (omdbRatingCache) {
             omdbRatingCache.put(key, new ArrayList<>(chips));
         }
-    }
-
-    private List<String[]> mergeRatingChips(List<String[]> baseChips, List<String[]> omdbChips) {
-        List<String[]> merged = new ArrayList<>();
-        if (baseChips != null) merged.addAll(baseChips);
-        if (omdbChips != null) merged.addAll(omdbChips);
-        return merged;
     }
 
     /**
@@ -942,12 +1057,9 @@ public class TmdbHeaderView {
                 ? externalIds.get("imdb_id").getAsString() : "";
         String westernSearchQuery = buildWesternSearchQuery(detail, item, mediaType);
         com.google.android.material.textview.MaterialTextView imdbRatingView = null;
+        com.google.android.material.textview.MaterialTextView doubanRatingView = null;
         com.google.android.material.textview.MaterialTextView rottenRatingView = null;
         com.google.android.material.textview.MaterialTextView metacriticRatingView = null;
-
-        // 评分展示区域（在简介区域）
-        ViewGroup ratingsContainer = headerRoot.findViewById(R.id.tmdbRatingsContainer);
-        addRatingsDisplay(ratingsContainer, adapter.getRatingText(), externalIds, tmdbId, mediaType);
 
         // TMDB 链接（始终显示）
         if (tmdbId > 0) {
@@ -968,7 +1080,7 @@ public class TmdbHeaderView {
         if (item != null && !TextUtils.isEmpty(item.getTitle())) {
             String doubanUrl = "https://search.douban.com/movie/subject_search?search_text=" +
                     android.net.Uri.encode(item.getTitle());
-            addExternalLink(container, "豆瓣", doubanUrl, null);
+            doubanRatingView = addExternalLink(container, "豆瓣", doubanUrl, null);
             linkCount++;
         }
 
@@ -996,6 +1108,11 @@ public class TmdbHeaderView {
                 fetchExternalLinkRatings(imdbId, omdbApiKey, container, imdbRatingView, rottenRatingView, metacriticRatingView);
             }
         }
+
+        // 评分展示区域（在简介区域）
+        ViewGroup ratingsContainer = headerRoot.findViewById(R.id.tmdbRatingsContainer);
+        String doubanTitle = item == null ? detailTitle(detail, mediaType, false) : item.getTitle();
+        addRatingsDisplay(ratingsContainer, adapter.getRatingText(), externalIds, tmdbId, mediaType, doubanTitle, parseYear(extractYear(detail)), doubanRatingView);
 
         if (linkCount > 0) {
             label.setVisibility(View.VISIBLE);
