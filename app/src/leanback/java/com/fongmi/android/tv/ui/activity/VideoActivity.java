@@ -119,6 +119,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private static final int SHORT_DRAMA_SCALE = 0; // 0=原始(适合TV), 4=裁剪(适合手机)
     private static final int TMDB_DETAIL_LOAD_TIMEOUT = 8000;
+    private static final int TMDB_OVERVIEW_ROW_GAP_DP = 12;
+    private static final int TMDB_OVERVIEW_BOTTOM_GUARD_DP = 6;
     private static final int OMDB_FULL_RATING_TEXT_MAX_LENGTH = 20;
 
     private ActivityVideoBinding mBinding;
@@ -861,6 +863,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         Object desc = mBinding.content.getTag();
         String overview = desc == null ? "" : desc.toString();
         if (!TextUtils.isEmpty(overview)) {
+            mBinding.tmdbOverview.setMaxLines(Integer.MAX_VALUE);
             mBinding.tmdbOverview.setText(getString(R.string.detail_content, overview));
             mBinding.tmdbOverview.setVisibility(View.VISIBLE);
             // 布局完成后检测是否截断，截断则显示简介按钮
@@ -876,11 +879,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void updateTmdbOverviewButton() {
         if (isFinishing() || isDestroyed()) return;
         TextView view = mBinding.tmdbOverview;
-        // 按可用高度算出能容纳的行数，设置 maxLines 后 ellipsize 才会生效
-        int height = view.getHeight();
-        int lineHeight = view.getLineHeight();
-        if (height > 0 && lineHeight > 0) {
-            int maxLines = Math.max(1, height / lineHeight);
+        android.text.Layout layout = view.getLayout();
+        if (layout != null) {
+            int maxLines = getTmdbOverviewMaxLines(view, layout);
             if (view.getMaxLines() != maxLines) {
                 view.setMaxLines(maxLines);
                 view.post(this::updateTmdbOverviewButton);
@@ -890,6 +891,19 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         boolean truncated = isTextTruncated(view);
         mBinding.content.setVisibility(truncated ? View.VISIBLE : View.GONE);
         mBinding.video.setNextFocusRightId(truncated ? R.id.content : R.id.keep);
+    }
+
+    private int getTmdbOverviewMaxLines(TextView view, android.text.Layout layout) {
+        int rowTop = mBinding.row2.getTop();
+        int viewTop = view.getTop();
+        int verticalPadding = view.getCompoundPaddingTop() + view.getCompoundPaddingBottom();
+        int available = rowTop - viewTop - verticalPadding - ResUtil.dp2px(TMDB_OVERVIEW_ROW_GAP_DP + TMDB_OVERVIEW_BOTTOM_GUARD_DP);
+        int maxLines = 0;
+        for (int i = 0; i < layout.getLineCount(); i++) {
+            if (layout.getLineBottom(i) > available) break;
+            maxLines = i + 1;
+        }
+        return Math.max(1, maxLines);
     }
 
     private boolean isTextTruncated(TextView view) {
