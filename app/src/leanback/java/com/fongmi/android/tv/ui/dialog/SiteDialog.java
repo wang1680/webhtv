@@ -142,8 +142,9 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         long start = System.currentTimeMillis();
         setRootWidth();
         setRecyclerHeight(INITIAL_BATCH);
-        binding.keyword.setVisibility(View.VISIBLE);
-        binding.actionGap.setVisibility(action ? View.VISIBLE : View.GONE);
+        binding.searchBar.setVisibility(View.GONE);
+        binding.keyword.setVisibility(View.GONE);
+        binding.actionGap.setVisibility(View.GONE);
         binding.action.setVisibility(action ? View.VISIBLE : View.GONE);
         binding.search.setVisibility(action ? View.VISIBLE : View.GONE);
         binding.change.setVisibility(action ? View.VISIBLE : View.GONE);
