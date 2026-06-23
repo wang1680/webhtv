@@ -19,11 +19,6 @@ public class LiveEpgSetting {
     private static final String KEY_URL = "live_epg_url";
     private static final String KEY_HISTORY = "live_epg_history";
     private static final int MAX_HISTORY = 20;
-    private static final String[] BUILT_IN_URLS = {
-            "https://epg.zbds.top",
-            "https://epg.tv.darwinchow.com/epg.xml.gz",
-            "https://live.fanmingming.com/e.xml"
-    };
     private static final Type TYPE = new TypeToken<List<String>>() {}.getType();
 
     public static String getUrl() {
@@ -57,12 +52,6 @@ public class LiveEpgSetting {
 
     public static void clearHistory() {
         Prefers.put(KEY_HISTORY, App.gson().toJson(Collections.emptyList()));
-    }
-
-    public static List<String> getBuiltIn() {
-        List<String> items = new ArrayList<>();
-        Collections.addAll(items, BUILT_IN_URLS);
-        return items;
     }
 
     public static void apply(Live live) {

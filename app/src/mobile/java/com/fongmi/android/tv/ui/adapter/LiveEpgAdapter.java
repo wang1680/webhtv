@@ -28,7 +28,6 @@ public class LiveEpgAdapter extends RecyclerView.Adapter<LiveEpgAdapter.ViewHold
     public void reload() {
         items.clear();
         items.add("");
-        for (String item : LiveEpgSetting.getBuiltIn()) add(item);
         for (String item : LiveEpgSetting.getHistory()) add(item);
         notifyDataSetChanged();
     }

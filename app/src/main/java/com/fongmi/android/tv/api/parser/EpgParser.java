@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -132,27 +131,11 @@ public class EpgParser {
         live.getGroups().stream()
                 .flatMap(group -> group.getChannel().stream())
                 .forEach(channel -> {
-                    addChannelKey(map, channel.getTvgId(), channel);
-                    addChannelKey(map, channel.getTvgName(), channel);
-                    addChannelKey(map, channel.getName(), channel);
-                    addChannelKey(map, channel.getShow(), channel);
+                    if (!channel.getTvgId().isEmpty()) map.putIfAbsent(channel.getTvgId(), channel);
+                    if (!channel.getTvgName().isEmpty()) map.putIfAbsent(channel.getTvgName(), channel);
+                    if (!channel.getName().isEmpty()) map.putIfAbsent(channel.getName(), channel);
                 });
         return map;
-    }
-
-    private static void addChannelKey(Map<String, Channel> map, String key, Channel channel) {
-        if (key.isEmpty()) return;
-        map.putIfAbsent(key, channel);
-        String normalized = normalizeChannelKey(key);
-        if (!normalized.isEmpty()) map.putIfAbsent(normalized, channel);
-    }
-
-    private static String normalizeChannelKey(String key) {
-        String value = key == null ? "" : key.toLowerCase(Locale.ROOT).trim();
-        if (value.isEmpty()) return "";
-        value = value.replaceAll("[\\s_\\-·.()（）\\[\\]【】]", "");
-        value = value.replace("频道", "").replace("综合", "").replace("高清", "").replace("超清", "").replace("标清", "").replace("直播", "").replace("hd", "").replace("4k", "");
-        return value;
     }
 
     private static XmlData parseXmlData(File file) throws Exception {
@@ -209,14 +192,9 @@ public class EpgParser {
     private static Channel findTargetChannel(String xmlChannelId, Map<String, Channel> liveChannelMap, Map<String, List<Tv.Channel>> xmlChannelIdMap) {
         Channel targetChannel = liveChannelMap.get(xmlChannelId);
         if (targetChannel != null) return targetChannel;
-        targetChannel = liveChannelMap.get(normalizeChannelKey(xmlChannelId));
-        if (targetChannel != null) return targetChannel;
         List<Tv.Channel> channels = xmlChannelIdMap.get(xmlChannelId);
         if (channels == null) return null;
-        return channels.stream().flatMap(xmlChannel -> xmlChannel.getDisplayName().stream()).map(Tv.DisplayName::getText).filter(name -> !name.isEmpty()).map(name -> {
-            Channel channel = liveChannelMap.get(name);
-            return channel != null ? channel : liveChannelMap.get(normalizeChannelKey(name));
-        }).filter(channel -> channel != null).findFirst().orElse(null);
+        return channels.stream().flatMap(xmlChannel -> xmlChannel.getDisplayName().stream()).map(Tv.DisplayName::getText).filter(name -> !name.isEmpty()).filter(liveChannelMap::containsKey).findFirst().map(liveChannelMap::get).orElse(null);
     }
 
     private static void bindResultsToLive(Live live, ProgrammeResult result) {
