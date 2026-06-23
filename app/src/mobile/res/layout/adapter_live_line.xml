@@ -16,4 +16,4 @@
     android:singleLine="true"
     android:textColor="@color/selector_control_sheet_text"
     android:textSize="13sp"
-    tools:text="Category" />
+    tools:text="Line 1" />

@@ -7,7 +7,7 @@
     <string name="live_pass">Pass</string>
     <string name="live_refresh">Refresh</string>
     <string name="live_line">Line <xliff:g name="name">%s</xliff:g></string>
-    <string name="live_no_epg">00:00 - 23:59 No program information</string>
+    <string name="live_no_epg">00:00 - 23:59 暂无节目信息</string>
 
     <!-- Detail -->
     <string name="detail_title"><xliff:g name="name">%s</xliff:g> : <xliff:g name="name">%s</xliff:g></string>
