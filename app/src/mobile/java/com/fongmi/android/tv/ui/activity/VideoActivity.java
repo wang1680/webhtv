@@ -1774,10 +1774,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         items.removeIf(this::mismatch);
         mBinding.quick.setVisibility(View.VISIBLE);
         mQuickAdapter.addAll(items);
-        if (revealManualSearch && !items.isEmpty()) {
-            revealManualSearch = false;
-            mBinding.quick.post(() -> mBinding.scroll.smoothScrollTo(0, mBinding.quick.getTop()));
-        }
+        if (revealManualSearch && !items.isEmpty()) revealManualSearch = false;
         if (isInitAuto() && PlayerSetting.isAutoChange()) nextSite();
         if (items.isEmpty()) return;
         App.removeCallbacks(mR4);
