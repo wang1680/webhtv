@@ -57,6 +57,7 @@ import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.setting.LiveEpgSetting;
 import com.fongmi.android.tv.setting.LiveSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
+import com.fongmi.android.tv.setting.CustomCspSetting;
 import com.fongmi.android.tv.ui.adapter.ChannelAdapter;
 import com.fongmi.android.tv.ui.adapter.EpgDataAdapter;
 import com.fongmi.android.tv.ui.adapter.GroupAdapter;
@@ -185,7 +186,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     protected void initView(Bundle savedInstanceState) {
         super.initView(savedInstanceState);
         mKeyDown = CustomKeyDown.create(this, mBinding.exo);
-        setPadding(mBinding.control.getRoot());
+        updateControlInsets();
         updateLiveMenuInsets();
         mObserveEpg = this::setEpg;
         mObserveUrl = this::start;
@@ -448,9 +449,18 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     }
 
     private void onHome() {
+        refreshInjectedLives();
         if (LiveConfig.isOnly()) setLive(getHome());
         else LiveDialog.show(this);
         hideControl();
+    }
+
+    private void refreshInjectedLives() {
+        if (!CustomCspSetting.hasLives()) return;
+        Live home = getHome();
+        CustomCspSetting.inject(LiveConfig.get().getLives(), "");
+        LiveConfig.get().getLives().removeIf(Live::isEmpty);
+        LiveConfig.get().getLives().forEach(item -> item.setSelected(home));
     }
 
     private void onLine() {
@@ -633,11 +643,13 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
 
     private void showControl() {
         if (service() == null || isInPictureInPictureMode()) return;
+        boolean embedded = isEmbeddedLiveUi();
         mBinding.control.info.setVisibility(player().isEmpty() ? View.GONE : View.VISIBLE);
-        mBinding.control.cast.setVisibility(player().isEmpty() ? View.GONE : View.VISIBLE);
+        mBinding.control.cast.setVisibility(embedded || player().isEmpty() ? View.GONE : View.VISIBLE);
         mBinding.control.right.rotate.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.center.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.bottom.setVisibility(isLock() ? View.GONE : View.VISIBLE);
+        mBinding.control.action.getRoot().setVisibility(embedded ? View.GONE : View.VISIBLE);
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.top.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
@@ -1288,7 +1300,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
             noPadding(mBinding.control.getRoot());
         } else {
             setPadding(mBinding.recycler, true);
-            setPadding(mBinding.control.getRoot());
+            updateControlInsets();
         }
     }
 
@@ -1451,11 +1463,17 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
             keepLiveMenuVisible();
         }
         embeddedUiMode = embedded;
+        updateControlInsets();
     }
 
     private void updateLiveMenuInsets() {
         if (isEmbeddedLiveUi()) noPadding(mBinding.recycler);
         else setPadding(mBinding.recycler, true);
+    }
+
+    private void updateControlInsets() {
+        if (isEmbeddedLiveUi()) noPadding(mBinding.control.getRoot());
+        else setPadding(mBinding.control.getRoot());
     }
 
     @Override
