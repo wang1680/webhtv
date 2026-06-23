@@ -54,6 +54,14 @@ public class PlayerSetting {
         Prefers.put("scale", scale);
     }
 
+    public static int getEpisodeColumn() {
+        return Math.min(Math.max(Prefers.getInt("episode_column", 2), 1), 2);
+    }
+
+    public static void putEpisodeColumn(int column) {
+        Prefers.put("episode_column", column == 1 ? 1 : 2);
+    }
+
     public static int getBuffer() {
         return Math.min(Math.max(Prefers.getInt("buffer"), 1), 10);
     }

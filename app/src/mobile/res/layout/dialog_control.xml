@@ -255,6 +255,47 @@
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/episodeColumnText"
+                style="@style/ControlSheetTitle"
+                android:text="@string/control_episode_column" />
+
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:id="@+id/episodeColumnRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/episodeColumn1"
+                    style="@style/ControlSheetButton"
+                    android:text="@string/control_episode_column_single" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/episodeColumn2"
+                    style="@style/ControlSheetButton"
+                    android:text="@string/control_episode_column_double" />
+
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="7dp"
+                    android:layout_weight="1" />
+
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="7dp"
+                    android:layout_weight="1" />
+
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="7dp"
+                    android:layout_weight="1" />
+
+            </androidx.appcompat.widget.LinearLayoutCompat>
+
+            <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/trackText"
                 style="@style/ControlSheetTitle"
                 android:text="@string/control_track"

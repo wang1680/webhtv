@@ -34,6 +34,9 @@
     <!-- Control -->
     <string name="control_speed">Speed</string>
     <string name="control_scale">Scale</string>
+    <string name="control_episode_column">Episode columns</string>
+    <string name="control_episode_column_single">Single</string>
+    <string name="control_episode_column_double">Double</string>
     <string name="control_track">Track</string>
     <string name="control_other">Other</string>
     <string name="live_control_play">Live</string>

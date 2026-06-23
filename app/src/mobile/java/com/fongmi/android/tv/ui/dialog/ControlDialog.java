@@ -126,6 +126,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         setTrackVisible();
         setTitleVisible();
         setScaleText();
+        setEpisodeColumn();
         setPlayer();
         setParse();
         binding.controlScroll.post(() -> binding.controlScroll.scrollTo(0, 0));
@@ -142,6 +143,8 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.text.setOnClickListener(v -> onTrack(binding.text));
         binding.audio.setOnClickListener(v -> onTrack(binding.audio));
         binding.video.setOnClickListener(v -> onTrack(binding.video));
+        binding.episodeColumn1.setOnClickListener(v -> setEpisodeColumn(1));
+        binding.episodeColumn2.setOnClickListener(v -> setEpisodeColumn(2));
         binding.title.setOnClickListener(v -> ((Listener) requireActivity()).onTitlePanel());
         binding.player.setOnClickListener(v -> click(binding.player, parent.control.action.player));
         binding.danmaku.setOnClickListener(v -> ((Listener) requireActivity()).onDanmakuPanel());
@@ -210,6 +213,20 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         view.setSelected(true);
     }
 
+    private void setEpisodeColumn(int column) {
+        PlayerSetting.putEpisodeColumn(column);
+        setEpisodeColumn();
+    }
+
+    private void setEpisodeColumn() {
+        int column = PlayerSetting.getEpisodeColumn();
+        binding.episodeColumn1.setSelected(column == 1);
+        binding.episodeColumn2.setSelected(column == 2);
+        boolean visible = parent.control.action.episodes.getVisibility() == View.VISIBLE;
+        binding.episodeColumnText.setVisibility(visible ? View.VISIBLE : View.GONE);
+        binding.episodeColumnRow.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
     private void active(View view, TextView target) {
         target.performClick();
         view.setSelected(target.isSelected());
@@ -242,6 +259,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.player.setText(parent.control.action.player.getText());
         binding.reset.setText(parent.control.action.reset.getText());
         setLut();
+        setEpisodeColumn();
         binding.decode.setVisibility(parent.control.action.decode.getVisibility());
         binding.danmaku.setVisibility(parent.control.action.danmaku.getVisibility());
         setTrackVisible();

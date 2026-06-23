@@ -88,6 +88,7 @@ public class EpisodeGroupAdapter extends RecyclerView.Adapter<EpisodeGroupAdapte
     }
 
     private static int getGroupSize(int size) {
+        if (size <= 60) return 20;
         if (size > 2500) return 300;
         if (size > 1500) return 200;
         if (size > 1000) return 150;
