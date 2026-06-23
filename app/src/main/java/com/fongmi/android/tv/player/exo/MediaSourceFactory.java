@@ -7,6 +7,7 @@ import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.database.StandaloneDatabaseProvider;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
@@ -29,6 +30,8 @@ import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Path;
+
+import java.util.Locale;
 
 public class MediaSourceFactory implements MediaSource.Factory {
 
@@ -68,6 +71,7 @@ public class MediaSourceFactory implements MediaSource.Factory {
         getHttpDataSourceFactory().setDefaultRequestProperties(ExoUtil.extractHeaders(mediaItem));
         String url = mediaItem.requestMetadata.mediaUri != null ? mediaItem.requestMetadata.mediaUri.toString() : "";
         if (url.contains("***") && url.contains("|||")) return createConcatenatingMediaSource(mediaItem, url);
+        if (isHls(mediaItem, url)) return getDirectMediaSourceFactory().createMediaSource(mediaItem);
         if (isLocalProxy(url)) return getDirectMediaSourceFactory().createMediaSource(mediaItem);
         else return defaultMediaSourceFactory.createMediaSource(mediaItem);
     }
@@ -112,6 +116,12 @@ public class MediaSourceFactory implements MediaSource.Factory {
 
     private static boolean isLocalProxy(String url) {
         return url.startsWith("http://127.0.0.1") || url.startsWith("http://localhost");
+    }
+
+    private static boolean isHls(MediaItem mediaItem, String url) {
+        String mimeType = mediaItem.localConfiguration == null ? null : mediaItem.localConfiguration.mimeType;
+        if (MimeTypes.APPLICATION_M3U8.equals(mimeType)) return true;
+        return url.toLowerCase(Locale.ROOT).contains("m3u8");
     }
 
     private static SimpleCache getCache() {
