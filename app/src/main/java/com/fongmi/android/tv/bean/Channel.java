@@ -264,7 +264,7 @@ public class Channel {
     }
 
     public void setDataList(List<Epg> list) {
-        this.dataList = new ArrayList<>(list);
+        this.dataList = list == null ? new ArrayList<>() : new ArrayList<>(list);
     }
 
     public int getIndex() {

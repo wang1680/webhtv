@@ -72,7 +72,7 @@ public class LiveEpgSetting {
 
     public static void apply(Live live, Channel channel) {
         if (live == null || channel == null) return;
-        channel.setDataList(null);
+        channel.setDataList(Collections.emptyList());
         String template = getEffectiveUrl(live);
         if (isGlobalXmlUrl(template)) {
             channel.setEpg("");
