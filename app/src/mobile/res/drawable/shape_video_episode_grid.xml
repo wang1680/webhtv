@@ -3,6 +3,12 @@
     android:color="?attr/colorControlHighlight">
     <item>
         <selector>
+            <item android:state_activated="true">
+                <shape android:shape="rectangle">
+                    <corners android:radius="8dp" />
+                    <solid android:color="@color/black_60" />
+                </shape>
+            </item>
             <item android:state_selected="true">
                 <shape android:shape="rectangle">
                     <corners android:radius="8dp" />

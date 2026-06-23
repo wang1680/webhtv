@@ -131,6 +131,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private Observer<Result> mObserveSearch;
     private EpisodeAdapter mEpisodeAdapter;
     private EpisodeGroupAdapter mEpisodeGroupAdapter;
+    private SpaceItemDecoration mEpisodeDecoration;
     private QualityAdapter mQualityAdapter;
     private QuickAdapter mQuickAdapter;
     private QuickSearchDialog mQuickSearchDialog;
@@ -149,6 +150,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean rotate;
     private boolean detailHealthRecorded;
     private boolean playHealthRecorded;
+    private int mEpisodeSpanCount;
     private Runnable mR1;
     private Runnable mR2;
     private Runnable mR3;
@@ -483,12 +485,12 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.episodeGroup.setHasFixedSize(true);
         mBinding.episodeGroup.setItemAnimator(null);
         mBinding.episodeGroup.setAdapter(mEpisodeGroupAdapter = new EpisodeGroupAdapter(this));
-        int episodeSpanCount = getEpisodeSpanCount();
+        mEpisodeSpanCount = getEpisodeSpanCount();
         mBinding.episode.setNestedScrollingEnabled(false);
         mBinding.episode.setHasFixedSize(false);
         mBinding.episode.setItemAnimator(null);
-        mBinding.episode.setLayoutManager(new GridLayoutManager(this, episodeSpanCount));
-        mBinding.episode.addItemDecoration(new SpaceItemDecoration(episodeSpanCount, 8));
+        mBinding.episode.setLayoutManager(new GridLayoutManager(this, mEpisodeSpanCount));
+        mBinding.episode.addItemDecoration(mEpisodeDecoration = new SpaceItemDecoration(mEpisodeSpanCount, 8));
         mBinding.episode.setAdapter(mEpisodeAdapter = new EpisodeAdapter(this, ViewType.GRID));
         mBinding.quality.setHasFixedSize(true);
         mBinding.quality.setItemAnimator(null);
@@ -780,12 +782,33 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void setVisibleEpisodeAdapter(List<Episode> items, EpisodeGroupAdapter.Group group) {
         if (group == null) {
+            updateEpisodeSpan(items);
             mEpisodeAdapter.addAll(items);
             return;
         }
         int start = Math.max(0, Math.min(group.start, items.size()));
         int end = Math.max(start, Math.min(group.end, items.size()));
-        mEpisodeAdapter.addAll(new ArrayList<>(items.subList(start, end)));
+        ArrayList<Episode> visible = new ArrayList<>(items.subList(start, end));
+        updateEpisodeSpan(visible);
+        mEpisodeAdapter.addAll(visible);
+    }
+
+    private void updateEpisodeSpan(List<Episode> items) {
+        int span = getEpisodeSpan(items);
+        if (span == mEpisodeSpanCount) return;
+        mEpisodeSpanCount = span;
+        mBinding.episode.setLayoutManager(new GridLayoutManager(this, mEpisodeSpanCount));
+        if (mEpisodeDecoration != null) mBinding.episode.removeItemDecoration(mEpisodeDecoration);
+        mBinding.episode.addItemDecoration(mEpisodeDecoration = new SpaceItemDecoration(mEpisodeSpanCount, 8));
+    }
+
+    private int getEpisodeSpan(List<Episode> items) {
+        int maxLen = 0;
+        for (Episode item : items) maxLen = Math.max(maxLen, item.getDesc().concat(item.getName()).length());
+        int ideal = maxLen >= 14 ? 160 : maxLen >= 10 ? 130 : maxLen >= 7 ? 104 : 80;
+        int width = mBinding.episode.getWidth() > 0 ? mBinding.episode.getWidth() : ResUtil.getScreenWidth(this) - ResUtil.dp2px(32);
+        int span = width / ResUtil.dp2px(ideal);
+        return Math.max(2, Math.min(getEpisodeSpanCount(), span));
     }
 
     private int getSelectedEpisodePosition(List<Episode> items) {

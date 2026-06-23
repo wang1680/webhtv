@@ -41,6 +41,12 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
+        <include
+            android:id="@+id/osd"
+            layout="@layout/view_player_osd"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
     </FrameLayout>
 
     <androidx.appcompat.widget.LinearLayoutCompat
@@ -85,4 +91,3 @@
 
     </androidx.appcompat.widget.LinearLayoutCompat>
 </FrameLayout>
-

@@ -64,6 +64,7 @@ import com.fongmi.android.tv.ui.adapter.EpgDataAdapter;
 import com.fongmi.android.tv.ui.adapter.GroupAdapter;
 import com.fongmi.android.tv.ui.custom.CustomKeyDown;
 import com.fongmi.android.tv.ui.custom.CustomSeekView;
+import com.fongmi.android.tv.ui.custom.PlayerOsdController;
 import com.fongmi.android.tv.ui.dialog.CastDialog;
 import com.fongmi.android.tv.ui.dialog.HistoryDialog;
 import com.fongmi.android.tv.ui.dialog.InfoDialog;
@@ -100,6 +101,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     private Observer<Epg> mObserveEpg;
     private LiveViewModel mViewModel;
     private CustomKeyDown mKeyDown;
+    private PlayerOsdController mOsd;
     private List<Group> mHides;
     private String mPlaybackKey;
     private Channel mChannel;
@@ -198,6 +200,17 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         mR3 = this::hideInfo;
         mPiP = new PiP();
         setRecyclerView();
+        mOsd = new PlayerOsdController(mBinding.osd.getRoot(), mBinding.osd.osdTopLeft, mBinding.osd.osdTopRight, mBinding.osd.osdBottomLeft, mBinding.osd.osdBottomRight, mBinding.osd.osdMiniProgress, new PlayerOsdController.Source() {
+            @Override
+            public PlayerManager getPlayer() {
+                return service() == null ? null : player();
+            }
+
+            @Override
+            public String getTitle() {
+                return mChannel == null ? "" : mChannel.getName();
+            }
+        }, 12f);
         setVideoView();
         setNavigation();
         setViewModel();
@@ -656,12 +669,14 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.top.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.getRoot().setVisibility(View.VISIBLE);
+        if (mOsd != null) mOsd.setControlsVisible(true);
         setR1Callback();
         hideInfo();
     }
 
     private void hideControl() {
         mBinding.control.getRoot().setVisibility(View.GONE);
+        if (mOsd != null) mOsd.setControlsVisible(false);
         App.removeCallbacks(mR1);
     }
 
@@ -1514,6 +1529,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     @Override
     protected void onStart() {
         super.onStart();
+        if (mOsd != null) mOsd.start();
         setAudioOnly(false);
         setStop(false);
     }
@@ -1521,6 +1537,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     @Override
     protected void onStop() {
         super.onStop();
+        if (mOsd != null) mOsd.stop();
         if (!isAudioOnly()) setStop(true);
     }
 
@@ -1542,6 +1559,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     protected void onDestroy() {
         Source.get().exit();
         App.removeCallbacks(mR1, mR2, mR3);
+        if (mOsd != null) mOsd.release();
         mViewModel.url().removeObserver(mObserveUrl);
         mViewModel.epg().removeObserver(mObserveEpg);
         super.onDestroy();

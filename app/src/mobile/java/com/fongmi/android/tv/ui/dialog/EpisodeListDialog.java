@@ -39,8 +39,10 @@ public class EpisodeListDialog extends AppCompatDialogFragment implements FlagAd
     private DialogEpisodeListBinding binding;
     private EpisodeGroupAdapter groupAdapter;
     private EpisodeAdapter episodeAdapter;
+    private SpaceItemDecoration episodeDecoration;
     private FlagAdapter flagAdapter;
     private List<Flag> flags;
+    private int episodeSpanCount = 4;
     private boolean reverse;
 
     public static EpisodeListDialog create() {
@@ -122,7 +124,6 @@ public class EpisodeListDialog extends AppCompatDialogFragment implements FlagAd
     }
 
     private void setRecyclerView() {
-        int spanCount = 4;
         binding.flag.setHasFixedSize(true);
         binding.flag.setItemAnimator(null);
         binding.flag.setAdapter(flagAdapter = new FlagAdapter(this));
@@ -131,8 +132,8 @@ public class EpisodeListDialog extends AppCompatDialogFragment implements FlagAd
         binding.group.setAdapter(groupAdapter = new EpisodeGroupAdapter(this));
         binding.episode.setHasFixedSize(true);
         binding.episode.setItemAnimator(null);
-        binding.episode.setLayoutManager(new GridLayoutManager(requireContext(), spanCount));
-        binding.episode.addItemDecoration(new SpaceItemDecoration(spanCount, 8));
+        binding.episode.setLayoutManager(new GridLayoutManager(requireContext(), episodeSpanCount));
+        binding.episode.addItemDecoration(episodeDecoration = new SpaceItemDecoration(episodeSpanCount, 8));
         binding.episode.setAdapter(episodeAdapter = new EpisodeAdapter(this, ViewType.GRID));
     }
 
@@ -152,13 +153,34 @@ public class EpisodeListDialog extends AppCompatDialogFragment implements FlagAd
 
     private void setEpisodes(List<Episode> episodes, EpisodeGroupAdapter.Group group) {
         if (group == null) {
+            updateEpisodeSpan(episodes);
             episodeAdapter.addAll(episodes);
             return;
         }
         int start = Math.max(0, Math.min(group.start, episodes.size()));
         int end = Math.max(start, Math.min(group.end, episodes.size()));
-        episodeAdapter.addAll(new ArrayList<>(episodes.subList(start, end)));
+        ArrayList<Episode> visible = new ArrayList<>(episodes.subList(start, end));
+        updateEpisodeSpan(visible);
+        episodeAdapter.addAll(visible);
         binding.episode.scrollToPosition(episodeAdapter.getPosition());
+    }
+
+    private void updateEpisodeSpan(List<Episode> episodes) {
+        int span = getEpisodeSpan(episodes);
+        if (span == episodeSpanCount) return;
+        episodeSpanCount = span;
+        binding.episode.setLayoutManager(new GridLayoutManager(requireContext(), episodeSpanCount));
+        if (episodeDecoration != null) binding.episode.removeItemDecoration(episodeDecoration);
+        binding.episode.addItemDecoration(episodeDecoration = new SpaceItemDecoration(episodeSpanCount, 8));
+    }
+
+    private int getEpisodeSpan(List<Episode> episodes) {
+        int maxLen = 0;
+        for (Episode item : episodes) maxLen = Math.max(maxLen, item.getDesc().concat(item.getName()).length());
+        int ideal = maxLen >= 14 ? 160 : maxLen >= 10 ? 130 : maxLen >= 7 ? 104 : 80;
+        int available = Math.max(ResUtil.dp2px(240), getWidth() - ResUtil.dp2px(28));
+        int span = available / ResUtil.dp2px(ideal);
+        return Math.max(2, Math.min(4, span));
     }
 
     private int getSelectedEpisodePosition(List<Episode> episodes) {

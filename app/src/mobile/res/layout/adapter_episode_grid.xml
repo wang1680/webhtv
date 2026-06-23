@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="40dp"
     android:background="@drawable/shape_video_episode_grid"
-    android:ellipsize="marquee"
+    android:ellipsize="start"
     android:focusable="true"
     android:gravity="center"
     android:singleLine="true"

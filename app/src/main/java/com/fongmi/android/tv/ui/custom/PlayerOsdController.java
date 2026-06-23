@@ -118,12 +118,16 @@ public class PlayerOsdController {
     }
 
     private void setBottomLeft(PlayerManager player) {
-        if (controlsVisible || !PlayerSetting.isOsdProgress() || player == null || player.isLive()) {
+        if (controlsVisible || !PlayerSetting.isOsdProgress() || player == null) {
             bottomLeft.setVisibility(View.GONE);
             return;
         }
         long position = Math.max(0, player.getPosition());
         long duration = Math.max(0, player.getDuration());
+        if (duration <= 0) {
+            bottomLeft.setVisibility(View.GONE);
+            return;
+        }
         bottomLeft.setText(Util.timeMs(position) + " / " + Util.timeMs(duration));
         bottomLeft.setVisibility(View.VISIBLE);
     }
@@ -137,7 +141,7 @@ public class PlayerOsdController {
     }
 
     private void setMiniProgress(PlayerManager player) {
-        if (controlsVisible || !PlayerSetting.isOsdMini() || player == null || player.isLive()) {
+        if (controlsVisible || !PlayerSetting.isOsdMini() || player == null) {
             miniProgress.setVisibility(View.GONE);
             return;
         }

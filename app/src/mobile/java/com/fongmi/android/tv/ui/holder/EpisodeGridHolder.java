@@ -2,6 +2,8 @@ package com.fongmi.android.tv.ui.holder;
 
 import androidx.annotation.NonNull;
 
+import android.text.TextUtils;
+
 import com.fongmi.android.tv.bean.Episode;
 import com.fongmi.android.tv.databinding.AdapterEpisodeGridBinding;
 import com.fongmi.android.tv.ui.adapter.EpisodeAdapter;
@@ -20,8 +22,11 @@ public class EpisodeGridHolder extends BaseEpisodeHolder {
 
     @Override
     public void initView(Episode item) {
-        binding.text.setSelected(item.isSelected());
+        binding.text.setActivated(item.isSelected());
+        binding.text.setSelected(false);
+        binding.text.setEllipsize(TextUtils.TruncateAt.START);
         binding.text.setText(item.getDesc().concat(item.getName()));
+        binding.text.setOnFocusChangeListener((view, hasFocus) -> binding.text.setEllipsize(hasFocus ? TextUtils.TruncateAt.MARQUEE : TextUtils.TruncateAt.START));
         binding.text.setOnClickListener(v -> listener.onItemClick(item));
     }
 }
