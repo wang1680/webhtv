@@ -94,6 +94,7 @@ public class SettingEnhanceFragment extends BaseFragment {
         mBinding.shellProxy.setOnLongClickListener(v -> false);
         mBinding.shellProxyConfig.setVisibility(View.GONE);
         mBinding.customCsp.setOnClickListener(view -> PermissionUtil.requestFile(this, granted -> {
+            if (!isAdded() || isStateSaved() || getActivity() == null) return;
             if (granted) CustomCspDialog.show(this, this::setText);
             else Notify.show(R.string.setting_custom_csp_permission_required);
         }));

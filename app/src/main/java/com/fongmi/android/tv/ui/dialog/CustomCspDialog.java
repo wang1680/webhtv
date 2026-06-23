@@ -99,12 +99,14 @@ public class CustomCspDialog extends BaseAlertDialog {
     private SettingClipboardOverlay clipboardOverlay;
 
     public static void show(Fragment fragment, Runnable callback) {
+        if (fragment == null || !fragment.isAdded() || fragment.isStateSaved() || fragment.getActivity() == null || fragment.getChildFragmentManager().isStateSaved()) return;
         CustomCspDialog dialog = new CustomCspDialog();
         dialog.callback = callback;
         dialog.show(fragment.getChildFragmentManager(), null);
     }
 
     public static void show(FragmentActivity activity, Runnable callback) {
+        if (activity == null || activity.isFinishing() || activity.isDestroyed() || activity.getSupportFragmentManager().isStateSaved()) return;
         CustomCspDialog dialog = new CustomCspDialog();
         dialog.callback = callback;
         dialog.show(activity.getSupportFragmentManager(), null);
