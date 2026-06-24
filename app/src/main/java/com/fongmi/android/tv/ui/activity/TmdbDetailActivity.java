@@ -1197,14 +1197,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private Drawable cinemaLightBackdropShade() {
         boolean compact = isCompactWidth();
         GradientDrawable horizontal = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, compact ? new int[]{
-                0xF2F4F7FA, 0xE0F4F7FA, 0x99F4F7FA, 0x66F4F7FA, 0xCCF4F7FA
+                0xB8F4F7FA, 0x99F4F7FA, 0x55F4F7FA, 0x24F4F7FA, 0x70F4F7FA
         } : new int[]{
-                0xF7F4F7FA, 0xE6F4F7FA, 0xA6F4F7FA, 0x70F4F7FA, 0xD9F4F7FA
+                0x99F4F7FA, 0x80F4F7FA, 0x40F4F7FA, 0x1AF4F7FA, 0x55F4F7FA
         });
         GradientDrawable vertical = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, compact ? new int[]{
-                0x24F4F7FA, 0x40F4F7FA, 0xBFF4F7FA, 0xF2F4F7FA
+                0x0AF4F7FA, 0x18F4F7FA, 0x55F4F7FA, 0x99F4F7FA
         } : new int[]{
-                0x1AF4F7FA, 0x3DF4F7FA, 0xCFF4F7FA, 0xFAF4F7FA
+                0x04F4F7FA, 0x0FF4F7FA, 0x3DF4F7FA, 0x70F4F7FA
         });
         return new LayerDrawable(new Drawable[]{horizontal, vertical});
     }
@@ -1945,7 +1945,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private float backdropSlideAlpha() {
-        return isCinemaMode() ? 0.9f : 1f;
+        return isCinemaMode() && !lightTheme ? 0.9f : 1f;
     }
 
     private int nextBackdropSlideIndex() {
