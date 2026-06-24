@@ -44,6 +44,9 @@ import java.util.List;
 
 public class CollectFragment extends BaseFragment implements MenuProvider, CollectAdapter.OnClickListener, SearchAdapter.OnClickListener, CustomScroller.Callback {
 
+    private static final int GRID_ITEM_MARGIN_DP = 4;
+    private static final int RESULT_END_PADDING_DP = 8;
+
     private FragmentCollectBinding mBinding;
     private CollectAdapter mCollectAdapter;
     private SearchAdapter mSearchAdapter;
@@ -153,7 +156,7 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
     private void setWidth() {
         int width = 0;
         int space = ResUtil.dp2px(48);
-        int maxWidth = ResUtil.getScreenWidth() / (getCount() + 1) - ResUtil.dp2px(40);
+        int maxWidth = ResUtil.getScreenWidth() / 2 - ResUtil.dp2px(40);
         for (Site site : mSites) width = Math.max(width, ResUtil.getTextWidth(site.getName(), 14));
         int contentWidth = width + space;
         int minWidth = ResUtil.dp2px(120);
@@ -179,10 +182,11 @@ public class CollectFragment extends BaseFragment implements MenuProvider, Colle
 
     private int[] getGridSize() {
         int span = getCount();
-        int space = ResUtil.dp2px(8 + 16 * span);
+        int margin = ResUtil.dp2px(GRID_ITEM_MARGIN_DP);
+        int space = ResUtil.dp2px(RESULT_END_PADDING_DP) + margin * 2 * span;
         int width = (ResUtil.getScreenWidth(requireActivity()) - collectWidth - space) / span;
         width = Math.max(ResUtil.dp2px(96), width);
-        return new int[]{width, (int) (width / 0.75f)};
+        return new int[]{width, (int) (width / 0.75f), margin};
     }
 
     private void setResultLayout(boolean scrollTop) {

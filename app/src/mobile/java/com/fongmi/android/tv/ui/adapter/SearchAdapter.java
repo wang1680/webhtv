@@ -91,11 +91,11 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
         GridHolder(@NonNull AdapterVodRectBinding binding) {
             super(binding.getRoot());
             this.binding = binding;
-            binding.image.getLayoutParams().height = size[1];
-            binding.getRoot().getLayoutParams().width = size[0];
+            applySize();
         }
 
         private void initView(Vod item) {
+            applySize();
             binding.name.setText(item.getName());
             binding.site.setText(item.getSiteName());
             binding.remark.setText(item.getRemarks());
@@ -105,6 +105,19 @@ public class SearchAdapter extends BaseDiffAdapter<Vod, RecyclerView.ViewHolder>
             binding.remark.setVisibility(item.getRemarkVisible());
             binding.getRoot().setOnClickListener(v -> listener.onItemClick(item));
             ImgUtil.load(item.getName(), item.getPic(), binding.image);
+        }
+
+        private void applySize() {
+            ViewGroup.LayoutParams imageParams = binding.image.getLayoutParams();
+            imageParams.height = size[1];
+            binding.image.setLayoutParams(imageParams);
+            ViewGroup.LayoutParams rootParams = binding.getRoot().getLayoutParams();
+            rootParams.width = size[0];
+            if (rootParams instanceof ViewGroup.MarginLayoutParams params) {
+                int margin = size.length > 2 ? size[2] : 0;
+                params.setMargins(margin, margin, margin, margin);
+            }
+            binding.getRoot().setLayoutParams(rootParams);
         }
     }
 }
