@@ -1,15 +1,17 @@
 package com.fongmi.android.tv.ui.dialog;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -56,15 +58,22 @@ public class EpisodeDetailDialog {
         bindHorizontalList(photoList, 12);
         bindHorizontalList(guestsList, 12);
 
-        AlertDialog dialog = new MaterialAlertDialogBuilder(activity).setView(view).create();
+        Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        dialog.setContentView(view);
         view.findViewById(R.id.close).setOnClickListener(v -> dialog.dismiss());
         dialog.show();
-        if (dialog.getWindow() != null) {
-            int width = Math.min(ResUtil.getScreenWidth(activity) - ResUtil.dp2px(32), ResUtil.dp2px(560));
-            dialog.getWindow().setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
-        }
+        applyWindowSize(dialog);
 
         loadEpisodeMedia(activity, tmdbEpisode, photoTitle, photoList, guestsTitle, guestsList);
+    }
+
+    private static void applyWindowSize(Dialog dialog) {
+        Window window = dialog.getWindow();
+        if (window == null) return;
+        window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        window.setBackgroundDrawableResource(android.R.color.transparent);
+        window.setDimAmount(0f);
+        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
     }
 
     private static void bindBasicInfo(Activity activity, TmdbEpisode episode, ImageView still, TextView title, TextView meta, TextView overview) {

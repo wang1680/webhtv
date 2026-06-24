@@ -1,129 +1,134 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/panel"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_margin="24dp"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="8dp"
-    app:cardBackgroundColor="#2A2A2A"
-    app:strokeColor="#4A4A4A"
-    app:strokeWidth="1dp">
+    android:layout_height="match_parent"
+    android:background="#B3000000"
+    android:padding="16dp">
 
-    <LinearLayout
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/panel"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:layout_height="match_parent"
+        app:cardBackgroundColor="#2A2A2A"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="8dp"
+        app:strokeColor="#4A4A4A"
+        app:strokeWidth="1dp">
 
-        <androidx.core.widget.NestedScrollView
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:maxHeight="600dp"
-            android:fillViewport="false"
-            android:overScrollMode="ifContentScrolls">
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="20dp">
 
-            <LinearLayout
+            <androidx.core.widget.NestedScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="false"
+                android:overScrollMode="ifContentScrolls">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- 剧照 -->
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:id="@+id/still"
+                        android:layout_width="match_parent"
+                        android:layout_height="280dp"
+                        android:background="#1A1A1A"
+                        android:scaleType="centerCrop"
+                        android:visibility="gone" />
+
+                    <!-- 标题 -->
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <!-- 元信息（评分、时长、日期） -->
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/meta"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="#AAAAAA"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+
+                    <!-- 简介 -->
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/overview"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:lineSpacingExtra="4dp"
+                        android:textColor="#DDDDDD"
+                        android:textSize="14sp" />
+
+                    <!-- 剧照标题 -->
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/photoTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="20dp"
+                        android:text="@string/detail_tmdb_photos"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
+                    <!-- 剧照列表 -->
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/photoList"
+                        android:layout_width="match_parent"
+                        android:layout_height="140dp"
+                        android:layout_marginTop="12dp"
+                        android:clipToPadding="false"
+                        android:paddingEnd="8dp"
+                        android:visibility="gone" />
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/guestsTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="20dp"
+                        android:text="@string/detail_episode_guests"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/guestsList"
+                        android:layout_width="match_parent"
+                        android:layout_height="164dp"
+                        android:layout_marginTop="12dp"
+                        android:clipToPadding="false"
+                        android:paddingEnd="8dp"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+            </androidx.core.widget.NestedScrollView>
+
+            <!-- 关闭按钮 -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/close"
+                style="?attr/materialButtonOutlinedStyle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <!-- 剧照 -->
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/still"
-                    android:layout_width="match_parent"
-                    android:layout_height="280dp"
-                    android:scaleType="centerCrop"
-                    android:background="#1A1A1A"
-                    android:visibility="gone" />
-
-                <!-- 标题 -->
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/title"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:textColor="#FFFFFF"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
-
-                <!-- 元信息（评分、时长、日期） -->
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/meta"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textColor="#AAAAAA"
-                    android:textSize="13sp"
-                    android:visibility="gone" />
-
-                <!-- 简介 -->
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/overview"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:lineSpacingExtra="4dp"
-                    android:textColor="#DDDDDD"
-                    android:textSize="14sp" />
-
-                <!-- 剧照标题 -->
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/photoTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:text="@string/detail_tmdb_photos"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
-
-                <!-- 剧照列表 -->
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/photoList"
-                    android:layout_width="match_parent"
-                    android:layout_height="140dp"
-                    android:layout_marginTop="12dp"
-                    android:clipToPadding="false"
-                    android:paddingEnd="8dp"
-                    android:visibility="gone" />
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/guestsTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:text="@string/detail_episode_guests"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/guestsList"
-                    android:layout_width="match_parent"
-                    android:layout_height="164dp"
-                    android:layout_marginTop="12dp"
-                    android:clipToPadding="false"
-                    android:paddingEnd="8dp"
-                    android:visibility="gone" />
-
-            </LinearLayout>
-        </androidx.core.widget.NestedScrollView>
-
-        <!-- 关闭按钮 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/close"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:minHeight="48dp"
-            android:text="@string/dialog_negative"
-            android:textColor="#FFFFFF"
-            app:strokeColor="#4A4A4A" />
-    </LinearLayout>
-</com.google.android.material.card.MaterialCardView>
+                android:layout_marginTop="16dp"
+                android:minHeight="48dp"
+                android:text="@string/dialog_negative"
+                android:textColor="#FFFFFF"
+                app:strokeColor="#4A4A4A" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</FrameLayout>
