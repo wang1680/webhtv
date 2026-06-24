@@ -247,6 +247,14 @@ public class Setting {
         Prefers.put("csp_warmup", warmup);
     }
 
+    public static int getSearchColumn() {
+        return Math.min(Math.max(Prefers.getInt("search_column", 1), 1), 2);
+    }
+
+    public static void putSearchColumn(int column) {
+        Prefers.put("search_column", column == 2 ? 2 : 1);
+    }
+
     public static boolean isDebugLog() {
         return DebugLogStore.isEnabled();
     }
