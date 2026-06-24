@@ -105,8 +105,12 @@ public class BuiltInWallDrawable extends Drawable {
             case Setting.WALL_LAVENDER_CRYSTAL -> lavenderCrystal(canvas, width, height);
             default -> solid(canvas, width, height);
         }
-        if (isLightWall()) lightVignette(canvas, width, height);
-        else vignette(canvas, width, height);
+        if (isLightWall()) {
+            lightVignette(canvas, width, height);
+            lightReadability(canvas, width, height);
+        } else {
+            vignette(canvas, width, height);
+        }
         grain(canvas, width, height);
     }
 
@@ -172,7 +176,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void glassGradient(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFFDFF9FF, 0xFFF3D8F4, 0xFFFFF4D4);
+        lightBackground(canvas, width, height, 0xFF335F78, 0xFF74689D, 0xFF8A6974);
         glow(canvas, width * 0.05f, height * 0.20f, width * 0.95f, 0x9D93F8FF);
         glow(canvas, width * 0.88f, height * 0.14f, width * 0.76f, 0x84EFC0FF);
         glow(canvas, width * 0.22f, height * 0.82f, width * 0.86f, 0x70A7FFE6);
@@ -198,7 +202,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void polarLightGlass(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFFE9F6FF, 0xFFD9DAFF, 0xFFBDF7F3);
+        lightBackground(canvas, width, height, 0xFF365E74, 0xFF626C9B, 0xFF3F8B84);
         glow(canvas, width * 0.26f, height * 0.16f, width * 0.82f, 0xAFFFFFFF);
         glow(canvas, width * 0.82f, height * 0.24f, width * 0.78f, 0x80B5E6FF);
         glow(canvas, width * 0.72f, height * 0.80f, width * 0.82f, 0x73B9FFF2);
@@ -223,7 +227,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void warmMoonGlass(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFFE2D6D1, 0xFFC7A796, 0xFFD6C1E2);
+        lightBackground(canvas, width, height, 0xFF6A5352, 0xFF926C60, 0xFF725C82);
         glow(canvas, width * 0.80f, height * 0.16f, width * 0.64f, 0x78FFE7C8);
         glow(canvas, width * 0.16f, height * 0.82f, width * 0.86f, 0x72C9E6FF);
         glow(canvas, width * 0.72f, height * 0.70f, width * 0.76f, 0x65FFB1CF);
@@ -235,7 +239,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void crystalSky(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFFDDEBFF, 0xFFC8D9FF, 0xFFF5F0FF);
+        lightBackground(canvas, width, height, 0xFF4B6388, 0xFF6877AE, 0xFF877DA3);
         glow(canvas, width * 0.18f, height * 0.20f, width * 0.82f, 0x8DC4FFFF);
         glow(canvas, width * 0.92f, height * 0.28f, width * 0.76f, 0x73BCA4FF);
         glow(canvas, width * 0.60f, height * 0.82f, width * 0.80f, 0x5CFFE4C8);
@@ -248,7 +252,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void dreamPurple(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFF8E7DF2, 0xFFD7B5EC, 0xFF698DF3);
+        lightBackground(canvas, width, height, 0xFF6252B9, 0xFF8B70B5, 0xFF405BAC);
         glow(canvas, width * 0.18f, height * 0.16f, width * 0.78f, 0x77FFFFFF);
         glow(canvas, width * 0.80f, height * 0.78f, width * 0.78f, 0x88FF9CCB);
         glow(canvas, width * 0.30f, height * 0.70f, width * 0.64f, 0x60F4C4FF);
@@ -259,7 +263,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void skyMint(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFFE1F8FF, 0xFFCDEFEF, 0xFFFFF0D8);
+        lightBackground(canvas, width, height, 0xFF2E6675, 0xFF5E8585, 0xFF7D785E);
         glow(canvas, width * 0.24f, height * 0.10f, width * 0.86f, 0xB8FFFFFF);
         glow(canvas, width * 0.74f, height * 0.48f, width * 0.82f, 0x66B3F7FF);
         glow(canvas, width * 0.46f, height * 0.88f, width * 0.78f, 0x5BFFF0BD);
@@ -281,7 +285,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void daylightMinimal(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFFE9F1F8, 0xFFDDE7EF, 0xFFF8FAFB);
+        lightBackground(canvas, width, height, 0xFF4A5C6C, 0xFF637482, 0xFF747E86);
         glow(canvas, width * 0.14f, height * 0.12f, width * 0.82f, 0xB0FFFFFF);
         glow(canvas, width * 0.82f, height * 0.72f, width * 0.74f, 0x42C5D8E8);
         flow(canvas, width, height, 0x36FFFFFF, 0.28f, 0.58f, 0.34f, 0.06f);
@@ -311,7 +315,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void roseVeil(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFFFFF6F9, 0xFFF4D7F2, 0xFFDDEEFF);
+        lightBackground(canvas, width, height, 0xFF7E566D, 0xFF936A98, 0xFF5C7790);
         glow(canvas, width * 0.84f, height * 0.18f, width * 0.78f, 0x6CFFC3E6);
         glow(canvas, width * 0.44f, height * 0.62f, width * 0.72f, 0x54E6B2FF);
         glow(canvas, width * 0.16f, height * 0.86f, width * 0.66f, 0x42BFF7FF);
@@ -332,7 +336,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void blueSilk(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFFD3F3FF, 0xFF8BC7D8, 0xFF69A9C6);
+        lightBackground(canvas, width, height, 0xFF37677B, 0xFF4E8EA3, 0xFF4B7896);
         glow(canvas, width * 0.20f, height * 0.14f, width * 0.84f, 0x7FFFFFFF);
         glow(canvas, width * 0.84f, height * 0.38f, width * 0.72f, 0x66BDEEFF);
         current(canvas, width, height, 0x62FFFFFF, 0.26f, -0.08f);
@@ -342,7 +346,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void peachDawn(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFFFFC8B4, 0xFFFFE0B8, 0xFFF0B6E7);
+        lightBackground(canvas, width, height, 0xFF885C54, 0xFFA2725D, 0xFF87658A);
         glow(canvas, width * 0.18f, height * 0.12f, width * 0.86f, 0x7EFFFFFF);
         glow(canvas, width * 0.78f, height * 0.76f, width * 0.78f, 0x60F28BFF);
         glow(canvas, width * 0.30f, height * 0.84f, width * 0.76f, 0x55FFD58A);
@@ -362,7 +366,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void pastelPrism(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFFE7F0FF, 0xFFEEDBFF, 0xFFD6FAFF);
+        lightBackground(canvas, width, height, 0xFF63769C, 0xFF88699B, 0xFF5A8E96);
         glow(canvas, width * 0.18f, height * 0.20f, width * 0.84f, 0x64BDEBFF);
         glow(canvas, width * 0.78f, height * 0.22f, width * 0.78f, 0x66FFB5D4);
         glow(canvas, width * 0.62f, height * 0.84f, width * 0.76f, 0x58FFF0A8);
@@ -383,7 +387,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void cyanCrystal(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFF8BE8F4, 0xFF5BD4E5, 0xFFC9F6FF);
+        lightBackground(canvas, width, height, 0xFF16849A, 0xFF238DAA, 0xFF4D68AA);
         glow(canvas, width * 0.18f, height * 0.14f, width * 0.80f, 0x84FFFFFF);
         glow(canvas, width * 0.82f, height * 0.72f, width * 0.84f, 0x795C8DFF);
         flow(canvas, width, height, 0x55FFFFFF, 0.28f, 0.58f, 0.36f, -0.10f);
@@ -394,7 +398,7 @@ public class BuiltInWallDrawable extends Drawable {
     }
 
     private void lavenderCrystal(Canvas canvas, int width, int height) {
-        lightBackground(canvas, width, height, 0xFFE1DAFF, 0xFFCABEFF, 0xFFF2EFFF);
+        lightBackground(canvas, width, height, 0xFF715CAC, 0xFF8974B5, 0xFF715B9B);
         glow(canvas, width * 0.16f, height * 0.18f, width * 0.82f, 0x66FFFFFF);
         glow(canvas, width * 0.84f, height * 0.78f, width * 0.78f, 0x78C79BFF);
         glow(canvas, width * 0.18f, height * 0.82f, width * 0.60f, 0x48FFB5E3);
@@ -420,7 +424,7 @@ public class BuiltInWallDrawable extends Drawable {
     private void lightBackground(Canvas canvas, int width, int height, int top, int center, int bottom) {
         paint.setShader(new LinearGradient(0, 0, width, height, new int[]{top, center, bottom}, new float[]{0f, 0.50f, 1f}, Shader.TileMode.CLAMP));
         canvas.drawRect(0, 0, width, height, paint);
-        paint.setShader(new LinearGradient(0, 0, width, height, 0x55FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+        paint.setShader(new LinearGradient(width, 0, 0, height, 0x16000000, 0x00000000, Shader.TileMode.CLAMP));
         canvas.drawRect(0, 0, width, height, paint);
     }
 
@@ -543,6 +547,14 @@ public class BuiltInWallDrawable extends Drawable {
         canvas.drawRect(0, 0, width, height, paint);
     }
 
+    private void lightReadability(Canvas canvas, int width, int height) {
+        int top = isHighKeyWall() ? 0x3A000000 : 0x28000000;
+        int center = isHighKeyWall() ? 0x46000000 : 0x34000000;
+        int bottom = isHighKeyWall() ? 0x52000000 : 0x40000000;
+        paint.setShader(new LinearGradient(0, 0, 0, height, new int[]{top, center, bottom}, new float[]{0f, 0.54f, 1f}, Shader.TileMode.CLAMP));
+        canvas.drawRect(0, 0, width, height, paint);
+    }
+
     private void grain(Canvas canvas, int width, int height) {
         paint.setShader(null);
         int count = Math.max(180, Math.min(620, width * height / 4200));
@@ -568,6 +580,17 @@ public class BuiltInWallDrawable extends Drawable {
                 || wall == Setting.WALL_PEACH_DAWN
                 || wall == Setting.WALL_PASTEL_PRISM
                 || wall == Setting.WALL_CYAN_CRYSTAL
+                || wall == Setting.WALL_LAVENDER_CRYSTAL;
+    }
+
+    private boolean isHighKeyWall() {
+        return wall == Setting.WALL_GLASS_GRADIENT
+                || wall == Setting.WALL_POLAR_LIGHT_GLASS
+                || wall == Setting.WALL_SKY_MINT
+                || wall == Setting.WALL_DAYLIGHT_MINIMAL
+                || wall == Setting.WALL_ROSE_VEIL
+                || wall == Setting.WALL_PASTEL_PRISM
+                || wall == Setting.WALL_CRYSTAL_SKY
                 || wall == Setting.WALL_LAVENDER_CRYSTAL;
     }
 

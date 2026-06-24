@@ -55,12 +55,12 @@ public class Setting {
     public static final int WALL_GREEN = 1;
 
     private static final int[] DEFAULT_WALLS = {
-            WALL_DREAM_PURPLE, WALL_SKY_MINT, WALL_NEON_CYBER, WALL_FOREST_MIST, WALL_DAYLIGHT_MINIMAL,
-            WALL_DEEP_SEA, WALL_VIOLET_SMOKE, WALL_ROSE_VEIL, WALL_EMERALD_AURORA, WALL_BLUE_SILK,
-            WALL_PEACH_DAWN, WALL_GRAPHITE_SMOKE, WALL_PASTEL_PRISM, WALL_MIDNIGHT_MOON, WALL_CYAN_CRYSTAL,
-            WALL_LAVENDER_CRYSTAL, WALL_AURORA_GLASS, WALL_GLASS_GRADIENT, WALL_DEEP_SPACE_GLASS,
-            WALL_POLAR_LIGHT_GLASS, WALL_WARM_MOON_GLASS, WALL_CRYSTAL_SKY, WALL_SUNSET_PRISM, WALL_MINT_GLACIER,
-            WALL_LIQUID_CHROME, WALL_NEON_BERRY, WALL_CHAMPAGNE_MIST
+            WALL_DREAM_PURPLE, WALL_LAVENDER_CRYSTAL, WALL_PASTEL_PRISM, WALL_ROSE_VEIL, WALL_VIOLET_SMOKE,
+            WALL_NEON_BERRY, WALL_MIDNIGHT_MOON, WALL_NEON_CYBER, WALL_DEEP_SPACE_GLASS, WALL_GRAPHITE_SMOKE,
+            WALL_DAYLIGHT_MINIMAL, WALL_SKY_MINT, WALL_POLAR_LIGHT_GLASS, WALL_GLASS_GRADIENT, WALL_CRYSTAL_SKY,
+            WALL_BLUE_SILK, WALL_CYAN_CRYSTAL, WALL_MINT_GLACIER, WALL_AURORA_GLASS, WALL_DEEP_SEA,
+            WALL_LIQUID_CHROME, WALL_FOREST_MIST, WALL_EMERALD_AURORA, WALL_WARM_MOON_GLASS, WALL_PEACH_DAWN,
+            WALL_CHAMPAGNE_MIST, WALL_SUNSET_PRISM
     };
 
     public static String getDoh() {
@@ -178,27 +178,27 @@ public class Setting {
         if (wall == WALL_LIQUID_CHROME) return 0xFF53657F;
         if (wall == WALL_NEON_BERRY) return 0xFF7B42CF;
         if (wall == WALL_CHAMPAGNE_MIST) return 0xFFB47692;
-        if (wall == WALL_GLASS_GRADIENT) return 0xFFA7DDF2;
+        if (wall == WALL_GLASS_GRADIENT) return 0xFF5E91B3;
         if (wall == WALL_DEEP_SPACE_GLASS) return 0xFF2E2B74;
-        if (wall == WALL_POLAR_LIGHT_GLASS) return 0xFFBFE8F2;
+        if (wall == WALL_POLAR_LIGHT_GLASS) return 0xFF6FA6B8;
         if (wall == WALL_NEON_CYBER) return 0xFF4B2BD8;
-        if (wall == WALL_WARM_MOON_GLASS) return 0xFFC7A796;
-        if (wall == WALL_CRYSTAL_SKY) return 0xFFAFCDF7;
-        if (wall == WALL_DREAM_PURPLE) return 0xFF9E80E8;
-        if (wall == WALL_SKY_MINT) return 0xFFA8DCE5;
+        if (wall == WALL_WARM_MOON_GLASS) return 0xFF9E7568;
+        if (wall == WALL_CRYSTAL_SKY) return 0xFF7890C5;
+        if (wall == WALL_DREAM_PURPLE) return 0xFF7560CA;
+        if (wall == WALL_SKY_MINT) return 0xFF6DA6B1;
         if (wall == WALL_FOREST_MIST) return 0xFF4E8750;
-        if (wall == WALL_DAYLIGHT_MINIMAL) return 0xFFD7E3EE;
+        if (wall == WALL_DAYLIGHT_MINIMAL) return 0xFF7B8D9C;
         if (wall == WALL_DEEP_SEA) return 0xFF2F7290;
         if (wall == WALL_VIOLET_SMOKE) return 0xFF7C4BE2;
-        if (wall == WALL_ROSE_VEIL) return 0xFFEAC7EB;
+        if (wall == WALL_ROSE_VEIL) return 0xFFB27FAE;
         if (wall == WALL_EMERALD_AURORA) return 0xFF27B07D;
-        if (wall == WALL_BLUE_SILK) return 0xFF79BDD4;
-        if (wall == WALL_PEACH_DAWN) return 0xFFFFB58F;
+        if (wall == WALL_BLUE_SILK) return 0xFF5E9BB3;
+        if (wall == WALL_PEACH_DAWN) return 0xFFC27863;
         if (wall == WALL_GRAPHITE_SMOKE) return 0xFF4B5360;
-        if (wall == WALL_PASTEL_PRISM) return 0xFFDAD7FF;
+        if (wall == WALL_PASTEL_PRISM) return 0xFF8A84C8;
         if (wall == WALL_MIDNIGHT_MOON) return 0xFF4935B4;
-        if (wall == WALL_CYAN_CRYSTAL) return 0xFF37C7E4;
-        if (wall == WALL_LAVENDER_CRYSTAL) return 0xFFB8A9F5;
+        if (wall == WALL_CYAN_CRYSTAL) return 0xFF168BA6;
+        if (wall == WALL_LAVENDER_CRYSTAL) return 0xFF8875D0;
         return 0xFF2B8ECB;
     }
 
@@ -216,12 +216,12 @@ public class Setting {
         if (wall == WALL_WARM_MOON_GLASS) return "暖月玻璃风";
         if (wall == WALL_CRYSTAL_SKY) return "冰晶幻彩风";
         if (wall == WALL_DREAM_PURPLE) return "梦幻紫霞";
-        if (wall == WALL_SKY_MINT) return "青空薄荷";
+        if (wall == WALL_SKY_MINT) return "雾青薄荷";
         if (wall == WALL_FOREST_MIST) return "森林雾绿";
-        if (wall == WALL_DAYLIGHT_MINIMAL) return "白昼极简";
+        if (wall == WALL_DAYLIGHT_MINIMAL) return "雾蓝极简";
         if (wall == WALL_DEEP_SEA) return "深海月影";
         if (wall == WALL_VIOLET_SMOKE) return "紫雾星旋";
-        if (wall == WALL_ROSE_VEIL) return "粉白轻纱";
+        if (wall == WALL_ROSE_VEIL) return "玫瑰薄雾";
         if (wall == WALL_EMERALD_AURORA) return "翡翠极光";
         if (wall == WALL_BLUE_SILK) return "蓝绸流影";
         if (wall == WALL_PEACH_DAWN) return "暖桃晨光";
