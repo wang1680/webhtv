@@ -46,8 +46,7 @@ public class EpisodeHoriHolder extends BaseEpisodeHolder {
             binding.card.setVisibility(View.VISIBLE);
 
             binding.card.setSelected(item.isSelected());
-            binding.card.setOnClickListener(v -> listener.onItemClick(item));
-            bindDetailLongClick(item, binding.getRoot(), binding.card, binding.still, binding.cardTitle, binding.overview);
+            bindCardActions(item, binding.getRoot(), binding.card, binding.still, binding.cardTitle, binding.overview);
 
             // 标题
             binding.cardTitle.setText(EpisodeAdapter.getTitle(item));
@@ -104,6 +103,15 @@ public class EpisodeHoriHolder extends BaseEpisodeHolder {
             view.setOnTouchListener(null);
             view.setOnLongClickListener(longClickListener);
         }
+    }
+
+    private void bindCardActions(Episode item, View... views) {
+        View.OnClickListener clickListener = view -> listener.onItemClick(item);
+        for (View view : views) {
+            if (view == null) continue;
+            view.setOnClickListener(clickListener);
+        }
+        bindDetailLongClick(item, views);
     }
 
     private FragmentActivity getActivity(View view) {

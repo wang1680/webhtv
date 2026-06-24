@@ -63,8 +63,7 @@ public class EpisodeGridHolder extends BaseEpisodeHolder {
         binding.text.setVisibility(View.GONE);
         binding.card.setVisibility(View.VISIBLE);
         binding.card.setSelected(item.isSelected());
-        binding.card.setOnClickListener(v -> listener.onItemClick(item));
-        bindDetailLongClick(item, binding.getRoot(), binding.card, binding.imageFrame, binding.still, binding.textPanel, binding.cardTitle, binding.overview);
+        bindCardActions(item, binding.getRoot(), binding.card, binding.imageFrame, binding.still, binding.textPanel, binding.cardTitle, binding.overview);
 
         binding.cardTitle.setText(EpisodeAdapter.getTitle(item));
         binding.cardTitle.setSelected(item.isSelected());
@@ -122,6 +121,15 @@ public class EpisodeGridHolder extends BaseEpisodeHolder {
             view.setOnTouchListener(null);
             view.setOnLongClickListener(longClickListener);
         }
+    }
+
+    private void bindCardActions(Episode item, View... views) {
+        View.OnClickListener clickListener = view -> listener.onItemClick(item);
+        for (View view : views) {
+            if (view == null) continue;
+            view.setOnClickListener(clickListener);
+        }
+        bindDetailLongClick(item, views);
     }
 
     private FragmentActivity getActivity(View view) {

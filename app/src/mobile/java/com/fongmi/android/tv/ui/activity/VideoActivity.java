@@ -1024,6 +1024,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             mBinding.actor.setVisibility(View.GONE);
             mBinding.contentLayout.setVisibility(View.GONE);
         }
+        applyFusionNativeTextColors();
     }
 
     private void setText(TextView view, int resId, String text) {
@@ -1031,7 +1032,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         view.setText(Sniffer.buildClickable(resId > 0 ? getString(resId, text) : text, this::clickableSpan), TextView.BufferType.SPANNABLE);
         view.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
         if (view == mBinding.content) setContentVisible();
-        view.setLinkTextColor(Color.WHITE);
+        view.setLinkTextColor(Setting.isFusionDetailPage() && isFusionLightTheme() ? 0xFF1D8F5A : Color.WHITE);
         CustomMovement.bind(view);
     }
 
@@ -2675,7 +2676,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void cycleFusionTheme() {
-        Setting.putTmdbDetailTheme(Setting.nextTmdbDetailTheme(Setting.getTmdbDetailTheme()));
+        Setting.putTmdbDetailTheme(isFusionLightTheme() ? 1 : 2);
         applyFusionThemeSurface();
         updateFusionThemeButton();
         if (mTmdbHeaderView != null && mTmdbUIAdapter != null && mTmdbUIAdapter.isLoaded()) {
@@ -2698,6 +2699,24 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.scroll.setBackgroundColor(Color.TRANSPARENT);
         mBinding.swipeLayout.setBackgroundColor(Color.TRANSPARENT);
         mBinding.progressLayout.setBackgroundColor(Color.TRANSPARENT);
+        applyFusionNativeTextColors();
+    }
+
+    private void applyFusionNativeTextColors() {
+        if (!Setting.isFusionDetailPage() || mBinding.nativeContentContainer == null) return;
+        tintFusionNativeTextTree(mBinding.nativeContentContainer, isFusionLightTheme());
+    }
+
+    private void tintFusionNativeTextTree(View view, boolean light) {
+        if (view instanceof RecyclerView) return;
+        if (view instanceof TextView textView) {
+            textView.setTextColor(light ? 0xFF12202D : 0xFFFFFFFF);
+            textView.setLinkTextColor(light ? 0xFF1D8F5A : Color.WHITE);
+            if (light) textView.setShadowLayer(0, 0, 0, 0);
+            else textView.setShadowLayer(ResUtil.dp2px(2), 0, ResUtil.dp2px(1), 0xB0000000);
+        }
+        if (!(view instanceof ViewGroup group)) return;
+        for (int i = 0; i < group.getChildCount(); i++) tintFusionNativeTextTree(group.getChildAt(i), light);
     }
 
     private void updateFusionThemeButton() {
@@ -2717,15 +2736,14 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private String fusionThemeLabel() {
-        if (Setting.isTmdbCinemaStyle()) return getString(R.string.detail_theme_dark);
         int theme = Setting.getTmdbDetailTheme();
+        if (Setting.isTmdbCinemaStyle()) return Setting.resolveTmdbDetailLightTheme(theme, isSystemNight()) ? getString(R.string.detail_theme_light) : getString(R.string.detail_theme_dark);
         if (theme == 1) return getString(R.string.detail_theme_dark);
         if (theme == 2) return getString(R.string.detail_theme_light);
         return getString(R.string.detail_theme_auto);
     }
 
     private boolean isFusionLightTheme() {
-        if (Setting.isTmdbCinemaStyle()) return false;
         return Setting.resolveTmdbDetailLightTheme(Setting.getTmdbDetailTheme(), isSystemNight());
     }
 

@@ -1398,7 +1398,7 @@ public class TmdbHeaderView {
     }
 
     private void styleFusionBackdropLabels(boolean dark) {
-        for (int id : BACKDROP_SECTION_LABELS) styleFusionBackdropText(id, dark ? COLOR_FUSION_BACKDROP_TEXT : 0xFF12202D, dark);
+        for (int id : BACKDROP_SECTION_LABELS) styleFusionBackdropText(id, COLOR_FUSION_BACKDROP_TEXT, true);
     }
 
     private void styleFusionExternalLinks(boolean dark) {
@@ -1461,12 +1461,18 @@ public class TmdbHeaderView {
         if (view == null) return;
         view.setTextColor(color);
         if (shadow) applyFusionTextShadow(view);
+        else if (Setting.isFusionDetailPage() && isLightDetailChrome()) applyFusionLightTextShadow(view);
         else clearTextShadow(view);
     }
 
     private void applyFusionTextShadow(TextView view) {
         if (view == null) return;
         view.setShadowLayer(ResUtil.dp2px(2), 0, ResUtil.dp2px(1), COLOR_FUSION_TEXT_SHADOW);
+    }
+
+    private void applyFusionLightTextShadow(TextView view) {
+        if (view == null) return;
+        view.setShadowLayer(ResUtil.dp2px(2), 0, ResUtil.dp2px(1), 0xCCFFFFFF);
     }
 
     private void clearBackdropTextShadows() {
@@ -1818,9 +1824,15 @@ public class TmdbHeaderView {
         linkItem.setPadding(0, 12, 0, 12);
         linkItem.setClickable(true);
         linkItem.setFocusable(true);
+        android.graphics.drawable.GradientDrawable contentBackground = null;
+        if (lightChrome) {
+            contentBackground = new android.graphics.drawable.GradientDrawable();
+            contentBackground.setColor(0x40FFFFFF);
+            contentBackground.setCornerRadius(ResUtil.dp2px(10));
+        }
         android.graphics.drawable.Drawable background = new android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf(lightChrome ? 0x1A12202D : 0x33FFFFFF),
-                null,
+                contentBackground,
                 null
         );
         linkItem.setBackground(background);
