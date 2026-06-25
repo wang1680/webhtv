@@ -760,6 +760,10 @@ public class Setting {
         return mode == DETAIL_OPEN_FUSION || mode == DETAIL_OPEN_ENHANCED || mode == DETAIL_OPEN_PLAYER || mode == DETAIL_OPEN_ORIGINAL_ENHANCED;
     }
 
+    public static boolean isStandaloneTmdbDetailMode(int mode) {
+        return mode == DETAIL_OPEN_FUSION || mode == DETAIL_OPEN_ENHANCED || mode == DETAIL_OPEN_PLAYER;
+    }
+
     public static boolean isFusionDetailPage() {
         return getDetailOpenMode() == DETAIL_OPEN_FUSION;
     }

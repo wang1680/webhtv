@@ -964,6 +964,7 @@ public class PlayerManager implements ParseCallback {
     public void addDanmaku(Danmaku item) {
         if (danmakuController == null || item.isEmpty()) return;
         if (spec != null) spec.addDanmaku(item);
+        if (currentDanmakuUrl == null) setDanmaku(item);
     }
 
     @Override

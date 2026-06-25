@@ -24,6 +24,16 @@ public class SettingDetailModeTest {
     }
 
     @Test
+    public void standaloneTmdbDetailModes_includeFusionButExcludeOriginalEnhanced() {
+        assertTrue(Setting.isStandaloneTmdbDetailMode(Setting.DETAIL_OPEN_FUSION));
+        assertTrue(Setting.isStandaloneTmdbDetailMode(Setting.DETAIL_OPEN_ENHANCED));
+        assertTrue(Setting.isStandaloneTmdbDetailMode(Setting.DETAIL_OPEN_PLAYER));
+        assertFalse(Setting.isStandaloneTmdbDetailMode(Setting.DETAIL_OPEN_ORIGINAL_ENHANCED));
+        assertFalse(Setting.isStandaloneTmdbDetailMode(Setting.DETAIL_OPEN_DIRECT));
+        assertFalse(Setting.isStandaloneTmdbDetailMode(Setting.DETAIL_OPEN_CINEMA));
+    }
+
+    @Test
     public void nativeTheme_isSeparateFromLegacyThemes() {
         assertNotEquals(Setting.DETAIL_STYLE_PROFILE, Setting.DETAIL_STYLE_NATIVE);
         assertNotEquals(Setting.DETAIL_STYLE_CINEMA, Setting.DETAIL_STYLE_NATIVE);

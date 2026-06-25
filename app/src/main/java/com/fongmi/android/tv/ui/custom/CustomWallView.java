@@ -3,7 +3,6 @@ package com.fongmi.android.tv.ui.custom;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -28,7 +27,6 @@ import com.fongmi.android.tv.event.ConfigEvent;
 import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.utils.FileUtil;
-import com.fongmi.android.tv.utils.ResUtil;
 import com.github.catvod.crawler.SpiderDebug;
 
 import org.greenrobot.eventbus.EventBus;
@@ -68,16 +66,19 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         if (isInEditMode()) return;
+        boolean loadedPlaceholder = false;
         if (binding == null) {
             binding = ViewWallBinding.inflate(LayoutInflater.from(getContext()), this, true);
             loadPlaceholder();
+            loadedPlaceholder = true;
         }
         if (!observerAdded) {
             ((ComponentActivity) getContext()).getLifecycle().addObserver(this);
             observerAdded = true;
         }
         removeCallbacks(refreshRunnable);
-        post(refreshRunnable);
+        if (loadedPlaceholder && isStaticBuiltInWall()) theme();
+        else post(refreshRunnable);
     }
 
     @Override
@@ -151,7 +152,9 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
 
     private void loadDesign(int wall) {
         if (!isReady()) return;
-        binding.image.setImageDrawable(createDesignDrawable(wall));
+        int resId = getDesignResId(wall);
+        if (resId != 0) binding.image.setImageResource(resId);
+        else loadColor(Setting.getBuiltInWallColor(wall));
     }
 
     private void loadImage() {
@@ -167,21 +170,43 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
         int type = Setting.getWallType();
         Drawable cache = cache();
         if (isBuiltInColor(wall, type)) binding.image.setImageDrawable(new ColorDrawable(Setting.getBuiltInWallColor(wall)));
-        else if (isBuiltInDesign(wall, type)) binding.image.setImageDrawable(createDesignDrawable(wall));
+        else if (isBuiltInDesign(wall, type)) loadDesign(wall);
         else if (isGreen(wall, type)) binding.image.setImageResource(R.drawable.wallpaper_1);
         else if (cache != null) binding.image.setImageDrawable(cache);
         else binding.image.setImageDrawable(new ColorDrawable(DEFAULT_WALL_COLOR));
     }
 
-    private Drawable createDesignDrawable(int wall) {
-        try {
-            int width = Math.min(ResUtil.getScreenWidth(getContext()), ResUtil.getScreenHeight(getContext()));
-            int height = Math.max(ResUtil.getScreenWidth(getContext()), ResUtil.getScreenHeight(getContext()));
-            Bitmap bitmap = BuiltInWallDrawable.createBitmap(wall, width, height);
-            return new BitmapDrawable(getResources(), bitmap);
-        } catch (Throwable e) {
-            return new ColorDrawable(Setting.getBuiltInWallColor(wall));
-        }
+    private int getDesignResId(int wall) {
+        return switch (wall) {
+            case Setting.WALL_AURORA_GLASS -> R.drawable.wallpaper_design_10_aurora_glass;
+            case Setting.WALL_SUNSET_PRISM -> R.drawable.wallpaper_design_11_sunset_prism;
+            case Setting.WALL_MINT_GLACIER -> R.drawable.wallpaper_design_12_mint_glacier;
+            case Setting.WALL_LIQUID_CHROME -> R.drawable.wallpaper_design_13_liquid_chrome;
+            case Setting.WALL_NEON_BERRY -> R.drawable.wallpaper_design_14_neon_berry;
+            case Setting.WALL_CHAMPAGNE_MIST -> R.drawable.wallpaper_design_15_champagne_mist;
+            case Setting.WALL_GLASS_GRADIENT -> R.drawable.wallpaper_design_16_glass_gradient;
+            case Setting.WALL_DEEP_SPACE_GLASS -> R.drawable.wallpaper_design_17_deep_space_glass;
+            case Setting.WALL_POLAR_LIGHT_GLASS -> R.drawable.wallpaper_design_18_polar_light_glass;
+            case Setting.WALL_NEON_CYBER -> R.drawable.wallpaper_design_19_neon_cyber;
+            case Setting.WALL_WARM_MOON_GLASS -> R.drawable.wallpaper_design_20_warm_moon_glass;
+            case Setting.WALL_CRYSTAL_SKY -> R.drawable.wallpaper_design_21_crystal_sky;
+            case Setting.WALL_DREAM_PURPLE -> R.drawable.wallpaper_design_22_dream_purple;
+            case Setting.WALL_SKY_MINT -> R.drawable.wallpaper_design_23_sky_mint;
+            case Setting.WALL_FOREST_MIST -> R.drawable.wallpaper_design_24_forest_mist;
+            case Setting.WALL_DAYLIGHT_MINIMAL -> R.drawable.wallpaper_design_25_daylight_minimal;
+            case Setting.WALL_DEEP_SEA -> R.drawable.wallpaper_design_26_deep_sea;
+            case Setting.WALL_VIOLET_SMOKE -> R.drawable.wallpaper_design_27_violet_smoke;
+            case Setting.WALL_ROSE_VEIL -> R.drawable.wallpaper_design_28_rose_veil;
+            case Setting.WALL_EMERALD_AURORA -> R.drawable.wallpaper_design_29_emerald_aurora;
+            case Setting.WALL_BLUE_SILK -> R.drawable.wallpaper_design_30_blue_silk;
+            case Setting.WALL_PEACH_DAWN -> R.drawable.wallpaper_design_31_peach_dawn;
+            case Setting.WALL_GRAPHITE_SMOKE -> R.drawable.wallpaper_design_32_graphite_smoke;
+            case Setting.WALL_PASTEL_PRISM -> R.drawable.wallpaper_design_33_pastel_prism;
+            case Setting.WALL_MIDNIGHT_MOON -> R.drawable.wallpaper_design_34_midnight_moon;
+            case Setting.WALL_CYAN_CRYSTAL -> R.drawable.wallpaper_design_35_cyan_crystal;
+            case Setting.WALL_LAVENDER_CRYSTAL -> R.drawable.wallpaper_design_36_lavender_crystal;
+            default -> 0;
+        };
     }
 
     private void loadVideo(File file) {
@@ -272,6 +297,12 @@ public class CustomWallView extends FrameLayout implements DefaultLifecycleObser
 
     private boolean isGreen(int wall, int type) {
         return type == TYPE_RES && wall == Setting.WALL_GREEN;
+    }
+
+    private boolean isStaticBuiltInWall() {
+        int wall = Setting.getWall();
+        int type = Setting.getWallType();
+        return isBuiltInColor(wall, type) || isBuiltInDesign(wall, type) || isGreen(wall, type);
     }
 
     @Override

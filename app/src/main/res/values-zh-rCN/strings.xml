@@ -845,6 +845,10 @@
     <string name="danmaku_api_invalid">弹幕接口地址无效</string>
     <string name="danmaku_auto_load">自动搜索</string>
     <string name="danmaku_spider_first">爬虫优先</string>
+    <string name="danmaku_search_title">弹幕搜索</string>
+    <string name="danmaku_search_empty">没有找到匹配的弹幕</string>
+    <string name="danmaku_source_default">弹幕</string>
+    <string name="danmaku_source_count">%1$d 条</string>
 
     <!-- Search -->
     <string name="search_keyword">关键字…</string>

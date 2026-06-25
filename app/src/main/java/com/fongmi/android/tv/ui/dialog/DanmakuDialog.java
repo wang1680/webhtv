@@ -74,6 +74,14 @@ public final class DanmakuDialog extends BaseBottomSheetDialog implements Danmak
         DanmakuSearchDialog.create().player(player).show(getActivity());
     }
 
+    public void refresh() {
+        if (binding == null || player == null) return;
+        adapter.clear();
+        adapter.addAll(player.getDanmakus());
+        binding.recycler.setVisibility(adapter.getItemCount() == 0 ? View.GONE : View.VISIBLE);
+        if (adapter.getItemCount() > 0) binding.recycler.post(() -> binding.recycler.scrollToPosition(adapter.getSelected()));
+    }
+
     private void onChoose(View view) {
         FileChooser.from(launcher).show(new String[]{"text/*"});
         player.pause();

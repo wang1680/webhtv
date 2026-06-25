@@ -132,6 +132,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private static final int TMDB_OVERVIEW_ROW_GAP_DP = 12;
     private static final int TMDB_OVERVIEW_BOTTOM_GUARD_DP = 6;
     private static final int OMDB_FULL_RATING_TEXT_MAX_LENGTH = 20;
+    private static final String EXTRA_TMDB_PLAY_FLAG = "tmdb_play_flag";
+    private static final String EXTRA_TMDB_PLAY_EPISODE_NAME = "tmdb_play_episode_name";
+    private static final String EXTRA_TMDB_PLAY_EPISODE_URL = "tmdb_play_episode_url";
 
     private ActivityVideoBinding mBinding;
     private ViewGroup.LayoutParams mFrameParams;
@@ -279,7 +282,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private static boolean shouldOpenLegacyTmdbDetail(String key, boolean cast) {
         int mode = Setting.getDetailOpenMode();
-        return canOpenLegacyTmdbDetail(key, cast) && Setting.isTmdbDetailPage() && (mode == Setting.DETAIL_OPEN_ENHANCED || mode == Setting.DETAIL_OPEN_PLAYER);
+        return canOpenLegacyTmdbDetail(key, cast) && Setting.isTmdbDetailPage() && Setting.isStandaloneTmdbDetailMode(mode);
     }
 
     public static void start(Activity activity, String url) {
@@ -366,6 +369,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     public static void startDirectTmdb(Activity activity, String key, String id, String name, String pic, String mark, ArrayList<String> episodeTitles, TmdbItem item, Vod tmdbVod) {
+        startDirectTmdb(activity, key, id, name, pic, mark, episodeTitles, item, tmdbVod, null, null, null);
+    }
+
+    public static void startDirectTmdb(Activity activity, String key, String id, String name, String pic, String mark, ArrayList<String> episodeTitles, TmdbItem item, Vod tmdbVod, String playFlag, String playEpisodeName, String playEpisodeUrl) {
         if (AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
         Intent intent = new Intent(activity, VideoActivity.class);
         intent.putExtra("tmdbMode", item != null);
@@ -378,8 +385,15 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         intent.putExtra("key", key);
         intent.putExtra("id", id);
         intent.putStringArrayListExtra("tmdb_episode_titles", episodeTitles);
+        putIntentPlaybackSelection(intent, playFlag, playEpisodeName, playEpisodeUrl);
         putTmdbVod(intent, tmdbVod);
         activity.startActivity(intent);
+    }
+
+    private static void putIntentPlaybackSelection(Intent intent, String playFlag, String playEpisodeName, String playEpisodeUrl) {
+        if (!TextUtils.isEmpty(playFlag)) intent.putExtra(EXTRA_TMDB_PLAY_FLAG, playFlag);
+        if (!TextUtils.isEmpty(playEpisodeName)) intent.putExtra(EXTRA_TMDB_PLAY_EPISODE_NAME, playEpisodeName);
+        if (!TextUtils.isEmpty(playEpisodeUrl)) intent.putExtra(EXTRA_TMDB_PLAY_EPISODE_URL, playEpisodeUrl);
     }
 
     private static void putTmdbVod(Intent intent, Vod vod) {
@@ -417,6 +431,18 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private String getMark() {
         return Objects.toString(getIntent().getStringExtra("mark"), "");
+    }
+
+    private String getIntentPlaybackFlag() {
+        return Objects.toString(getIntent().getStringExtra(EXTRA_TMDB_PLAY_FLAG), "");
+    }
+
+    private String getIntentPlaybackEpisodeName() {
+        return Objects.toString(getIntent().getStringExtra(EXTRA_TMDB_PLAY_EPISODE_NAME), "");
+    }
+
+    private String getIntentPlaybackEpisodeUrl() {
+        return Objects.toString(getIntent().getStringExtra(EXTRA_TMDB_PLAY_EPISODE_URL), "");
     }
 
     private String getKey() {
@@ -613,6 +639,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.episodeReverse.setOnClickListener(view -> onRevSort());
         mBinding.episodeViewMode.setOnClickListener(view -> toggleEpisodeViewMode());
         mBinding.control.action.scale.setOnClickListener(view -> onScale());
+        mBinding.control.action.actionQuality.setOnClickListener(view -> onQuality());
         mBinding.control.action.lut.setOnClickListener(view -> onLut());
         mBinding.control.action.speed.setOnClickListener(view -> onSpeed());
         mBinding.control.action.reset.setOnClickListener(view -> onReset());
@@ -1108,9 +1135,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             return;
         }
         mQualityAdapter.addAll(result);
+        mQualityAdapter.setPosition(mQualityAdapter.getPosition());
         setUseParse(result.shouldUseParse());
         setQualityVisible(result.getUrl().isMulti());
-        result.getUrl().set(mQualityAdapter.getPosition());
         if (result.hasArtwork() && !shouldKeepPushArtwork()) setArtwork(result.getArtwork());
         if (result.hasDesc()) mBinding.content.setTag(result.getDesc());
         if (result.hasPosition()) mHistory.setPosition(result.getPosition());
@@ -1262,13 +1289,57 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void setQualityVisible(boolean visible) {
         mBinding.quality.setVisibility(visible ? View.VISIBLE : View.GONE);
+        mBinding.control.action.actionQuality.setVisibility(visible ? View.VISIBLE : View.GONE);
+        updateActionQuality(mViewModel.getPlayer().getValue());
         updateFocus();
         updateEpisodeWindow();
         setR2Callback();
     }
 
+    private void updateActionQuality(Result result) {
+        String name = getQualityName(result, result == null ? 0 : result.getUrl().getPosition());
+        mBinding.control.action.actionQuality.setText(TextUtils.isEmpty(name) ? getString(R.string.detail_quality) : getString(R.string.detail_quality) + " " + name);
+    }
+
+    private String[] getQualityItems(Result result) {
+        int count = result.getUrl().getValues().size();
+        String[] items = new String[count];
+        for (int i = 0; i < count; i++) items[i] = getQualityName(result, i);
+        return items;
+    }
+
+    private String getQualityName(Result result, int position) {
+        if (result == null || position < 0 || position >= result.getUrl().getValues().size()) return "";
+        String name = result.getUrl().n(position);
+        return TextUtils.isEmpty(name) ? String.valueOf(position + 1) : name;
+    }
+
+    private void onQuality() {
+        Result result = mViewModel.getPlayer().getValue();
+        if (result == null || !result.getUrl().isMulti()) return;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.detail_quality)
+                .setSingleChoiceItems(getQualityItems(result), result.getUrl().getPosition(), (dialog, which) -> {
+                    dialog.dismiss();
+                    changeQuality(result, which);
+                })
+                .show();
+    }
+
+    private void changeQuality(Result result, int position) {
+        if (result == null || !result.getUrl().isMulti()) return;
+        if (result.getUrl().getPosition() == position) {
+            updateActionQuality(result);
+            return;
+        }
+        mQualityAdapter.setPosition(position);
+        updateActionQuality(result);
+        onItemClick(result);
+    }
+
     @Override
     public void onItemClick(Result result) {
+        updateActionQuality(result);
         beginPlayHealth();
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
     }
@@ -2008,6 +2079,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mHistory = mHistory == null ? createHistory(item) : mHistory;
         if (!TextUtils.isEmpty(getWallPic())) mHistory.setWallPic(getWallPic());
         if (!TextUtils.isEmpty(getMark())) mHistory.setVodRemarks(getMark());
+        applyIntentPlaybackSelection(item);
         if (Setting.isIncognito() && mHistory.getKey().equals(getHistoryKey())) mHistory.delete();
         mBinding.control.action.opening.setText(mHistory.getOpening() <= 0 ? getString(R.string.play_op) : Util.timeMs(mHistory.getOpening()));
         mBinding.control.action.ending.setText(mHistory.getEnding() <= 0 ? getString(R.string.play_ed) : Util.timeMs(mHistory.getEnding()));
@@ -2060,6 +2132,43 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         history.setWallPic(getWallPic());
         history.findEpisode(item.getFlags());
         return history;
+    }
+
+    private void applyIntentPlaybackSelection(Vod item) {
+        String playFlag = getIntentPlaybackFlag();
+        String playName = getIntentPlaybackEpisodeName();
+        String playUrl = getIntentPlaybackEpisodeUrl();
+        if (TextUtils.isEmpty(playFlag) && TextUtils.isEmpty(playName) && TextUtils.isEmpty(playUrl)) return;
+        Flag flag = findIntentPlaybackFlag(item.getFlags(), playFlag, playUrl);
+        if (flag == null) return;
+        Episode episode = findIntentPlaybackEpisode(flag, playName, playUrl);
+        boolean sameFlag = TextUtils.equals(mHistory.getVodFlag(), flag.getFlag());
+        boolean sameEpisode = episode != null && episode.matches(mHistory.getEpisode());
+        if (!sameFlag || (episode != null && !sameEpisode)) {
+            mHistory.setPosition(C.TIME_UNSET);
+            mHistory.setDuration(C.TIME_UNSET);
+        }
+        mHistory.setVodFlag(flag.getFlag());
+        if (episode == null) return;
+        mHistory.setVodRemarks(episode.getName());
+        mHistory.setEpisodeUrl(episode.getUrl());
+    }
+
+    private Flag findIntentPlaybackFlag(List<Flag> flags, String playFlag, String playUrl) {
+        if (flags == null || flags.isEmpty()) return null;
+        for (Flag flag : flags) if (!TextUtils.isEmpty(playFlag) && TextUtils.equals(playFlag, flag.getFlag())) return flag;
+        if (!TextUtils.isEmpty(playUrl)) {
+            for (Flag flag : flags) for (Episode episode : flag.getEpisodes()) if (TextUtils.equals(playUrl, episode.getUrl())) return flag;
+        }
+        return null;
+    }
+
+    private Episode findIntentPlaybackEpisode(Flag flag, String playName, String playUrl) {
+        if (flag == null || flag.getEpisodes().isEmpty()) return null;
+        if (!TextUtils.isEmpty(playUrl)) {
+            for (Episode episode : flag.getEpisodes()) if (TextUtils.equals(playUrl, episode.getUrl())) return episode;
+        }
+        return TextUtils.isEmpty(playName) ? null : flag.find(playName, true);
     }
 
     private void saveHistory() {

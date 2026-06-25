@@ -438,7 +438,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             player().clear();
         }
         binding.loading.setVisibility(View.VISIBLE);
-        binding.playerProgress.setVisibility(View.GONE);
+        hideInlineLoading();
         binding.playerError.setVisibility(View.GONE);
         binding.playerControls.setVisibility(View.GONE);
         binding.detailControlHost.setVisibility(View.GONE);
@@ -1006,6 +1006,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             binding.playerTitle.setTextColor(0xFFFFFFFF);
             tintInlineControl(inlineControlsView());
             tintInlineDisplay();
+            tintInlineLoading();
         }
         if (episodeAdapter != null) {
             episodeAdapter.setLight(lightTheme);
@@ -1243,6 +1244,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerDisplayTraffic.setTextColor(0xFFFFFFFF);
     }
 
+    private void tintInlineLoading() {
+        binding.playerProgressTraffic.setTextColor(0xFFFFFFFF);
+        binding.playerProgressTraffic.setAlpha(1f);
+    }
+
     private void tintInlineGestureOverlay() {
         tintInlineControl(binding.gestureSeek);
         tintInlineControl(binding.gestureBright);
@@ -1423,7 +1429,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (!inlinePlaybackLoading) return;
         inlinePlaybackGeneration++;
         inlinePlaybackLoading = false;
-        binding.playerProgress.setVisibility(View.GONE);
+        hideInlineLoading();
         updateInlineDisplayPanel();
     }
 
@@ -2794,12 +2800,24 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void playDefaultPlayback() {
-        VideoActivity.startDirectTmdb(this, getKeyText(), getIdText(), playbackHistoryName(), playbackHistoryPic(), playbackMark(), selectedTmdbEpisodeTitles(), playbackTmdbItem(), playbackTmdbVod());
+        VideoActivity.startDirectTmdb(this, getKeyText(), getIdText(), playbackHistoryName(), playbackHistoryPic(), playbackMark(), selectedTmdbEpisodeTitles(), playbackTmdbItem(), playbackTmdbVod(), playbackFlag(), playbackEpisodeName(), playbackEpisodeUrl());
     }
 
     private String playbackMark() {
         if (selectedEpisode != null && !TextUtils.isEmpty(selectedEpisode.getName())) return selectedEpisode.getName();
         return getMarkText();
+    }
+
+    private String playbackFlag() {
+        return selectedFlag == null ? "" : selectedFlag.getFlag();
+    }
+
+    private String playbackEpisodeName() {
+        return selectedEpisode == null ? playbackMark() : selectedEpisode.getName();
+    }
+
+    private String playbackEpisodeUrl() {
+        return selectedEpisode == null ? "" : selectedEpisode.getUrl();
     }
 
     private void setTopMargin(View view, int dp) {
@@ -3416,16 +3434,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void playInline() {
         if (selectedFlag == null || selectedEpisode == null) return;
-        binding.playerError.setVisibility(View.GONE);
-        binding.playerProgress.setVisibility(View.VISIBLE);
         inlinePlaybackLoading = true;
         int generation = ++inlinePlaybackGeneration;
         String key = getKeyText();
         String flag = selectedFlag.getFlag();
         String episodeUrl = selectedEpisode.getUrl();
         stopInlinePlayerForReload();
+        showInlineLoading();
         updateInlineDisplayPanel();
-        showInlineControls(true);
         updateInlineTitle();
         Task.execute(() -> {
             try {
@@ -3512,10 +3528,30 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void showInlineError(String text) {
         inlinePlaybackLoading = false;
-        binding.playerProgress.setVisibility(View.GONE);
+        hideInlineLoading();
         binding.playerError.setText(text);
         binding.playerError.setVisibility(View.VISIBLE);
         updateInlineDisplayPanel();
+    }
+
+    private void showInlineLoading() {
+        binding.playerError.setVisibility(View.GONE);
+        binding.playerProgress.setVisibility(View.VISIBLE);
+        tintInlineLoading();
+        updateInlineLoadingTraffic();
+        hideInlineControls();
+    }
+
+    private void hideInlineLoading() {
+        binding.playerProgress.setVisibility(View.GONE);
+        binding.playerProgressTraffic.setVisibility(View.GONE);
+        Traffic.reset();
+    }
+
+    private void updateInlineLoadingTraffic() {
+        if (binding == null || binding.playerProgress.getVisibility() != View.VISIBLE) return;
+        Traffic.setSpeed(binding.playerProgressTraffic);
+        tintInlineLoading();
     }
 
     private void toggleInlinePlayback() {
@@ -5027,7 +5063,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             player().stop();
             player().clear();
         }
-        binding.playerProgress.setVisibility(View.GONE);
+        hideInlineLoading();
         binding.playerError.setVisibility(View.GONE);
         updateInlineDisplayPanel();
         binding.playerPanel.setVisibility(View.GONE);
@@ -5270,9 +5306,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     @Override
     protected void onStateChanged(int state) {
         if (!isInlinePlayerMode()) return;
-        if (state == Player.STATE_BUFFERING) binding.playerProgress.setVisibility(View.VISIBLE);
+        if (state == Player.STATE_BUFFERING) showInlineLoading();
         if (state == Player.STATE_READY) {
-            binding.playerProgress.setVisibility(View.GONE);
+            hideInlineLoading();
             hideInlineControls();
             player().reset();
             applyInlineStartPosition();
@@ -5466,7 +5502,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     @Override
     public void onTimeChanged(long time) {
-        if (!isInlinePlayerMode() || inlinePlaybackLoading || !isOwner() || history == null || service() == null || player() == null || player().isEmpty()) return;
+        if (!isInlinePlayerMode()) return;
+        updateInlineLoadingTraffic();
+        if (inlinePlaybackLoading || !isOwner() || history == null || service() == null || player() == null || player().isEmpty()) return;
         long position = player().getPosition();
         long duration = player().getDuration();
         boolean canUpdateProgress = inlineStartPositionApplied || getInlineStartPosition() <= 0;

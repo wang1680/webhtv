@@ -102,8 +102,12 @@ public class PlayerOsdController {
             return false;
         }
         boolean enabled = PlayerSetting.isOsdEnabled();
-        root.setVisibility(enabled ? View.VISIBLE : View.GONE);
-        if (!enabled) return false;
+        if (!enabled) {
+            root.setVisibility(View.GONE);
+            return false;
+        }
+        root.setVisibility(controlsVisible ? View.GONE : View.VISIBLE);
+        if (controlsVisible) return true;
         setTextSize(miniSp);
         PlayerManager player = source.getPlayer();
         setTopLeft(player);

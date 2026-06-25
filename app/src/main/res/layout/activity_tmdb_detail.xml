@@ -141,12 +141,32 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent" />
 
-                <ProgressBar
+                <LinearLayout
                     android:id="@+id/playerProgress"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:visibility="gone" />
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <ProgressBar
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:indeterminateTint="@android:color/white" />
+
+                    <TextView
+                        android:id="@+id/playerProgressTraffic"
+                        style="@style/Shadow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:fontFeatureSettings="tnum"
+                        android:textColor="@android:color/white"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/playerError"

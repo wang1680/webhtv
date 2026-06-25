@@ -847,6 +847,10 @@
     <string name="danmaku_api_invalid">Invalid danmaku API URL</string>
     <string name="danmaku_auto_load">Auto search</string>
     <string name="danmaku_spider_first">Spider first</string>
+    <string name="danmaku_search_title">Danmaku search</string>
+    <string name="danmaku_search_empty">No matching danmaku found</string>
+    <string name="danmaku_source_default">Danmaku</string>
+    <string name="danmaku_source_count">%1$d items</string>
 
     <!-- Search -->
     <string name="search_keyword">Keywords…</string>

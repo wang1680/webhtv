@@ -101,6 +101,7 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
     private Runnable mR4;
     private Clock mClock;
     private View mFocus2;
+    private boolean playbackCatchup;
     private int count;
 
     public static void start(Context context) {
@@ -402,21 +403,25 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
     }
 
     private void onSpeed() {
+        if (!player().isVod()) return;
         mBinding.control.action.speed.setText(player().addSpeed());
         PlayerSetting.putDefaultSpeed(player().getSpeed());
     }
 
     private void onSpeedAdd() {
+        if (!player().isVod()) return;
         mBinding.control.action.speed.setText(player().addSpeed(0.25f));
         PlayerSetting.putDefaultSpeed(player().getSpeed());
     }
 
     private void onSpeedSub() {
+        if (!player().isVod()) return;
         mBinding.control.action.speed.setText(player().subSpeed(0.25f));
         PlayerSetting.putDefaultSpeed(player().getSpeed());
     }
 
     private boolean onSpeedLong() {
+        if (!player().isVod()) return true;
         mBinding.control.action.speed.setText(player().toggleSpeed());
         PlayerSetting.putDefaultSpeed(player().getSpeed());
         return true;
@@ -792,6 +797,7 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
 
     private void fetch(EpgData item) {
         if (mChannel == null) return;
+        playbackCatchup = true;
         mViewModel.getUrl(mChannel, item);
         player().clear();
         player().stop();
@@ -800,6 +806,7 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
 
     private void fetch() {
         if (mChannel == null) return;
+        playbackCatchup = false;
         LiveConfig.get().setKeep(mChannel);
         mViewModel.getUrl(mChannel);
         player().clear();
@@ -818,7 +825,7 @@ public class LiveActivity extends PlaybackActivity implements GroupAdapter.OnCli
         clearPendingReload();
         mPlaybackKey = realUrl;
         startPlayer(mPlaybackKey, result, false, getHome().getTimeout(), buildMetadata());
-        mBinding.control.action.speed.setText(player().setSpeed(PlayerSetting.getDefaultSpeed()));
+        mBinding.control.action.speed.setText(player().setSpeed(playbackCatchup ? PlayerSetting.getDefaultSpeed() : 1f));
     }
 
     private boolean isSameReloadUrl(String realUrl) {
