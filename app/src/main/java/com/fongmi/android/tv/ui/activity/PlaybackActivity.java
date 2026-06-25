@@ -78,7 +78,16 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
 
     protected void finishPlayback() {
         markPlaybackExiting();
+        stopPlayback();
         finish();
+    }
+
+    protected void stopPlayback() {
+        if (mService != null && isOwner()) {
+            mService.shutdown();
+        } else if (mController != null) {
+            mController.stop();
+        }
     }
 
     protected void updateNavigationKey() {
