@@ -32,9 +32,11 @@ import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.KeyUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
+import com.fongmi.android.tv.utils.TmdbImageSelector;
 import com.fongmi.android.tv.utils.TmdbImageSaver;
 import com.fongmi.android.tv.utils.Util;
 import com.google.android.material.button.MaterialButton;
@@ -217,7 +219,7 @@ public class PhotoViewerDialog {
         String url = convertToHighRes(photos.get(position));
         if (TextUtils.isEmpty(url)) return;
         Glide.with(activity)
-                .load(url)
+                .load(ImgUtil.getUrl(url))
                 .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .preload();
     }
@@ -269,12 +271,7 @@ public class PhotoViewerDialog {
      * 兼容 TMDB 官方域名和自定义代理。
      */
     private String convertToHighRes(String url) {
-        if (TextUtils.isEmpty(url)) return url;
-        // 匹配 /t/p/wXXX/ 或 /t/p/hXXX/ 模式，替换为 /t/p/original/
-        String result = url.replaceFirst("(/t/p/)(w\\d+|h\\d+)(/)", "$1original$3");
-        if (!result.equals(url)) return result;
-        // 兜底：匹配通用 /wXXX/ 模式（兼容非标准路径格式）
-        return url.replaceFirst("/w\\d+/", "/original/");
+        return TmdbImageSelector.originalUrl(url);
     }
 
     /**
@@ -315,7 +312,7 @@ public class PhotoViewerDialog {
             holder.progress.setVisibility(View.VISIBLE);
             holder.imageView.setImageDrawable(null);
             Glide.with(holder.imageView.getContext())
-                    .load(convertToHighRes(urls.get(position)))
+                    .load(ImgUtil.getUrl(convertToHighRes(urls.get(position))))
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .listener(new RequestListener<Drawable>() {
                         @Override

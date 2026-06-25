@@ -118,6 +118,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.target.Target;
@@ -1876,28 +1877,40 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void showStaticBackdropImage(String title, String image) {
+        String highResImage = highResTmdbImage(image);
         backdropSlideVisibleView = binding.backdropFill;
         binding.backdropFill.setVisibility(View.VISIBLE);
         binding.backdropFill.setAlpha(backdropSlideAlpha());
         binding.backdropFill.setScaleType(backdropScaleType());
+        binding.backdropFill.setTag(R.id.image, highResImage);
         binding.backdrop.setVisibility(View.INVISIBLE);
         ImgUtil.clear(binding.backdrop);
-        loadBackdropImage(title, image, binding.backdropFill);
+        loadBackdropImage(title, highResImage, binding.backdropFill);
     }
 
     private void loadBackdropImage(String title, String image, ImageView target) {
         try {
-            com.bumptech.glide.RequestBuilder<Drawable> request = Glide.with(target).load(ImgUtil.getUrl(image));
+            String highResImage = highResTmdbImage(image);
+            Object model = ImgUtil.getUrl(highResImage);
+            if (model == null) {
+                ImgUtil.clear(target);
+                return;
+            }
+            target.setTag(R.id.image, highResImage);
+            com.bumptech.glide.RequestBuilder<Drawable> request = Glide.with(target)
+                    .load(model)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .dontAnimate();
             request = shouldCropBackdrop() ? request.centerCrop() : request.fitCenter();
             request.into(target);
         } catch (Throwable e) {
-            ImgUtil.load(title, image, target);
+            ImgUtil.load(title, highResTmdbImage(image), target, shouldCropBackdrop());
         }
     }
 
     private void bindBackdropSlideSource(String title, String image) {
         backdropSlideTitle = TextUtils.isEmpty(title) ? "" : title;
-        backdropSlidePrimary = TextUtils.isEmpty(image) ? "" : image;
+        backdropSlidePrimary = highResTmdbImage(image);
         refreshBackdropSlideshow();
     }
 
@@ -1919,8 +1932,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void addBackdropSlideItem(String url) {
-        if (TextUtils.isEmpty(url) || backdropSlideItems.contains(url)) return;
-        backdropSlideItems.add(url);
+        String highResUrl = highResTmdbImage(url);
+        if (TextUtils.isEmpty(highResUrl) || backdropSlideItems.contains(highResUrl)) return;
+        backdropSlideItems.add(highResUrl);
     }
 
     private String currentBackdropSlideImage() {
@@ -1942,7 +1956,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (!canRunBackdropSlideshow() || backdropSlideLoading) return;
         int next = nextBackdropSlideIndex();
         if (next < 0 || next >= backdropSlideItems.size()) return;
-        String url = backdropSlideItems.get(next);
+        String url = highResTmdbImage(backdropSlideItems.get(next));
         Object model = ImgUtil.getUrl(url);
         if (model == null) {
             onBackdropSlideFailed(++backdropSlideGeneration, next, url);
@@ -1954,7 +1968,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         backdropSlideLoading = true;
         backdropSlideLoadingView = targetView;
         try {
-            com.bumptech.glide.RequestBuilder<Drawable> request = Glide.with(this).load(model);
+            com.bumptech.glide.RequestBuilder<Drawable> request = Glide.with(this)
+                    .load(model)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .dontAnimate();
             request = shouldCropBackdrop() ? request.centerCrop() : request.fitCenter();
             request.listener(new RequestListener<Drawable>() {
                         @Override
@@ -2073,7 +2090,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private boolean shouldCropBackdrop() {
-        return true;
+        return !isFusionMode() || preferLandscapeBackground();
     }
 
     private int backdropFallbackBackground(ThemeColors colors) {
@@ -3148,6 +3165,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         try {
             Glide.with(image)
                     .load(ImgUtil.getUrl(highResTmdbImage(url)))
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .fitCenter()
                     .into(new CustomTarget<Drawable>() {
                         @Override
@@ -3187,7 +3205,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         for (Integer position : positions) {
             String url = photos.get(position);
             if (TextUtils.isEmpty(url)) continue;
-            Glide.with(this).load(ImgUtil.getUrl(highResTmdbImage(url))).preload();
+            Glide.with(this).load(ImgUtil.getUrl(highResTmdbImage(url))).diskCacheStrategy(DiskCacheStrategy.ALL).preload();
         }
     }
 
@@ -3217,12 +3235,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private String highResTmdbImage(String url) {
-        int marker = url.indexOf("/t/p/");
-        if (marker < 0) return url;
-        int sizeStart = marker + "/t/p/".length();
-        int sizeEnd = url.indexOf('/', sizeStart);
-        if (sizeEnd < 0) return url;
-        return url.substring(0, sizeStart) + "original" + url.substring(sizeEnd);
+        return TmdbImageSelector.originalUrl(url);
     }
 
     private String episodeDetailTitle(Episode episode, int episodeNumber, JsonObject detail) {

@@ -78,6 +78,12 @@ public class TmdbImageSelectorTest {
         assertEquals("https://image.tmdb.org/t/p/original/abc.jpg", TmdbImageSelector.originalUrl("https://image.tmdb.org/t/p/w780/abc.jpg"));
     }
 
+    @Test
+    public void originalUrl_handlesHeightAndAlreadyOriginalSegments() {
+        assertEquals("https://image.tmdb.org/t/p/original/abc.jpg", TmdbImageSelector.originalUrl("https://image.tmdb.org/t/p/h632/abc.jpg"));
+        assertEquals("https://image.tmdb.org/t/p/original/abc.jpg", TmdbImageSelector.originalUrl("https://image.tmdb.org/t/p/original/abc.jpg"));
+    }
+
     private JsonObject detail(String json) {
         return JsonParser.parseString(json).getAsJsonObject();
     }

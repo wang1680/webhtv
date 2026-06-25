@@ -139,6 +139,8 @@ public class TmdbSearchDialog {
         int horizontalMargin = dp(landscape ? 96 : 32);
         int availableWidth = Math.max(dp(280), metrics.widthPixels - horizontalMargin);
         int dialogWidth = Math.min(dp(760), Math.min(metrics.widthPixels - dp(16), availableWidth));
+        window.clearFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         window.setDimAmount(0);
         window.setLayout(dialogWidth, WindowManager.LayoutParams.WRAP_CONTENT);
     }
@@ -159,7 +161,8 @@ public class TmdbSearchDialog {
         if (!searchable) return;
         binding.query.setText(query);
         binding.query.setSelectAllOnFocus(true);
-        binding.querySearch.setVisibility(Util.isLeanback() ? View.GONE : View.VISIBLE);
+        binding.query.setOnClickListener(view -> showKeyboard());
+        binding.querySearch.setVisibility(View.VISIBLE);
         binding.querySearch.setOnClickListener(view -> search());
         binding.query.setOnEditorActionListener((view, actionId, event) -> {
             if (!isSearchAction(actionId, event)) return false;
@@ -168,6 +171,10 @@ public class TmdbSearchDialog {
         });
         binding.query.setOnKeyListener((view, keyCode, event) -> {
             if (!KeyUtil.isActionDown(event)) return false;
+            if (Util.isLeanback() && keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
+                showKeyboard();
+                return true;
+            }
             if (isSearchConfirmKey(event)) {
                 search();
                 return true;
@@ -177,6 +184,19 @@ public class TmdbSearchDialog {
             if (KeyUtil.isRightKey(event) && isCursorAtEnd()) return binding.querySearch.requestFocus();
             return false;
         });
+    }
+
+    private void showKeyboard() {
+        Window window = dialog == null ? null : dialog.getWindow();
+        if (window != null) {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                    | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        }
+        binding.query.setCursorVisible(true);
+        int length = binding.query.getText() == null ? 0 : binding.query.getText().length();
+        binding.query.setSelection(length);
+        Util.showKeyboard(binding.query);
     }
 
     private void search() {

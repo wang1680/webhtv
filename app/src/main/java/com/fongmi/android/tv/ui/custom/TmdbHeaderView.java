@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.TmdbItem;
@@ -617,8 +618,9 @@ public class TmdbHeaderView {
         java.util.List<String> photos = adapter.getPhotos();
         if (photos != null) {
             for (String photo : photos) {
-                if (!TextUtils.isEmpty(photo) && !backdropPhotos.contains(photo)) {
-                    backdropPhotos.add(photo);
+                String highResPhoto = TmdbImageSelector.originalUrl(photo);
+                if (!TextUtils.isEmpty(highResPhoto) && !backdropPhotos.contains(highResPhoto)) {
+                    backdropPhotos.add(highResPhoto);
                 }
             }
         }
@@ -655,11 +657,19 @@ public class TmdbHeaderView {
 
                 // 预加载下一张图片
                 int nextIndex = (currentBackdropIndex + 1) % backdropPhotos.size();
-                String nextUrl = backdropPhotos.get(nextIndex);
+                String nextUrl = TmdbImageSelector.originalUrl(backdropPhotos.get(nextIndex));
+                Object model = ImgUtil.getUrl(nextUrl);
+                if (model == null) {
+                    currentBackdropIndex = nextIndex;
+                    if (backdropHandler != null && backdropRunnable != null) backdropHandler.postDelayed(backdropRunnable, 500);
+                    return;
+                }
 
                 // 使用 Glide 预加载，加载完成后切换
                 Glide.with(activity)
-                        .load(nextUrl)
+                        .load(model)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .dontAnimate()
                         .centerCrop()
                         .listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
                             @Override
@@ -701,8 +711,15 @@ public class TmdbHeaderView {
 
     private void loadBackdropIntoView(String url) {
         if (TextUtils.isEmpty(url) || backdropView == null) return;
+        Object model = ImgUtil.getUrl(TmdbImageSelector.originalUrl(url));
+        if (model == null) return;
         backdropView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        Glide.with(activity).load(url).centerCrop().into(backdropView);
+        Glide.with(activity)
+                .load(model)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .dontAnimate()
+                .centerCrop()
+                .into(backdropView);
     }
 
     /**

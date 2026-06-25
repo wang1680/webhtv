@@ -83,7 +83,11 @@
             android:minHeight="48dp"
             android:nextFocusLeft="@id/query"
             android:nextFocusDown="@id/recycler"
-            android:text="@string/detail_tmdb_search_action" />
+            android:text="@string/detail_tmdb_search_action"
+            android:textColor="@color/dialog_primary_button_text"
+            app:backgroundTint="@color/dialog_primary_button_bg"
+            app:strokeColor="@color/dialog_outlined_button_stroke"
+            app:strokeWidth="2dp" />
 
     </LinearLayout>
 
