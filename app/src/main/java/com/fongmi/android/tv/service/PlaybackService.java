@@ -223,6 +223,7 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
         if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-lifecycle", "service shutdown %s", serviceState());
         running = false;
         stopAndClear();
+        removeForeground();
         stopSelf();
     }
 
