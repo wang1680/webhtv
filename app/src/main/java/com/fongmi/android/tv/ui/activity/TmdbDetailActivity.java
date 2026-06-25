@@ -1839,14 +1839,23 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void bindInitialArtwork() {
-        ImgUtil.load(getNameText(), getPicText(), binding.poster);
+        String initialTmdbPoster = Objects.toString(getIntent().getStringExtra("tmdb_poster"), "");
+        ImgUtil.load(getNameText(), TextUtils.isEmpty(initialTmdbPoster) ? getPicText() : TmdbImageSelector.originalUrl(initialTmdbPoster), binding.poster);
         bindBackdropImage(getNameText(), getBackdropText(), getPicText());
     }
 
     private void bindBackdrop() {
         bindBackdropImage(vod.getName(), tmdbBackdropUrl(), vod.getPic());
         episodeAdapter.setFallbackStillUrl(episodeFallbackStillUrl());
-        ImgUtil.load(vod.getName(), vod.getPic(), binding.poster);
+        ImgUtil.load(vod.getName(), tmdbPosterUrl(), binding.poster);
+    }
+
+    private String tmdbPosterUrl() {
+        String fallback = coalesce(
+                matchedTmdbItem == null ? "" : matchedTmdbItem.getPosterUrl(),
+                vod == null ? "" : vod.getPic(),
+                getPicText());
+        return TmdbImageSelector.poster(matchedTmdbDetail, tmdbConfig == null ? "" : tmdbConfig.getImageBase(), fallback);
     }
 
     private void bindBackdropImage(String title, String backdrop, String fallback) {

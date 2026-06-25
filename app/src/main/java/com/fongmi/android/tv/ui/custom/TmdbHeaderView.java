@@ -197,7 +197,7 @@ public class TmdbHeaderView {
 
         // 海报
         ImageView poster = headerRoot.findViewById(R.id.tmdbPoster);
-        String posterUrl = item.getPosterUrl();
+        String posterUrl = adapter.getPosterUrl();
         ImgUtil.load(item.getTitle(), posterUrl, poster);
         ImageView fusionPoster = headerRoot.findViewById(R.id.tmdbFusionPoster);
         if (fusionPoster != null) ImgUtil.load(item.getTitle(), posterUrl, fusionPoster);

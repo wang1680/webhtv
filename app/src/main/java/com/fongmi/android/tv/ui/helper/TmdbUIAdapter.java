@@ -18,6 +18,7 @@ import com.fongmi.android.tv.service.TmdbService;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Task;
+import com.fongmi.android.tv.utils.TmdbImageSelector;
 import com.fongmi.android.tv.utils.Util;
 import com.github.catvod.crawler.SpiderDebug;
 import com.google.gson.JsonArray;
@@ -101,6 +102,10 @@ public class TmdbUIAdapter {
 
     public JsonObject getTmdbDetail() {
         return tmdbDetail;
+    }
+
+    public String getPosterUrl() {
+        return TmdbImageSelector.poster(tmdbDetail, tmdbConfig.getImageBase(), tmdbItem == null ? "" : tmdbItem.getPosterUrl());
     }
 
     public List<TmdbPerson> getCast() {

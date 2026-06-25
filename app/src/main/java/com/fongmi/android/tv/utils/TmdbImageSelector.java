@@ -41,6 +41,21 @@ public class TmdbImageSelector {
         return urls;
     }
 
+    public static String poster(JsonObject detail, String imageBase, String fallback) {
+        List<Candidate> candidates = new ArrayList<>();
+        addImages(candidates, detail, "posters", imageBase, Orientation.PORTRAIT);
+        addRootImage(candidates, detail, "poster_path", imageBase, Orientation.PORTRAIT);
+        candidates.sort(Comparator
+                .comparingInt((Candidate item) -> item.sourceRank)
+                .thenComparing(Comparator.comparingLong((Candidate item) -> item.pixels).reversed())
+                .thenComparing(Comparator.comparingDouble((Candidate item) -> item.voteAverage).reversed())
+                .thenComparing(Comparator.comparingInt((Candidate item) -> item.voteCount).reversed()));
+        for (Candidate candidate : candidates) {
+            if (!isEmpty(candidate.url)) return candidate.url;
+        }
+        return originalUrl(fallback);
+    }
+
     public static String originalUrl(String url) {
         if (isEmpty(url)) return "";
         int marker = url.indexOf("/t/p/");
