@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-import argparse
 import colorsys
 import math
 import random
 import time
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 
 
 SIZES = {
@@ -180,33 +179,28 @@ def save_webp(img, path, quality):
     img.save(path, "WEBP", quality=quality, method=6)
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Generate random abstract WebP wallpapers for WebHTV.")
-    parser.add_argument("--count", type=int, default=8, help="Number of wallpaper groups to generate.")
-    parser.add_argument("--out", type=Path, default=Path("/tmp/webhtv-wallpapers"), help="Output directory.")
-    parser.add_argument("--seed", type=int, default=None, help="Seed for reproducible output. Omit for random.")
-    parser.add_argument("--quality", type=int, default=72, help="WebP quality, 1-100.")
-    parser.add_argument("--target", choices=["mobile", "leanback", "both"], default="both", help="Output target size.")
-    parser.add_argument("--prefix", default="wallpaper_random", help="Output file prefix.")
-    return parser.parse_args()
-
-
-def main():
-    args = parse_args()
-    seed = args.seed if args.seed is not None else time.time_ns()
+def main(count, out_dir, seed, quality, target, prefix):
+    seed = seed if seed is not None else time.time_ns()
     master = random.Random(seed)
-    targets = SIZES.keys() if args.target == "both" else [args.target]
+    targets = SIZES.keys() if target == "both" else [target]
     print(f"seed={seed}")
-    print(f"out={args.out}")
-    for index in range(1, args.count + 1):
+    print(f"out={out_dir}")
+    for index in range(1, count + 1):
         item_seed = master.randrange(1 << 63)
         for target in targets:
             rng = random.Random(item_seed)
             style, img = generate_wallpaper(SIZES[target], rng)
-            file = args.out / target / f"{args.prefix}_{index:02d}_{style}.webp"
-            save_webp(img, file, clamp(args.quality, 1, 100))
+            file = out_dir / target / f"{prefix}_{index:02d}_{style}.webp"
+            save_webp(img, file, clamp(quality, 1, 100))
             print(file)
 
 
 if __name__ == "__main__":
-    main()
+    COUNT = 8
+    OUT_DIR = Path.cwd() / "tmp"
+    SEED = None
+    QUALITY = 72
+    TARGET = "both"
+    PREFIX = "wallpaper_random"
+
+    main(COUNT, OUT_DIR, SEED, QUALITY, TARGET, PREFIX)
