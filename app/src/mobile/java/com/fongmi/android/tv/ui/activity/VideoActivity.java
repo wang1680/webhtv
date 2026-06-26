@@ -1799,6 +1799,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     @Override
+    protected void onReload(String msg) {
+        if (PlayerManager.RELOAD_LUT_WARMUP.equals(msg)) {
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("lut-ui", "auto refresh after lut warmup playback failure key=%s episode=%s", getKey(), getEpisode() == null ? null : getEpisode().getName());
+            onRefresh();
+            return;
+        }
+        super.onReload(msg);
+    }
+
+    @Override
     protected void onReclaim() {
         Result result = mViewModel.getPlayer().getValue();
         if (result != null) setPlayer(result);
