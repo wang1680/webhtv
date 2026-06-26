@@ -230,9 +230,8 @@ public class ExoPlayerEngine implements PlayerEngine {
 
     private ErrorAction retryFormat(int errorCode) {
         spec.setFormat(ExoUtil.getMimeType(errorCode));
-        boolean play = player.getPlayWhenReady() || playWhenReady;
-        SpiderDebug.log("player-engine", "retryFormat errorCode=%d newFormat=%s position=%d play=%s", errorCode, spec.getFormat(), player.getCurrentPosition(), play);
-        startInternal(player.getCurrentPosition(), play);
+        SpiderDebug.log("player-engine", "retryFormat errorCode=%d newFormat=%s position=%d", errorCode, spec.getFormat(), player.getCurrentPosition());
+        startInternal(player.getCurrentPosition());
         return ErrorAction.RECOVERED;
     }
 }
