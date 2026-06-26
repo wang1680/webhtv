@@ -442,6 +442,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         return Objects.toString(getIntent().getStringExtra("pic"), "");
     }
 
+    private String getTmdbVodPic() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_pic"), "");
+    }
+
     private String getWallPic() {
         return Objects.toString(getIntent().getStringExtra("wallPic"), "");
     }
@@ -1228,6 +1232,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.episodeHeader.setVisibility(showTmdbEpisodeChrome && !isEmpty ? View.VISIBLE : View.GONE);
         mBinding.episodeReverse.setVisibility(showTmdbEpisodeChrome && hasMultiple ? View.VISIBLE : View.GONE);
         mBinding.episodeViewMode.setVisibility(showTmdbEpisodeChrome && hasMultiple ? View.VISIBLE : View.GONE);
+        updateEpisodeFallbackStillUrl();
         mEpisodeAdapter.setUseTmdbCard(useTmdbCards);
         mEpisodeGridAdapter.setUseTmdbCard(useTmdbCards);
         mEpisodeAdapter.addAll(items);
@@ -1918,6 +1923,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void onEpisodes() {
+        if (mEpisodeAdapter == null || mEpisodeAdapter.getItemCount() == 0) return;
         EpisodeDialog.create().episodes(mEpisodeAdapter.getItems()).reverseAction(this::onRevSort).show(this);
     }
 
@@ -1992,6 +1998,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (mHistory != null) mHistory.setVodPic(url);
         loadArtwork(url);
         setContextWall(getContextWall());
+        updateEpisodeFallbackStillUrl();
     }
 
     private void setArtwork() {
@@ -2125,6 +2132,19 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (!TextUtils.isEmpty(getPic())) return getPic();
         if (mHistory != null && !TextUtils.isEmpty(mHistory.getVodPic())) return mHistory.getVodPic();
         return "";
+    }
+
+    private void updateEpisodeFallbackStillUrl() {
+        String url = getEpisodeFallbackStillUrl();
+        if (mEpisodeAdapter != null) mEpisodeAdapter.setFallbackStillUrl(url);
+        if (mEpisodeGridAdapter != null) mEpisodeGridAdapter.setFallbackStillUrl(url);
+    }
+
+    private String getEpisodeFallbackStillUrl() {
+        if (!TextUtils.isEmpty(getPic())) return getPic();
+        if (!TextUtils.isEmpty(getTmdbVodPic())) return getTmdbVodPic();
+        if (mVod != null && !TextUtils.isEmpty(mVod.getPic())) return mVod.getPic();
+        return mHistory == null ? "" : mHistory.getVodPic();
     }
 
     private boolean hasInitialPreview() {

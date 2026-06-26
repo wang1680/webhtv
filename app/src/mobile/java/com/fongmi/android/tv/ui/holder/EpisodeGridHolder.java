@@ -16,6 +16,7 @@ import com.fongmi.android.tv.databinding.AdapterEpisodeGridBinding;
 import com.fongmi.android.tv.ui.adapter.EpisodeAdapter;
 import com.fongmi.android.tv.ui.base.BaseEpisodeHolder;
 import com.fongmi.android.tv.ui.dialog.EpisodeDetailDialog;
+import com.fongmi.android.tv.utils.ImgUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +27,7 @@ public class EpisodeGridHolder extends BaseEpisodeHolder {
     private final EpisodeAdapter.OnClickListener listener;
     private final AdapterEpisodeGridBinding binding;
     private boolean useTmdbCard;
+    private String fallbackStillUrl = "";
 
     public EpisodeGridHolder(@NonNull AdapterEpisodeGridBinding binding, EpisodeAdapter.OnClickListener listener) {
         super(binding.getRoot());
@@ -36,6 +38,11 @@ public class EpisodeGridHolder extends BaseEpisodeHolder {
     @Override
     public void setUseTmdbCard(boolean useTmdbCard) {
         this.useTmdbCard = useTmdbCard;
+    }
+
+    @Override
+    public void setFallbackStillUrl(String fallbackStillUrl) {
+        this.fallbackStillUrl = TextUtils.isEmpty(fallbackStillUrl) ? "" : fallbackStillUrl;
     }
 
     @Override
@@ -68,14 +75,17 @@ public class EpisodeGridHolder extends BaseEpisodeHolder {
         binding.cardTitle.setText(EpisodeAdapter.getTitle(item));
         binding.cardTitle.setSelected(item.isSelected());
 
-        boolean hasStill = episode != null && !TextUtils.isEmpty(episode.getStillUrl());
+        String stillUrl = episode == null ? "" : episode.getStillUrl();
+        String imageUrl = TextUtils.isEmpty(stillUrl) ? fallbackStillUrl : stillUrl;
+        String errorImageUrl = TextUtils.isEmpty(stillUrl) ? "" : fallbackStillUrl;
+        boolean hasStill = !TextUtils.isEmpty(imageUrl);
         binding.imageFrame.setVisibility(hasStill ? View.VISIBLE : View.GONE);
         binding.textPanel.setGravity(hasStill ? Gravity.NO_GRAVITY : Gravity.CENTER_VERTICAL);
         if (!hasStill) {
             Glide.with(binding.still.getContext()).clear(binding.still);
             binding.still.setImageDrawable(null);
         } else {
-            Glide.with(binding.still.getContext()).load(episode.getStillUrl()).into(binding.still);
+            ImgUtil.load(EpisodeAdapter.getTitle(item), imageUrl, errorImageUrl, binding.still, true, 0, 0);
         }
 
         if (episode == null || TextUtils.isEmpty(episode.getOverview())) {

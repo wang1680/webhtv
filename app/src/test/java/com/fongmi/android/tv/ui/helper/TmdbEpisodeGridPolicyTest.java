@@ -24,9 +24,16 @@ public class TmdbEpisodeGridPolicyTest {
     }
 
     @Test
-    public void shouldUseFallbackImageOnlyForSmallGrids() {
+    public void shouldUseFallbackImageOnlyForLegacySmallGridPolicy() {
         assertFalse(TmdbEpisodeGridPolicy.shouldUseFallbackImage(false, 120));
         assertTrue(TmdbEpisodeGridPolicy.shouldUseFallbackImage(true, 24));
         assertFalse(TmdbEpisodeGridPolicy.shouldUseFallbackImage(true, 25));
+    }
+
+    @Test
+    public void shouldUseFallbackImageForAnyEpisodeInGridMode() {
+        assertTrue(TmdbEpisodeGridPolicy.shouldUseFallbackImage(true, 100, false));
+        assertTrue(TmdbEpisodeGridPolicy.shouldUseFallbackImage(true, 100, true));
+        assertFalse(TmdbEpisodeGridPolicy.shouldUseFallbackImage(false, 100, false));
     }
 }

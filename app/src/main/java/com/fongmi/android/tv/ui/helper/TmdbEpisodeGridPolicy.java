@@ -23,6 +23,10 @@ public final class TmdbEpisodeGridPolicy {
         return gridMode && itemCount <= GRID_FALLBACK_IMAGE_LIMIT;
     }
 
+    public static boolean shouldUseFallbackImage(boolean gridMode, int itemCount, boolean hasTmdbEpisodeData) {
+        return gridMode;
+    }
+
     public record Layout(int heightPx, boolean nestedScrolling) {
 
         static Layout wrap() {

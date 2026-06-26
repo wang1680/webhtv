@@ -61,10 +61,11 @@ public class FlagAdapter extends RecyclerView.Adapter<FlagAdapter.ViewHolder> {
     }
 
     public Flag getActivated() {
-        return mItems.get(getPosition());
+        return mItems.isEmpty() ? new Flag() : mItems.get(getPosition());
     }
 
     public void setSelected(Flag item) {
+        if (mItems.isEmpty() || item == null) return;
         if (indexOf(item) == -1) item.setFlag(mItems.get(0).getFlag());
         for (Flag flag : mItems) flag.setSelected(item);
         notifyItemRangeChanged(0, getItemCount());
@@ -85,6 +86,10 @@ public class FlagAdapter extends RecyclerView.Adapter<FlagAdapter.ViewHolder> {
         if (this.nextFocusDown == nextFocusDown) return;
         this.nextFocusDown = nextFocusDown;
         notifyDataSetChanged();
+    }
+
+    public boolean isEmpty() {
+        return getItemCount() == 0;
     }
 
     @Override

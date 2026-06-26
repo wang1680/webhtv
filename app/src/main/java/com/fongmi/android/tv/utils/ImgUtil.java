@@ -102,12 +102,23 @@ public class ImgUtil {
     }
 
     public static void load(String text, String url, ImageView view, boolean vod, int width, int height) {
+        load(text, url, "", view, vod, width, height);
+    }
+
+    public static void load(String text, String url, String fallbackUrl, ImageView view, boolean vod, int width, int height) {
         view.setScaleType(vod ? CENTER_CROP : FIT_CENTER);
-        if (!vod) view.setVisibility(TextUtils.isEmpty(url) ? View.GONE : View.VISIBLE);
+        String fallback = TextUtils.equals(url, fallbackUrl) ? "" : fallbackUrl;
+        if (!vod) view.setVisibility(TextUtils.isEmpty(url) && TextUtils.isEmpty(fallback) ? View.GONE : View.VISIBLE);
         if (TextUtils.isEmpty(url) || failed.contains(url)) {
-            showTextDrawable(text, view, vod);
+            if (!TextUtils.isEmpty(fallback) && !failed.contains(fallback)) load(text, fallback, view, vod, width, height);
+            else showTextDrawable(text, view, vod);
         } else try {
-            RequestBuilder<Drawable> builder = Glide.with(view).load(getUrl(url)).listener(getListener(text, url, view, vod));
+            RequestBuilder<Drawable> builder = Glide.with(view).load(getUrl(url));
+            if (!TextUtils.isEmpty(fallback) && !failed.contains(fallback)) {
+                builder.listener(getFallbackListener(text, url, fallback, view, vod, width, height));
+            } else {
+                builder.listener(getListener(text, url, view, vod));
+            }
             if (width > 0 && height > 0) builder.override(width, height);
             if (vod) builder.centerCrop().into(view);
             else builder.fitCenter().into(view);
@@ -165,6 +176,23 @@ public class ImgUtil {
             e.printStackTrace();
         }
         view.setImageDrawable(getTextDrawable(text, vod));
+    }
+
+    private static RequestListener<Drawable> getFallbackListener(String text, String url, String fallback, ImageView view, boolean vod, int width, int height) {
+        return new RequestListener<>() {
+            @Override
+            public boolean onLoadFailed(@Nullable GlideException e, Object model, @NonNull Target<Drawable> target, boolean isFirstResource) {
+                failed.add(url);
+                if (!TextUtils.isEmpty(fallback) && !failed.contains(fallback)) load(text, fallback, view, vod, width, height);
+                else showTextDrawable(text, view, vod, false);
+                return true;
+            }
+
+            @Override
+            public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                return false;
+            }
+        };
     }
 
     private static RequestListener<Drawable> getListener(String text, String url, ImageView view, boolean vod) {

@@ -23,6 +23,7 @@ public class EpisodeHoriHolder extends BaseEpisodeHolder {
     private final AdapterEpisodeHoriBinding binding;
     private final int maxWidth;
     private boolean useTmdbCard;
+    private String fallbackStillUrl = "";
 
     public EpisodeHoriHolder(@NonNull AdapterEpisodeHoriBinding binding, EpisodeAdapter.OnClickListener listener) {
         super(binding.getRoot());
@@ -34,6 +35,11 @@ public class EpisodeHoriHolder extends BaseEpisodeHolder {
     @Override
     public void setUseTmdbCard(boolean useTmdbCard) {
         this.useTmdbCard = useTmdbCard;
+    }
+
+    @Override
+    public void setFallbackStillUrl(String fallbackStillUrl) {
+        this.fallbackStillUrl = TextUtils.isEmpty(fallbackStillUrl) ? "" : fallbackStillUrl;
     }
 
     @Override
@@ -52,8 +58,11 @@ public class EpisodeHoriHolder extends BaseEpisodeHolder {
             binding.cardTitle.setText(EpisodeAdapter.getTitle(item));
             binding.cardTitle.setSelected(item.isSelected());
 
+            String rawStillUrl = tmdbEpisode.getStillUrl();
+            String stillUrl = TextUtils.isEmpty(rawStillUrl) ? fallbackStillUrl : rawStillUrl;
+            String errorStillUrl = TextUtils.isEmpty(rawStillUrl) ? "" : fallbackStillUrl;
             binding.still.setVisibility(View.VISIBLE);
-            ImgUtil.load(EpisodeAdapter.getTitle(item), tmdbEpisode.getStillUrl(), binding.still);
+            ImgUtil.load(EpisodeAdapter.getTitle(item), stillUrl, errorStillUrl, binding.still, true, 0, 0);
 
             // 简介
             if (!TextUtils.isEmpty(tmdbEpisode.getOverview())) {

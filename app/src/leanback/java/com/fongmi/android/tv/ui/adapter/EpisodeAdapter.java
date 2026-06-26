@@ -2,6 +2,7 @@ package com.fongmi.android.tv.ui.adapter;
 
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -49,6 +50,7 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
     private boolean useTmdbCard = false;
     private boolean gridMode = false;
     private boolean verticalGridMode = false;
+    private String fallbackStillUrl = "";
 
     public EpisodeAdapter(OnClickListener listener) {
         this(listener, null);
@@ -79,6 +81,13 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
 
     public boolean isUsingTmdbCard() {
         return useTmdbCard;
+    }
+
+    public void setFallbackStillUrl(String fallbackStillUrl) {
+        String value = TextUtils.isEmpty(fallbackStillUrl) ? "" : fallbackStillUrl;
+        if (this.fallbackStillUrl.equals(value)) return;
+        this.fallbackStillUrl = value;
+        if (useTmdbCard) notifyDataSetChanged();
     }
 
     public void setGridMode(boolean gridMode) {
@@ -261,8 +270,11 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
 
         // 加载剧照
         String cardTitle = getCardTitle(item, tmdbEpisode);
-        if (!tmdbEpisode.getStillUrl().isEmpty()) {
-            loadStill(binding, tmdbEpisode.getStillUrl());
+        String stillUrl = tmdbEpisode.getStillUrl();
+        String imageUrl = TextUtils.isEmpty(stillUrl) ? fallbackStillUrl : stillUrl;
+        String errorImageUrl = TextUtils.isEmpty(stillUrl) ? "" : fallbackStillUrl;
+        if (!TextUtils.isEmpty(imageUrl)) {
+            loadStill(binding, imageUrl, errorImageUrl);
         } else {
             ImgUtil.load(cardTitle, "", binding.still);
         }
@@ -324,12 +336,13 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
         binding.cardTitle.setTextSize(gridMode ? 18 : 18);
     }
 
-    private void loadStill(AdapterEpisodeCardBinding binding, String url) {
+    private void loadStill(AdapterEpisodeCardBinding binding, String url, String errorUrl) {
         Context context = binding.still.getContext();
         int width = getCardWidth(binding);
         int height = getCardHeight(binding);
         String preferredUrl = tmdbImageUrl(url, PREFERRED_STILL_SIZE);
         String fallbackUrl = tmdbImageUrl(url, FALLBACK_STILL_SIZE);
+        RequestBuilder<Drawable> errorRequest = loadStillRequest(context, TextUtils.isEmpty(errorUrl) || TextUtils.equals(url, errorUrl) ? "" : tmdbImageUrl(errorUrl, FALLBACK_STILL_SIZE), width, height);
 
         RequestBuilder<Drawable> request = Glide.with(context)
                 .load(preferredUrl)
@@ -340,13 +353,23 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
             request.error(Glide.with(context)
                     .load(fallbackUrl)
                     .placeholder(R.color.black)
-                    .error(R.color.black)
+                    .error(errorRequest == null ? Glide.with(context).load(R.color.black) : errorRequest)
                     .centerCrop()
                     .override(width, height));
         } else {
-            request.error(R.color.black);
+            request.error(errorRequest == null ? Glide.with(context).load(R.color.black) : errorRequest);
         }
         request.into(binding.still);
+    }
+
+    private RequestBuilder<Drawable> loadStillRequest(Context context, String url, int width, int height) {
+        if (TextUtils.isEmpty(url)) return null;
+        return Glide.with(context)
+                .load(url)
+                .placeholder(R.color.black)
+                .error(R.color.black)
+                .centerCrop()
+                .override(width, height);
     }
 
     private int getCardWidth(AdapterEpisodeCardBinding binding) {

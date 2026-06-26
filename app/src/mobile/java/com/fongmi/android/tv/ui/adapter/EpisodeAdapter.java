@@ -34,6 +34,7 @@ public class EpisodeAdapter extends RecyclerView.Adapter<BaseEpisodeHolder> {
     private final List<Episode> mItems;
     private int viewType;
     private boolean useTmdbCard;
+    private String fallbackStillUrl = "";
 
     public EpisodeAdapter(OnClickListener listener, int viewType) {
         this(listener, viewType, new ArrayList<>());
@@ -70,6 +71,13 @@ public class EpisodeAdapter extends RecyclerView.Adapter<BaseEpisodeHolder> {
 
     public boolean isUsingTmdbCard() {
         return useTmdbCard;
+    }
+
+    public void setFallbackStillUrl(String fallbackStillUrl) {
+        String value = TextUtils.isEmpty(fallbackStillUrl) ? "" : fallbackStillUrl;
+        if (this.fallbackStillUrl.equals(value)) return;
+        this.fallbackStillUrl = value;
+        if (useTmdbCard) notifyDataSetChanged();
     }
 
     public int getPosition() {
@@ -208,6 +216,7 @@ public class EpisodeAdapter extends RecyclerView.Adapter<BaseEpisodeHolder> {
     @Override
     public void onBindViewHolder(@NonNull BaseEpisodeHolder holder, int position) {
         holder.setUseTmdbCard(useTmdbCard);
+        holder.setFallbackStillUrl(fallbackStillUrl);
         holder.initView(mItems.get(position));
     }
 

@@ -97,7 +97,7 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
         String value = TextUtils.isEmpty(fallbackStillUrl) ? "" : fallbackStillUrl;
         if (this.fallbackStillUrl.equals(value)) return;
         this.fallbackStillUrl = value;
-        if (TmdbEpisodeGridPolicy.shouldUseFallbackImage(mode == Mode.GRID, items.size())) notifyDataSetChanged();
+        if (usesFallbackStill()) notifyDataSetChanged();
     }
 
     public void setMode(Mode mode) {
@@ -132,8 +132,9 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
         boolean activated = episode.equals(selected);
         boolean compact = compactPlain && tmdbEpisode == null && TextUtils.isEmpty(overview);
         String stillUrl = tmdbEpisode != null ? tmdbEpisode.getStillUrl() : "";
-        boolean allowFallback = TmdbEpisodeGridPolicy.shouldUseFallbackImage(mode == Mode.GRID, items.size());
-        String imageUrl = !TextUtils.isEmpty(stillUrl) ? stillUrl : (mode == Mode.GRID && allowFallback ? fallbackStillUrl : "");
+        boolean allowFallback = mode == Mode.LIST || TmdbEpisodeGridPolicy.shouldUseFallbackImage(mode == Mode.GRID, items.size(), tmdbEpisode != null);
+        String imageUrl = !TextUtils.isEmpty(stillUrl) ? stillUrl : (allowFallback ? fallbackStillUrl : "");
+        String errorImageUrl = !TextUtils.isEmpty(stillUrl) && allowFallback ? fallbackStillUrl : "";
         boolean hasImage = !TextUtils.isEmpty(imageUrl);
         boolean showVisual = hasImage || !compact;
 
@@ -180,7 +181,7 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
                 activated ? 2 : 1);
         if (showVisual) {
             holder.binding.stillFrame.setVisibility(View.VISIBLE);
-            ImgUtil.load(title, imageUrl, holder.binding.still, true, imageWidth(holder), imageHeight(holder));
+            ImgUtil.load(title, imageUrl, errorImageUrl, holder.binding.still, true, imageWidth(holder), imageHeight(holder));
         } else {
             holder.binding.stillFrame.setVisibility(View.GONE);
             ImgUtil.clear(holder.binding.still);
@@ -294,6 +295,10 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
     private int episodeNumber(Episode episode, int position) {
         Integer number = episodeNumbers.get(episode);
         return number == null ? position + 1 : number;
+    }
+
+    private boolean usesFallbackStill() {
+        return !items.isEmpty();
     }
 
     private int dp(View view, int value) {

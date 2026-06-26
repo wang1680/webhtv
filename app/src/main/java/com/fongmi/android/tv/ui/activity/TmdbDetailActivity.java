@@ -456,7 +456,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.flagContainer.removeAllViews();
         binding.seasonContainer.removeAllViews();
         clearEpisodeRanges();
-        if (episodeAdapter != null) episodeAdapter.setFallbackStillUrl(getPicText());
+        if (episodeAdapter != null) episodeAdapter.setFallbackStillUrl(episodeFallbackStillUrl());
         episodeAdapter.setItems(List.of(), Map.of(), null);
         if (episodePhotoAdapter != null) episodePhotoAdapter.setItems(List.of());
         castAdapter.setItems(new ArrayList<>());
@@ -1899,7 +1899,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void bindInitialArtwork() {
-        String initialTmdbPoster = Objects.toString(getIntent().getStringExtra("tmdb_poster"), "");
+        String initialTmdbPoster = getTmdbPosterText();
         ImgUtil.load(getNameText(), TextUtils.isEmpty(initialTmdbPoster) ? getPicText() : TmdbImageSelector.originalUrl(initialTmdbPoster), binding.poster);
         bindBackdropImage(getNameText(), getBackdropText(), getPicText());
     }
@@ -1913,6 +1913,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private String tmdbPosterUrl() {
         String fallback = coalesce(
                 matchedTmdbItem == null ? "" : matchedTmdbItem.getPosterUrl(),
+                getTmdbPosterText(),
                 vod == null ? "" : vod.getPic(),
                 getPicText());
         return TmdbImageSelector.poster(matchedTmdbDetail, tmdbConfig == null ? "" : tmdbConfig.getImageBase(), fallback);
@@ -2157,11 +2158,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private String episodeFallbackStillUrl() {
-        String backdrop = tmdbBackdropUrl();
-        if (!TextUtils.isEmpty(backdrop)) return backdrop;
-        String poster = matchedTmdbItem != null ? matchedTmdbItem.getPosterUrl() : "";
+        String poster = tmdbPosterUrl();
         if (!TextUtils.isEmpty(poster)) return poster;
         if (vod != null && !TextUtils.isEmpty(vod.getPic())) return vod.getPic();
+        String backdrop = tmdbBackdropUrl();
+        if (!TextUtils.isEmpty(backdrop)) return backdrop;
         return getPicText();
     }
 
@@ -2470,6 +2471,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         episodeAdapter.setGridSpanCount(spanCount);
         updateEpisodeLayoutManager(spanCount);
         updateEpisodeViewport(pagedDisplayEpisodes.size(), spanCount);
+        episodeAdapter.setFallbackStillUrl(episodeFallbackStillUrl());
         episodeAdapter.setItems(pagedDisplayEpisodes, tmdbEpisodes, episodeNumbers, selectedEpisode);
         updateEpisodeSkeleton();
         scrollEpisodeToSelected();
@@ -6956,6 +6958,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private String getPicText() {
         return Objects.toString(getIntent().getStringExtra("pic"), "");
+    }
+
+    private String getTmdbPosterText() {
+        return TmdbImageSelector.originalUrl(Objects.toString(getIntent().getStringExtra("tmdb_poster"), ""));
     }
 
     private String getBackdropText() {

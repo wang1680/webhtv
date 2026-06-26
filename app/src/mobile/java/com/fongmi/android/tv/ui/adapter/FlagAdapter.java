@@ -71,10 +71,11 @@ public class FlagAdapter extends RecyclerView.Adapter<FlagAdapter.ViewHolder> {
     }
 
     public Flag getActivated() {
-        return mItems.get(getPosition());
+        return mItems.isEmpty() ? new Flag() : mItems.get(getPosition());
     }
 
     public void setSelected(Flag flag) {
+        if (mItems.isEmpty() || flag == null) return;
         if (!mItems.contains(flag)) flag.setFlag(mItems.get(0).getFlag());
         for (Flag item : mItems) item.setSelected(flag);
         notifyItemRangeChanged(0, getItemCount());
