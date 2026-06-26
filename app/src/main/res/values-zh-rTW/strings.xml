@@ -616,6 +616,7 @@
     <string name="setting_auto">自動</string>
     <string name="setting_custom">自訂</string>
     <string name="setting_size">圖片尺寸</string>
+    <string name="setting_ui_scale">介面大小</string>
     <string name="setting_doh">DoH</string>
     <string name="setting_proxy">Proxy</string>
     <string name="setting_cache">暫存</string>
@@ -922,6 +923,13 @@
         <item>中</item>
         <item>大</item>
         <item>特大</item>
+    </string-array>
+
+    <string-array name="select_ui_scale">
+        <item>跟隨系統</item>
+        <item>緊湊</item>
+        <item>標準</item>
+        <item>大</item>
     </string-array>
 
     <string-array name="select_scale">

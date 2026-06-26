@@ -1,13 +1,16 @@
 package com.fongmi.android.tv.setting;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.Settings;
+import android.util.DisplayMetrics;
 
 import androidx.core.content.ContextCompat;
 
@@ -19,6 +22,11 @@ import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.utils.Prefers;
 
 public class Setting {
+
+    public static final int UI_SCALE_FOLLOW_SYSTEM = 0;
+    public static final int UI_SCALE_COMPACT = 1;
+    public static final int UI_SCALE_STANDARD = 2;
+    public static final int UI_SCALE_LARGE = 3;
 
     public static final int WALL_CINEMA = 5;
     public static final int WALL_CINEMA_WARM = 6;
@@ -315,6 +323,43 @@ public class Setting {
 
     public static void putIncognito(boolean incognito) {
         Prefers.put("incognito", incognito);
+    }
+
+    public static int getUiScale() {
+        int scale = Prefers.getInt("ui_scale", UI_SCALE_STANDARD);
+        return scale >= UI_SCALE_FOLLOW_SYSTEM && scale <= UI_SCALE_LARGE ? scale : UI_SCALE_STANDARD;
+    }
+
+    public static void putUiScale(int scale) {
+        Prefers.put("ui_scale", scale >= UI_SCALE_FOLLOW_SYSTEM && scale <= UI_SCALE_LARGE ? scale : UI_SCALE_STANDARD);
+    }
+
+    public static Context wrapUiScale(Context context) {
+        int scale = getUiScale();
+        if (scale == UI_SCALE_FOLLOW_SYSTEM) return context;
+        float factor = getUiScaleFactor(scale);
+        Configuration config = new Configuration(context.getResources().getConfiguration());
+        DisplayMetrics metrics = context.getResources().getDisplayMetrics();
+        int stableDensity = DisplayMetrics.DENSITY_DEVICE_STABLE > 0 ? DisplayMetrics.DENSITY_DEVICE_STABLE : metrics.densityDpi;
+        int densityDpi = Math.max(DisplayMetrics.DENSITY_LOW, Math.round(stableDensity * factor));
+        config.densityDpi = densityDpi;
+        config.fontScale = 1.0f;
+        config.screenWidthDp = pxToDp(metrics.widthPixels, densityDpi);
+        config.screenHeightDp = pxToDp(metrics.heightPixels, densityDpi);
+        config.smallestScreenWidthDp = Math.min(config.screenWidthDp, config.screenHeightDp);
+        return context.createConfigurationContext(config);
+    }
+
+    private static float getUiScaleFactor(int scale) {
+        return switch (scale) {
+            case UI_SCALE_COMPACT -> 0.9f;
+            case UI_SCALE_LARGE -> 1.1f;
+            default -> 1.0f;
+        };
+    }
+
+    private static int pxToDp(int px, int densityDpi) {
+        return Math.max(1, Math.round(px * (float) DisplayMetrics.DENSITY_DEFAULT / densityDpi));
     }
 
     public static boolean isDriveCheck() {

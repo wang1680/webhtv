@@ -55,6 +55,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
 
     private FragmentSettingBinding mBinding;
     private String[] size;
+    private String[] uiScale;
 
     public static SettingFragment newInstance() {
         return new SettingFragment();
@@ -105,6 +106,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         mBinding.dohText.setText(getDohList()[getDohIndex()]);
         mBinding.incognitoText.setText(getSwitch(Setting.isIncognito()));
         mBinding.sizeText.setText((size = ResUtil.getStringArray(R.array.select_size))[PlayerSetting.getSize()]);
+        mBinding.uiScaleText.setText((uiScale = ResUtil.getStringArray(R.array.select_ui_scale))[Setting.getUiScale()]);
     }
 
     private void setCacheText() {
@@ -123,6 +125,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
         mBinding.live.setOnClickListener(this::onLive);
         mBinding.wall.setOnClickListener(this::onWall);
         mBinding.size.setOnClickListener(this::setSize);
+        mBinding.uiScale.setOnClickListener(this::setUiScale);
         mBinding.cache.setOnClickListener(this::onCache);
         mBinding.backup.setOnClickListener(this::onBackup);
         mBinding.enhance.setOnClickListener(this::onEnhance);
@@ -297,6 +300,15 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
             PlayerSetting.putSize(which);
             RefreshEvent.size();
             dialog.dismiss();
+        }).show();
+    }
+
+    private void setUiScale(View view) {
+        new MaterialAlertDialogBuilder(requireActivity()).setTitle(R.string.setting_ui_scale).setNegativeButton(R.string.dialog_negative, null).setSingleChoiceItems(uiScale, Setting.getUiScale(), (dialog, which) -> {
+            mBinding.uiScaleText.setText(uiScale[which]);
+            Setting.putUiScale(which);
+            dialog.dismiss();
+            requireActivity().recreate();
         }).show();
     }
 
