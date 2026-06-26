@@ -890,7 +890,7 @@ public class Setting {
     }
 
     public static boolean isTmdbEpisodeFileSize() {
-        return Prefers.getBoolean("tmdb_episode_file_size", true);
+        return Prefers.getBoolean("tmdb_episode_file_size", false);
     }
 
     public static void putTmdbEpisodeFileSize(boolean enabled) {
