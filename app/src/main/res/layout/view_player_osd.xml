@@ -49,6 +49,19 @@
             tools:text="20:30:18"
             tools:visibility="visible" />
 
+        <ImageButton
+            android:id="@+id/osdDiagnosticsToggle"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="top|start"
+            android:background="#99000000"
+            android:contentDescription="@string/player_osd"
+            android:padding="8dp"
+            android:scaleType="center"
+            android:src="@drawable/ic_osd_diagnostics"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/osdBottomLeft"
             android:layout_width="match_parent"
@@ -73,6 +86,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="top|start"
+            android:layout_marginTop="44dp"
             android:background="#99000000"
             android:ellipsize="end"
             android:fontFeatureSettings="tnum"

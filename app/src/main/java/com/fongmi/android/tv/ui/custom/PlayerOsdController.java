@@ -4,6 +4,7 @@ import android.net.TrafficStats;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.media3.common.Format;
@@ -36,6 +37,7 @@ public class PlayerOsdController {
     private final TextView bottomLeft;
     private final TextView bottomRight;
     private final TextView diagnostics;
+    private final ImageButton diagnosticsToggle;
     private final MiniProgressView miniProgress;
     private final Runnable update;
     private final Source source;
@@ -48,9 +50,10 @@ public class PlayerOsdController {
     private long lastTotalRxBytes;
     private long lastTimeStamp;
     private boolean controlsVisible;
+    private boolean diagnosticsVisible;
     private boolean started;
 
-    public PlayerOsdController(View root, TextView topLeft, TextView topRight, TextView bottomLeft, TextView bottomRight, TextView diagnostics, MiniProgressView miniProgress, Source source, float miniSp) {
+    public PlayerOsdController(View root, TextView topLeft, TextView topRight, TextView bottomLeft, TextView bottomRight, TextView diagnostics, ImageButton diagnosticsToggle, MiniProgressView miniProgress, Source source, float miniSp) {
         this.timeFormat = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
         this.bitrateFormat = new DecimalFormat("#.0");
         this.refreshFormat = new DecimalFormat("#.##");
@@ -59,12 +62,14 @@ public class PlayerOsdController {
         this.bottomRight = bottomRight;
         this.bottomLeft = bottomLeft;
         this.diagnostics = diagnostics;
+        this.diagnosticsToggle = diagnosticsToggle;
         this.topRight = topRight;
         this.topLeft = topLeft;
         this.miniSp = miniSp;
         this.source = source;
         this.root = root;
         this.update = this::update;
+        this.diagnosticsToggle.setOnClickListener(view -> toggleDiagnostics());
     }
 
     public void start() {
@@ -110,7 +115,8 @@ public class PlayerOsdController {
         setTopRight();
         setBottomLeft(player);
         setBottomRight();
-        setDiagnostics(player);
+        setDiagnosticsButton(player);
+        setDiagnosticsPanel(player);
         setMiniProgress(player);
         return true;
     }
@@ -156,8 +162,15 @@ public class PlayerOsdController {
         bottomRight.setVisibility(TextUtils.isEmpty(speed) ? View.GONE : View.VISIBLE);
     }
 
-    private void setDiagnostics(PlayerManager player) {
-        if (controlsVisible || !PlayerSetting.isOsdDiagnostics() || player == null) {
+    private void setDiagnosticsButton(PlayerManager player) {
+        boolean visible = !controlsVisible && PlayerSetting.isOsdDiagnostics() && player != null;
+        diagnosticsToggle.setSelected(diagnosticsVisible);
+        diagnosticsToggle.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (!visible) diagnosticsVisible = false;
+    }
+
+    private void setDiagnosticsPanel(PlayerManager player) {
+        if (controlsVisible || !PlayerSetting.isOsdDiagnostics() || !diagnosticsVisible || player == null) {
             diagnostics.setVisibility(View.GONE);
             return;
         }
@@ -186,6 +199,11 @@ public class PlayerOsdController {
         bottomLeft.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
         bottomRight.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
         diagnostics.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+    }
+
+    private void toggleDiagnostics() {
+        diagnosticsVisible = !diagnosticsVisible;
+        render();
     }
 
     private String getSpeed() {
