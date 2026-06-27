@@ -2172,6 +2172,15 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     public void onEpisodeColumn(int column) {
         PlayerSetting.putEpisodeColumn(column);
+        refreshEpisodeTitles();
+    }
+
+    @Override
+    public void onCompactEpisodeTitleChanged() {
+        refreshEpisodeTitles();
+    }
+
+    private void refreshEpisodeTitles() {
         if (mEpisodeAdapter == null) return;
         if (mFlagAdapter == null || mFlagAdapter.isEmpty()) {
             updateEpisodeSpan(mEpisodeAdapter.getItems());

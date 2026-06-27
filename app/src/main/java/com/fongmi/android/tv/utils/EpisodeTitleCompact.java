@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class EpisodeTitleCompact {
@@ -18,8 +19,10 @@ public final class EpisodeTitleCompact {
     private static final Pattern SIZE_SUFFIX = Pattern.compile("(?i)\\s*[\\[\\(（【]?\\s*\\d+(?:\\.\\d+)?\\s*(?:GB|G|MB|M)\\s*[\\]\\)）】]?\\s*$");
     private static final Pattern HASH_SUFFIX = Pattern.compile("(?i)\\s*[\\[\\(（【]\\s*[A-F0-9]{8,32}\\s*[\\]\\)）】]\\s*$");
     private static final Pattern EPISODE_START = Pattern.compile("(?i)^(?:第\\s*[0-9一二三四五六七八九十百]+\\s*(?:集|话|話|期|章|回)|[0-9]{1,4}\\s*(?:集|话|話|期|章|回)|(?:EP|E)\\s*[0-9]{1,4}|S\\s*[0-9]{1,2}\\s*E\\s*[0-9]{1,4}|[0-9]{1,4}(?:\\D|$)|[上下](?:集|部)?|前篇|后篇|後篇|正片|预告|預告|花絮)");
+    private static final Pattern EPISODE_TOKEN = Pattern.compile("(?i)(S\\s*[0-9]{1,2}\\s*E\\s*[0-9]{1,4}|第\\s*[0-9一二三四五六七八九十百]+\\s*(?:集|话|話|期|章|回)|[0-9]{1,4}\\s*(?:集|话|話|期|章|回)|(?:EP|E)\\s*[0-9]{1,4}|[上下](?:集|部)?|前篇|后篇|後篇|正片|预告|預告|花絮)");
     private static final Pattern TECH_SUFFIX = Pattern.compile("(?i)^[\\s._\\-\\[\\]()（）【】]+(?:4K|8K|2160P|1080P|720P|HDR|HDR10|DV|DOLBY|HEVC|H265|H\\.265|H264|H\\.264|AV1|AAC|FLAC|WEB-DL|WEBRIP|BLURAY|BD|HD|国语|国配|粤语|中字|中英双字|简中|繁中|内嵌字幕|无字)(?:[\\s._\\-\\[\\]()（）【】]+(?:4K|8K|2160P|1080P|720P|HDR|HDR10|DV|DOLBY|HEVC|H265|H\\.265|H264|H\\.264|AV1|AAC|FLAC|WEB-DL|WEBRIP|BLURAY|BD|HD|国语|国配|粤语|中字|中英双字|简中|繁中|内嵌字幕|无字))*[\\s._\\-\\[\\]()（）【】]*$");
     private static final Pattern EDGE_SEPARATORS = Pattern.compile("^[\\s._\\-·|/\\\\:：,，;；\\[\\]()（）【】《》]+|[\\s._\\-·|/\\\\:：,，;；\\[\\]()（）【】《》]+$");
+    private static final int MAX_COMPACT_LENGTH = 14;
 
     private EpisodeTitleCompact() {
     }
@@ -39,16 +42,19 @@ public final class EpisodeTitleCompact {
         int prefix = findPrefix(names);
         int suffix = findSuffix(names, prefix);
         List<String> compacted = new ArrayList<>();
+        List<String> fallback = new ArrayList<>();
         Map<String, Integer> count = new HashMap<>();
         for (String name : names) {
             String compact = cleanupEdge(name.substring(Math.min(prefix, name.length()), Math.max(Math.min(name.length() - suffix, name.length()), Math.min(prefix, name.length()))));
             if (TextUtils.isEmpty(compact)) compact = name;
-            compacted.add(compact);
-            count.put(compact, count.getOrDefault(compact, 0) + 1);
+            String display = preferEpisodeToken(name, compact);
+            compacted.add(display);
+            fallback.add(compact);
+            count.put(display, count.getOrDefault(display, 0) + 1);
         }
         for (int i = 0; i < episodes.size(); i++) {
             String compact = compacted.get(i);
-            episodes.get(i).setDisplayName(count.get(compact) > 1 ? names.get(i) : compact);
+            episodes.get(i).setDisplayName(count.get(compact) > 1 ? fallback.get(i) : compact);
         }
     }
 
@@ -155,6 +161,21 @@ public final class EpisodeTitleCompact {
 
     private static boolean isAsciiLetter(char c) {
         return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z';
+    }
+
+    private static String preferEpisodeToken(String name, String compact) {
+        if (compact.length() <= MAX_COMPACT_LENGTH) return compact;
+        String token = findEpisodeToken(name);
+        return TextUtils.isEmpty(token) ? compact : token;
+    }
+
+    private static String findEpisodeToken(String text) {
+        Matcher matcher = EPISODE_TOKEN.matcher(text);
+        return matcher.find() ? normalizeEpisodeToken(matcher.group()) : "";
+    }
+
+    private static String normalizeEpisodeToken(String token) {
+        return token == null ? "" : token.replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
     }
 
     private static String cleanupEdge(String text) {

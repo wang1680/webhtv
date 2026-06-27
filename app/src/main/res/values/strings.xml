@@ -351,7 +351,6 @@
     <string name="setting_web_home_fullscreen">WebHome homepage fullscreen</string>
     <string name="setting_csp_warmup">CSP init warmup</string>
     <string name="setting_playback_artwork_wall">Playback stills</string>
-    <string name="setting_compact_episode_title">Compact episode titles</string>
     <string name="setting_viewing_record_sync">Viewing record sync</string>
     <string name="viewing_record_sync_entry_summary">%1$s · Remote %2$d/%3$d · Webhook %4$d/%5$d</string>
     <string name="viewing_record_sync_switches">Switches</string>

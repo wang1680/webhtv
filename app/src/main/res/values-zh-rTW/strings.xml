@@ -349,7 +349,6 @@
     <string name="setting_web_home_fullscreen">WebHome 主頁全屏</string>
     <string name="setting_csp_warmup">CSP init 預熱</string>
     <string name="setting_playback_artwork_wall">播放介面劇照</string>
-    <string name="setting_compact_episode_title">選集標題精簡</string>
     <string name="setting_viewing_record_sync">觀影記錄同步</string>
     <string name="viewing_record_sync_entry_summary">%1$s · 遠端 %2$d/%3$d · Webhook %4$d/%5$d</string>
     <string name="viewing_record_sync_switches">開關</string>
