@@ -485,7 +485,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.array.addOnChildViewHolderSelectedListener(new OnChildViewHolderSelectedListener() {
             @Override
             public void onChildViewHolderSelected(@NonNull RecyclerView parent, @Nullable RecyclerView.ViewHolder child, int position, int subposition) {
-                if (mEpisodeAdapter.getItemCount() > 40 && position > 1) scrollToEpisode(mArrayAdapter.getStart(position));
+                int count = mEpisodeAdapter.getItemCount();
+                if (count > getEpisodeSegmentSize(count) && position > 1) scrollToEpisode(mArrayAdapter.getStart(position));
             }
         });
     }
@@ -893,14 +894,20 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void setArrayAdapter(int size) {
+        int segment = getEpisodeSegmentSize(size);
         List<String> items = new ArrayList<>();
         items.add(getString(R.string.play_reverse));
         items.add(getString(mHistory.getRevPlayText()));
         mBinding.array.setVisibility(size > 1 ? View.VISIBLE : View.GONE);
-        if (mHistory.isRevSort()) for (int i = size; i > 0; i -= 40) items.add(i + "-" + Math.max(i - 39, 1));
-        else for (int i = 0; i < size; i += 40) items.add((i + 1) + "-" + Math.min(i + 40, size));
+        if (mHistory.isRevSort()) for (int i = size; i > 0; i -= segment) items.add(i + "-" + Math.max(i - segment + 1, 1));
+        else for (int i = 0; i < size; i += segment) items.add((i + 1) + "-" + Math.min(i + segment, size));
+        mArrayAdapter.setSegmentSize(segment);
         mArrayAdapter.addAll(items);
         updateFocus();
+    }
+
+    private int getEpisodeSegmentSize(int size) {
+        return size <= 60 ? 20 : 40;
     }
 
     private int findFocusDown(int index) {
