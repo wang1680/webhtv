@@ -66,8 +66,9 @@ public class ExoUtil {
 
     public static ExoPlayer buildPlayer(int decode, Player.Listener listener) {
         ExoPlayer player = new ExoPlayer.Builder(App.get()).setTrackSelector(buildTrackSelector()).setRenderersFactory(buildPlaybackRenderersFactory(decode)).setMediaSourceFactory(buildMediaSourceFactory()).build();
+        PlaybackAnalyticsListener.reset();
+        player.addAnalyticsListener(new PlaybackAnalyticsListener());
         if (BuildConfig.DEBUG) player.addAnalyticsListener(new EventLogger());
-        if (SpiderDebug.isEnabled()) player.addAnalyticsListener(new PlaybackAnalyticsListener());
         player.setAudioAttributes(AudioAttributes.DEFAULT, true);
         player.setHandleAudioBecomingNoisy(true);
         player.setPlayWhenReady(true);

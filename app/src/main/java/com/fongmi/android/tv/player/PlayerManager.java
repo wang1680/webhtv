@@ -61,7 +61,7 @@ public class PlayerManager implements ParseCallback {
     private static final long LOCAL_PROXY_RETRY_DELAY_MS = 1000;
     private static final int LOCAL_PROXY_MAX_RETRY = 2;
     private static final int LUT_WARMUP_RECOVERED_ERROR_REFRESH_THRESHOLD = 3;
-    private static final float[] SPEED_PRESETS = new float[]{0.5f, 0.75f, 1f, 1.2f, 1.5f, 2f, 3f, 5f};
+    private static final float[] SPEED_PRESETS = new float[]{0.5f, 0.75f, 1f, 1.2f, 1.25f, 1.5f, 1.75f, 2f, 3f, 5f};
     private static final DecimalFormat SPEED_FORMAT = new DecimalFormat("0.##x");
 
     private final Runnable runnable;
@@ -262,8 +262,16 @@ public class PlayerManager implements ParseCallback {
         return player.getCurrentPosition();
     }
 
+    public long getBufferedDuration() {
+        return Math.max(0, player.getBufferedPosition() - getPosition());
+    }
+
     public String getSizeText() {
         return (getVideoWidth() == 0 && getVideoHeight() == 0) ? "" : getVideoWidth() + " x " + getVideoHeight();
+    }
+
+    public Format getVideoFormat() {
+        return engine.getVideoFormat();
     }
 
     public String getSpeedText() {

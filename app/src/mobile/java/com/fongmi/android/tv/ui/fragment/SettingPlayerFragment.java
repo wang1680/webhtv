@@ -155,7 +155,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     }
 
     private boolean[] getOsdChecked() {
-        return new boolean[]{PlayerSetting.isOsdTitle(), PlayerSetting.isOsdTime(), PlayerSetting.isOsdProgress(), PlayerSetting.isOsdTraffic(), PlayerSetting.isOsdMini()};
+        return new boolean[]{PlayerSetting.isOsdTitle(), PlayerSetting.isOsdTime(), PlayerSetting.isOsdProgress(), PlayerSetting.isOsdTraffic(), PlayerSetting.isOsdMini(), PlayerSetting.isOsdDiagnostics()};
     }
 
     private void setOsdChecked(boolean[] checked) {
@@ -164,6 +164,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         PlayerSetting.putOsdProgress(checked[2]);
         PlayerSetting.putOsdTraffic(checked[3]);
         PlayerSetting.putOsdMini(checked[4]);
+        PlayerSetting.putOsdDiagnostics(checked[5]);
     }
 
     private String getOsdText(String[] items) {

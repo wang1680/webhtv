@@ -259,6 +259,81 @@ IJK 不卡不等于“Exo 一定无解”，但它基本排除了“这台设备
 4. Exo 的 audio sink 或音视频同步基准与原版影视二开 Media3 不一致。
 5. Exo 的 Surface 生命周期、tunnel、TextureView/SurfaceView 约束没有完全贴近原版。
 
+## 4K 60fps 用户反馈专项补充
+
+用户新增反馈：低端电视盒子播放 4K 网盘卡成 PPT 的样本有一个共同点：基本都是 `60fps`；只要不是这么高码率/高帧率的内容，播放通常正常。
+
+这个信息非常关键，需要把 `4K60` 单独作为 P0 诊断维度。原因是同为 4K，`60fps` 的像素吞吐约等于 `30fps` 的两倍：
+
+```text
+3840 x 2160 x 60fps = 497,664,000 pixels/s
+3840 x 2160 x 30fps = 248,832,000 pixels/s
+```
+
+低端电视盒子常见宣传“支持 4K”不代表稳定支持目标编码、profile、level、HDR、码率和 `60fps` 的组合。很多设备只能稳定覆盖 `4K30` 或特定格式的 `4K60`，一旦遇到 `HEVC Main10 / HDR / 高码率 / 60fps / 网盘封装` 叠加，Exo 即使走硬解也可能大量 dropped frames。
+
+### 4K60 对现有结论的修正
+
+| 维度 | 之前判断 | 加入 60fps 信息后的判断 |
+|---|---|---|
+| 网络/缓存 | 已基本排除单纯 BUFFERING | 仍需看日志，但如果低码率非 60fps 正常，主因更偏解码吞吐或显示调度 |
+| 是否软解 | 用户始终 Exo 硬解 | 更明确：重点不是软解抢占，而是硬解能力上限、codec 选择和帧释放 |
+| 原版闭源 Media3 差异 | P0 | 仍是 P0，因为硬解 renderer/codec adapter 对 4K60 dropped frames 很敏感 |
+| tunnel + SurfaceView | P0/P1 | 升级为 4K60 优先实验项。官方 issue 中已有 4k@60hz stutter 通过 tunneling 缓解的案例 |
+| 异步 MediaCodec 队列 | P1 | 对 4K60 更有价值，可能降低 codec/render 线程阻塞，但必须做开关 |
+| SurfaceView fixed size | P1 | 对 4K60 更有价值，避免 Surface/缩放路径额外压力 |
+| 设备能力判断 | 原文提到 PerformancePoint | 升级为必须补日志/诊断项：判断 codec 是否声明覆盖目标 width/height/fps |
+| 自动降级/提示 | 原文只作为思路 | 对低端盒子 4K60 应作为产品策略：提示切 IJK、开 tunnel、换低帧率/低码率源 |
+
+### 针对性外部搜索结果
+
+| 来源 | 关键发现 | 对我们的结论 |
+|---|---|---|
+| `androidx/media#926` | 小米/Nokia TV 盒子在 `4k@60hz` 显示模式下 Exo stutter，切到 `4k@50hz` 正常；Exo demo app 也可复现 | 证明这类问题可能不是业务代码，而是低端盒子 + 显示刷新率/输出链路/Exo frame release 的组合问题 |
+| `androidx/media#926` 评论 | 官方让排查 `VideoFrameReleaseHelper` 的 display refresh rate、`vfpo`、`db/dropped buffers`、`releaseTimeNs` 是否重复或间隔异常 | 我们日志应补显示刷新率、视频 fps、dropped frames、release/渲染指标；仅有 decoderName 不够 |
+| `androidx/media#926` 结论 | 用户反馈开启 `tunneling` 后问题消失；官方建议只在 SurfaceView 且播放音视频时启用，不建议全局默认开启 | 我们已对齐 tunnel 只能 SurfaceView，但可以针对 4K60 增加“建议开启/自动实验/设备记忆” |
+| `androidx/media#2941` | 60fps 与其他帧率流切换时可能残留 frame timing 状态，`stop()` 会清掉 renderer timing | 如果卡顿发生在切源、换集、恢复播放后，应考虑 4K60/帧率变化时重建 player 或 stop+prepare |
+| Android `VideoCapabilities.PerformancePoint` | API 29+ 可用性能点判断 codec 是否覆盖目标分辨率和帧率 | 可用于 4K60 风险日志和策略提示，但不能作为唯一拦截条件，因为部分设备上报不准 |
+
+### 新的优先级建议
+
+| 优先级 | 动作 | 原因 | 风险 |
+|---|---|---|---|
+| P0 | 播放日志补齐 `format.frameRate`、`bitrate`、`decoderName`、`droppedFrames`、`surface/render`、`tunnel`、设备显示刷新率 | 4K60 必须先区分“解码跟不上”还是“显示/帧释放不稳” | 只加日志风险低 |
+| P0 | 增加 codec 性能点诊断：API 29+ 用 `VideoCapabilities.PerformancePoint.covers()` 检查当前 codec 是否声明覆盖 `width x height x fps` | 可以直接判断低端盒子是否只是标称 4K，但未覆盖 4K60 | 设备上报可能不准，只能用于日志/提示 |
+| P0 | 给 4K60 Exo 增加“纯系统硬解”开关或策略：`EXTENSION_RENDERER_MODE_OFF` | 排除 FFmpeg video fallback 链路对高帧率的干扰 | 可能失去部分特殊格式 fallback |
+| P0 | 4K60 + SurfaceView 时优先建议开启 tunnel，或做可撤销实验开关 | 官方 issue 中 `4k@60hz stutter` 通过 tunneling 缓解；原版也要求 tunnel 绑定 SurfaceView | tunnel 有设备特例，不适合无条件默认 |
+| P1 | 4K60 时尝试 `forceEnableMediaCodecAsynchronousQueueing()` 实验开关 | 针对高吞吐硬解队列阻塞，公开 Media3 API 支持 | 部分设备兼容性未知 |
+| P1 | SurfaceView 收到视频尺寸后 `holder.setFixedSize(width, height)` | Just Player 实践，减少 Surface 缩放/合成压力 | 需要处理旋转、切源和恢复默认 |
+| P1 | 对 4K60 严重 dropped frames 做用户提示：建议 IJK、开启 tunnel、换低帧率/低码率源 | 如果设备硬解性能点不覆盖，继续硬撑 Exo 没意义 | 需要避免频繁打扰 |
+| P2 | 切源/换集/恢复播放且 fps 变化明显时，考虑 stop/rebuild 清 renderer timing | 对 `60fps -> 25/30fps` 或反向切换有参考 | 会带来黑屏或首帧延迟 |
+
+### 当前最可落地的下一步
+
+先不直接拍脑袋改默认策略，建议先补一个“4K60 诊断闭环”：
+
+1. 在 `PlaybackAnalyticsListener` 里增加显示刷新率、当前 render/tunnel、是否 4K60 风险的日志。
+2. 在视频 format 到达时，API 29+ 枚举当前 mime 的硬解 codec performance points，记录是否覆盖 `width x height x fps`。
+3. 如果 `frameRate >= 50` 且 `width >= 3840` 或 `height >= 2160`，把日志标记为 `risk=4k60`。
+4. 实机验证同一个源下：
+   - Exo + tunnel off
+   - Exo + tunnel on
+   - Exo + pure device decoder / extension off
+   - IJK
+5. 如果 tunnel on 明显改善，做“4K60 低端盒子建议开启 tunnel”的产品策略。
+6. 如果 tunnel 无效但 dropped frames 高，继续试异步 MediaCodec 队列和 pure device decoder。
+7. 如果 performance point 明确不覆盖 4K60，优先提示用户切 IJK 或换低帧率源，而不是继续在 Exo 上调缓存。
+
+### 结论
+
+`60fps` 是当前反馈里最关键的新线索。它把问题从“泛泛的 4K 网盘卡顿”收窄为：
+
+```text
+低端盒子 + Exo 硬解 + 4K60 高像素吞吐 + 显示刷新率/帧释放/tunnel/codec 性能点
+```
+
+这比继续调网盘缓存更有方向。下一轮代码优化应优先做 4K60 诊断日志和可切换实验项，而不是直接全局改默认播放策略。
+
 ## 可迁移到我们代码的处理逻辑清单
 
 | 优先级 | 处理逻辑 | 来源依据 | 是否应默认开启 | 预期收益 | 主要风险 |

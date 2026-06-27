@@ -963,6 +963,7 @@
         <item>進度</item>
         <item>網速</item>
         <item>迷你</item>
+        <item>播放參數</item>
     </string-array>
 
     <string-array name="select_track">

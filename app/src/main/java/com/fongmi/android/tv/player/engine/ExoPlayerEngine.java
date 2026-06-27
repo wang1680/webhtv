@@ -15,6 +15,7 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.Track;
 import com.fongmi.android.tv.player.exo.ErrorMsgProvider;
 import com.fongmi.android.tv.player.exo.ExoUtil;
+import com.fongmi.android.tv.player.exo.PlaybackAnalyticsListener;
 import com.fongmi.android.tv.player.exo.PreCache;
 import com.fongmi.android.tv.player.exo.TrackUtil;
 import com.fongmi.android.tv.utils.ResUtil;
@@ -214,6 +215,7 @@ public class ExoPlayerEngine implements PlayerEngine {
     private void startInternal(long position, boolean playWhenReady) {
         this.playWhenReady = playWhenReady;
         SpiderDebug.log("player-engine", "prepare position=%d decode=%d format=%s play=%s", position, decode, spec.getFormat(), playWhenReady);
+        PlaybackAnalyticsListener.reset();
         if (!playWhenReady) player.pause();
         MediaItem item = ExoUtil.getMediaItem(spec, decode);
         player.setMediaItem(item, position);

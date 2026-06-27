@@ -987,6 +987,7 @@
         <item>Progress</item>
         <item>Network speed</item>
         <item>Mini</item>
+        <item>Playback params</item>
     </string-array>
 
     <string-array name="select_track">
