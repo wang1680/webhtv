@@ -955,9 +955,12 @@
     <string name="update_downloading">Downloading %1$d%%</string>
     <string name="update_downloading_unknown">Downloading…</string>
     <string name="update_downloading_detail">Downloading %1$d%% · %2$s/s · %3$s elapsed</string>
+    <string name="update_downloading_detail_remaining">Downloading %1$d%% · %2$s/s · %3$s left · %4$s elapsed</string>
     <string name="update_downloading_detail_unknown">Downloading · %1$s/s · %2$s elapsed</string>
     <string name="update_confirm">Update</string>
     <string name="update_confirm_channel">Update %1$s</string>
+    <string name="update_cancel">Cancel update</string>
+    <string name="update_canceled">Update canceled</string>
     <string name="update_channel_stable">Stable</string>
     <string name="update_channel_beta">Beta</string>
     <string name="update_channel_latest">This channel is already up to date.</string>

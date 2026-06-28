@@ -21,6 +21,7 @@ public class Download {
     private Callback callback;
     private Future<?> future;
     private String tag;
+    private volatile boolean canceled;
 
     public static Download create(String url, File file) {
         return new Download(url, file);
@@ -44,28 +45,38 @@ public class Download {
 
     public void start(Callback callback) {
         this.callback = callback;
+        this.canceled = false;
         future = Task.submit(this::doInBackground);
     }
 
     public Download cancel() {
+        canceled = true;
         if (future != null) future.cancel(true);
         OkHttp.cancel(tag);
+        Path.clear(file);
         future = null;
         return this;
     }
 
     private void doInBackground() {
         try (Response res = OkHttp.newCall(url, tag).execute()) {
-            download(res.body().byteStream(), getLength(res));
-            if (callback != null) App.post(() -> callback.success(file));
+            boolean completed = download(res.body().byteStream(), getLength(res));
+            if (!completed || canceled) {
+                Path.clear(file);
+                return;
+            }
+            if (callback != null) App.post(() -> {
+                if (!canceled) callback.success(file);
+            });
         } catch (Exception e) {
             Path.clear(file);
+            if (canceled || isCanceled(e)) return;
             if (callback != null) App.post(() -> callback.error(e.getMessage()));
             else throw new RuntimeException(e.getMessage(), e);
         }
     }
 
-    private void download(InputStream is, long length) throws IOException {
+    private boolean download(InputStream is, long length) throws IOException {
         try (BufferedInputStream input = new BufferedInputStream(is); FileOutputStream os = new FileOutputStream(Path.create(file))) {
             byte[] buffer = new byte[16384];
             int readBytes;
@@ -76,7 +87,7 @@ public class Download {
             long lastNotifyBytes = 0;
             if (callback != null) App.post(() -> callback.progress(length > 0 ? 0 : -1, 0, length, 0, 0));
             while ((readBytes = input.read(buffer)) != -1) {
-                if (Thread.interrupted()) return;
+                if (canceled || Thread.currentThread().isInterrupted()) return false;
                 totalBytes += readBytes;
                 os.write(buffer, 0, readBytes);
                 if (callback == null) continue;
@@ -94,7 +105,13 @@ public class Download {
                 long total = length;
                 App.post(() -> callback.progress(progress, bytes, total, speed, elapsed));
             }
+            return !canceled;
         }
+    }
+
+    private boolean isCanceled(Exception e) {
+        String message = e.getMessage();
+        return "Canceled".equals(message) || "Socket closed".equals(message);
     }
 
     private long getLength(Response res) {

@@ -33,6 +33,8 @@ public class Updater implements Download.Callback, UpdateListener {
     private Update beta;
     private Update selected;
     private boolean force;
+    private boolean downloading;
+    private boolean canceled;
 
     private Updater() {
     }
@@ -192,13 +194,25 @@ public class Updater implements Download.Callback, UpdateListener {
             return;
         }
         view.setEnabled(false);
-        if (dialog != null) dialog.setProgress(0);
+        downloading = true;
+        canceled = false;
+        Path.clear(getFile());
+        setDialogProgress(0, 0, selected.size, 0, 0);
         download = Download.create(selected.apkUrl, getFile()).tag(selected.apkUrl);
         download.start(this);
     }
 
     @Override
     public void onCancel(View view) {
+        if (downloading) {
+            canceled = true;
+            downloading = false;
+            if (download != null) download.cancel();
+            download = null;
+            Notify.show(R.string.update_canceled);
+            dismiss();
+            return;
+        }
         Setting.putUpdate(false);
         if (download != null) download.cancel();
         dismiss();
@@ -212,29 +226,43 @@ public class Updater implements Download.Callback, UpdateListener {
 
     private void dismiss() {
         try {
-            if (dialog != null) dialog.dismiss();
+            if (dialog != null) dialog.dismissAllowingStateLoss();
         } catch (Exception ignored) {
+        } finally {
+            dialog = null;
         }
     }
 
     @Override
     public void progress(int progress) {
-        if (dialog != null) dialog.setProgress(progress);
+        setDialogProgress(progress, 0, 0, 0, 0);
     }
 
     @Override
     public void progress(int progress, long bytes, long total, long speed, long elapsed) {
-        if (dialog != null) dialog.setProgress(progress, bytes, total, speed, elapsed);
+        setDialogProgress(progress, bytes, total, speed, elapsed);
+    }
+
+    private void setDialogProgress(int progress, long bytes, long total, long speed, long elapsed) {
+        if (canceled || !downloading || dialog == null) return;
+        long manifestSize = selected == null ? 0 : selected.size;
+        if (total <= 0 && manifestSize > 0) total = manifestSize;
+        if (progress < 0 && total > 0 && bytes > 0) progress = (int) (bytes * 100.0 / total);
+        if (!dialog.setProgress(progress, bytes, total, speed, elapsed)) dialog = null;
     }
 
     @Override
     public void error(String msg) {
+        if (canceled) return;
+        downloading = false;
         Notify.show(msg);
         dismiss();
     }
 
     @Override
     public void success(File file) {
+        if (canceled) return;
+        downloading = false;
         FileUtil.openFile(file);
         dismiss();
     }

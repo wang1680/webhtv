@@ -21,8 +21,6 @@ import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
-import java.util.Locale;
-
 public class UpdateDialog extends BaseAlertDialog {
 
     private DialogUpdateBinding binding;
@@ -32,6 +30,7 @@ public class UpdateDialog extends BaseAlertDialog {
     private String selected = Update.CHANNEL_STABLE;
     private boolean stableExpanded = true;
     private boolean betaExpanded;
+    private boolean downloading;
 
     public static UpdateDialog create() {
         return new UpdateDialog();
@@ -82,6 +81,7 @@ public class UpdateDialog extends BaseAlertDialog {
 
     @Override
     protected void initEvent() {
+        binding.close.setOnClickListener(this::close);
         binding.stableItem.setOnClickListener(view -> toggle(Update.CHANNEL_STABLE));
         binding.betaItem.setOnClickListener(view -> toggle(Update.CHANNEL_BETA));
         binding.stableItem.setOnKeyListener((view, keyCode, event) -> onItemKey(Update.CHANNEL_STABLE, view, keyCode, event));
@@ -94,6 +94,8 @@ public class UpdateDialog extends BaseAlertDialog {
     @Override
     public void onStart() {
         super.onStart();
+        setCancelable(false);
+        if (getDialog() != null) getDialog().setCanceledOnTouchOutside(false);
         clearWindowInset();
         setWidth(0.56f);
         binding.stableItem.requestFocus();
@@ -117,14 +119,23 @@ public class UpdateDialog extends BaseAlertDialog {
     }
 
     private void action(View view) {
+        if (downloading) {
+            if (listener != null) listener.onCancel(view);
+            return;
+        }
         Update update = getSelected();
         if (update != null && update.hasUpdate()) update(selected, view);
-        else listener.onCancel(view);
+        else if (listener != null) listener.onCancel(view);
+    }
+
+    private void close(View view) {
+        if (downloading) return;
+        dismissAllowingStateLoss();
     }
 
     private void update(String channel, View view) {
         select(channel);
-        listener.onConfirm(view);
+        if (listener != null) listener.onConfirm(view);
     }
 
     private void render() {
@@ -134,7 +145,9 @@ public class UpdateDialog extends BaseAlertDialog {
         if (hasBeta()) renderItem(Update.CHANNEL_BETA, beta);
         renderAction();
         updateFocusLinks();
+        binding.close.setVisibility(View.VISIBLE);
         binding.progressPanel.setVisibility(View.GONE);
+        downloading = false;
     }
 
     private void renderItem(String channel, Update update) {
@@ -173,6 +186,8 @@ public class UpdateDialog extends BaseAlertDialog {
 
     private void updateFocusLinks() {
         int nextAfterStable = hasBeta() ? R.id.betaItem : R.id.cancel;
+        binding.close.setNextFocusDownId(R.id.stableItem);
+        binding.stableItem.setNextFocusUpId(R.id.close);
         binding.stableItem.setNextFocusDownId(nextAfterStable);
         binding.stableConfirm.setNextFocusDownId(nextAfterStable);
         binding.betaItem.setNextFocusUpId(R.id.stableItem);
@@ -248,33 +263,48 @@ public class UpdateDialog extends BaseAlertDialog {
         return update.getText();
     }
 
-    public void setProgress(int progress) {
-        setProgress(progress, 0, 0, 0, 0);
+    public boolean setProgress(int progress) {
+        return setProgress(progress, 0, 0, 0, 0);
     }
 
-    public void setProgress(int progress, long bytes, long total, long speed, long elapsed) {
+    public boolean setProgress(int progress, long bytes, long total, long speed, long elapsed) {
+        if (!isProgressTarget()) return false;
+        boolean requestFocus = !downloading;
+        downloading = true;
         boolean indeterminate = progress < 0;
         int value = Math.max(0, Math.min(100, progress));
         binding.stableItem.setEnabled(false);
         binding.betaItem.setEnabled(false);
         binding.stableConfirm.setEnabled(false);
         binding.betaConfirm.setEnabled(false);
-        binding.cancel.setEnabled(false);
+        binding.cancel.setEnabled(true);
+        binding.close.setVisibility(View.GONE);
         binding.progressPanel.setVisibility(View.VISIBLE);
         binding.progress.setIndeterminate(indeterminate);
         if (!indeterminate) binding.progress.setProgress(value);
-        binding.progressText.setText(getProgressText(indeterminate, value, speed, elapsed));
-        getSelectedButton().setText(indeterminate ? getString(R.string.update_confirm) : String.format(Locale.getDefault(), "%1$d%%", value));
+        binding.progressText.setText(getProgressText(indeterminate, value, bytes, total, speed, elapsed));
+        binding.cancel.setText(R.string.update_cancel);
+        if (requestFocus) binding.cancel.requestFocus();
+        return true;
     }
 
-    private com.google.android.material.button.MaterialButton getSelectedButton() {
-        return binding.cancel;
+    private boolean isProgressTarget() {
+        return binding != null && isAdded() && getContext() != null && getDialog() != null;
     }
 
-    private String getProgressText(boolean indeterminate, int value, long speed, long elapsed) {
+    private String getProgressText(boolean indeterminate, int value, long bytes, long total, long speed, long elapsed) {
         if (speed <= 0 || elapsed <= 0) return indeterminate ? getString(R.string.update_downloading_unknown) : getString(R.string.update_downloading, value);
         String speedText = FileUtil.byteCountToDisplaySize(speed);
-        String elapsedText = TextUtils.isEmpty(Util.timeMs(elapsed)) ? "00:00" : Util.timeMs(elapsed);
+        String elapsedText = formatDuration(elapsed);
+        if (!indeterminate && total > 0 && bytes >= 0) {
+            long remaining = Math.max(0, total - bytes) * 1000 / speed;
+            return getString(R.string.update_downloading_detail_remaining, value, speedText, formatDuration(remaining), elapsedText);
+        }
         return indeterminate ? getString(R.string.update_downloading_detail_unknown, speedText, elapsedText) : getString(R.string.update_downloading_detail, value, speedText, elapsedText);
+    }
+
+    private String formatDuration(long time) {
+        String text = Util.timeMs(Math.max(0, time));
+        return TextUtils.isEmpty(text) ? "00:00" : text;
     }
 }

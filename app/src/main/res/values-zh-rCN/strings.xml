@@ -943,9 +943,12 @@
     <string name="update_downloading">正在下载 %1$d%%</string>
     <string name="update_downloading_unknown">正在下载…</string>
     <string name="update_downloading_detail">正在下载 %1$d%% · %2$s/s · 已用 %3$s</string>
+    <string name="update_downloading_detail_remaining">正在下载 %1$d%% · %2$s/s · 剩余 %3$s · 已用 %4$s</string>
     <string name="update_downloading_detail_unknown">正在下载 · %1$s/s · 已用 %2$s</string>
     <string name="update_confirm">更新</string>
     <string name="update_confirm_channel">更新%1$s</string>
+    <string name="update_cancel">取消更新</string>
+    <string name="update_canceled">更新已取消</string>
     <string name="update_channel_stable">稳定版</string>
     <string name="update_channel_beta">测试版</string>
     <string name="update_channel_latest">当前通道已是最新版本。</string>
