@@ -657,8 +657,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         String id = Objects.toString(intent.getStringExtra("id"), "");
         if (TextUtils.isEmpty(id) || id.equals(oldId)) return;
         mBinding.swipeLayout.setRefreshing(true);
-        getIntent().putExtras(intent);
         saveHistory();
+        getIntent().putExtras(intent);
         setOrient();
         checkId();
     }
@@ -1053,6 +1053,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void getDetail(Vod item) {
         revealManualSearch = false;
         if (!isAutoMode()) mViewModel.stopSearch();
+        saveHistory();
         getIntent().putExtra("key", item.getSiteKey());
         getIntent().putExtra("pic", item.getPic());
         getIntent().putExtra("id", item.getId());
@@ -1064,7 +1065,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         subtitlePlaybackSession.stop(this);
         player().reset();
         player().stop();
-        saveHistory();
         getDetail();
     }
 
@@ -2527,7 +2527,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             " canSave=" + (mHistory != null ? mHistory.canSave() : "null") +
             " incognito=" + Setting.isIncognito());
         if (mHistory == null || Setting.isIncognito()) return;
-        if (exit && isOwner()) {
+        if (service() != null && isOwner()) {
             updatePlaybackHistoryPosition();
             mHistory.setCreateTime(System.currentTimeMillis());
         }

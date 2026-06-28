@@ -306,7 +306,7 @@ Release/apk/leanback-armeabi_v7a.apk
 
 ### GitHub 手动发布
 
-仓库内置 `.github/workflows/android-release.yml`,只支持在 GitHub Actions 页面手动触发,不会在每次 push 代码时自动打包。默认 tag 会按当前 `versionName` 生成 `v5.5.4-sdk28-yyyyMMddHHmm`,也可以手动填写同格式 tag。
+仓库内置 `.github/workflows/android-release.yml`,只支持在 GitHub Actions 页面手动触发,不会在每次 push 代码时自动打包。默认 tag 会从 `app/build.gradle` 读取当前 `versionName`:稳定版生成 `v<versionName>-yyyyMMddHHmm`;在 `fongmi-sync` 分支选择 `auto` 通道时生成测试版 `v<versionName>-beta-yyyyMMddHHmm`,APK/JSON 文件名同步追加 `-beta`。
 
 工作流会构建 4 个 release APK,生成同名更新清单 JSON,发布到 GitHub Release,并可同步到 CNB 镜像仓库 `apk/` 目录。正式发布前建议在 GitHub Secrets 配置:
 

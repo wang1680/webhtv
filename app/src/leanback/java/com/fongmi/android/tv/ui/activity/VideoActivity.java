@@ -619,8 +619,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         String key = Objects.toString(intent.getStringExtra("key"), "");
         String id = Objects.toString(intent.getStringExtra("id"), "");
         if (TextUtils.isEmpty(id) || (id.equals(oldId) && key.equals(oldKey))) return;
-        getIntent().putExtras(intent);
         saveHistory();
+        getIntent().putExtras(intent);
         resetDetailForNewIntent();
         checkId();
     }
@@ -998,6 +998,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void getDetail(Vod item) {
         revealManualSearch = false;
         if (!isAutoMode()) mViewModel.stopSearch();
+        saveHistory();
         getIntent().putExtra("key", item.getSiteKey());
         getIntent().putExtra("pic", item.getPic());
         getIntent().putExtra("id", item.getId());
@@ -1007,7 +1008,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         subtitlePlaybackSession.stop(this);
         player().reset();
         player().stop();
-        saveHistory();
         getDetail();
     }
 
@@ -2424,7 +2424,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             " canSave=" + (mHistory != null ? mHistory.canSave() : "null") +
             " incognito=" + Setting.isIncognito());
         if (mHistory == null || Setting.isIncognito()) return;
-        if (exit && isOwner()) {
+        if (service() != null && isOwner()) {
             updatePlaybackHistoryPosition();
             mHistory.setCreateTime(System.currentTimeMillis());
         }

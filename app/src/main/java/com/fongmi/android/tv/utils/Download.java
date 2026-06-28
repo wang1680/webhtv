@@ -65,30 +65,42 @@ public class Download {
         }
     }
 
-    private void download(InputStream is, double length) throws IOException {
+    private void download(InputStream is, long length) throws IOException {
         try (BufferedInputStream input = new BufferedInputStream(is); FileOutputStream os = new FileOutputStream(Path.create(file))) {
             byte[] buffer = new byte[16384];
             int readBytes;
             int lastProgress = -1;
             long totalBytes = 0;
-            if (callback != null) App.post(() -> callback.progress(length > 0 ? 0 : -1));
+            long startTime = System.currentTimeMillis();
+            long lastNotifyTime = startTime;
+            long lastNotifyBytes = 0;
+            if (callback != null) App.post(() -> callback.progress(length > 0 ? 0 : -1, 0, length, 0, 0));
             while ((readBytes = input.read(buffer)) != -1) {
                 if (Thread.interrupted()) return;
                 totalBytes += readBytes;
                 os.write(buffer, 0, readBytes);
-                if (length <= 0) continue;
-                int progress = (int) (totalBytes / length * 100.0);
-                if (progress == lastProgress) continue;
+                if (callback == null) continue;
+                long now = System.currentTimeMillis();
+                int progress = length > 0 ? (int) (totalBytes * 100.0 / length) : -1;
+                boolean shouldNotify = progress != lastProgress || now - lastNotifyTime >= 1000;
+                if (!shouldNotify) continue;
+                long deltaTime = Math.max(1, now - lastNotifyTime);
+                long speed = (totalBytes - lastNotifyBytes) * 1000 / deltaTime;
+                long elapsed = now - startTime;
                 lastProgress = progress;
-                if (callback != null) App.post(() -> callback.progress(progress));
+                lastNotifyTime = now;
+                lastNotifyBytes = totalBytes;
+                long bytes = totalBytes;
+                long total = length;
+                App.post(() -> callback.progress(progress, bytes, total, speed, elapsed));
             }
         }
     }
 
-    private double getLength(Response res) {
+    private long getLength(Response res) {
         try {
             String header = res.header(HttpHeaders.CONTENT_LENGTH);
-            return header != null ? Double.parseDouble(header) : -1;
+            return header != null ? Long.parseLong(header) : -1;
         } catch (Exception e) {
             return -1;
         }
@@ -97,6 +109,10 @@ public class Download {
     public interface Callback {
 
         void progress(int progress);
+
+        default void progress(int progress, long bytes, long total, long speed, long elapsed) {
+            progress(progress);
+        }
 
         void error(String msg);
 

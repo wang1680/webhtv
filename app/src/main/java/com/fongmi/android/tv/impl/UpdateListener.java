@@ -7,4 +7,7 @@ public interface UpdateListener {
     void onCancel(View view);
 
     void onConfirm(View view);
+
+    default void onChannel(String channel) {
+    }
 }

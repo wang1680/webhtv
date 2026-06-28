@@ -52,7 +52,7 @@
         android:layout_marginTop="6dp"
         android:textColor="#5F6368"
         android:textSize="13sp"
-        tools:text="版本 5.5.4 (554) · mobile/arm64" />
+        tools:text="版本 versionName (versionCode) · mobile/arm64" />
 
     <View
         android:layout_width="match_parent"
