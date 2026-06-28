@@ -924,6 +924,9 @@
     <string name="update_downloading_detail">正在下載 %1$d%% · %2$s/s · 已用 %3$s</string>
     <string name="update_downloading_detail_remaining">正在下載 %1$d%% · %2$s/s · 剩餘 %3$s · 已用 %4$s</string>
     <string name="update_downloading_detail_unknown">正在下載 · %1$s/s · 已用 %2$s</string>
+    <string name="update_download_incomplete">更新包下載不完整，請重試。</string>
+    <string name="update_download_checksum">更新包校驗失敗，請重試。</string>
+    <string name="update_download_invalid">更新包無效，請重試。</string>
     <string name="update_confirm">更新</string>
     <string name="update_confirm_channel">更新%1$s</string>
     <string name="update_cancel">取消更新</string>

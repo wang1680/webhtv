@@ -4,8 +4,10 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.text.TextUtils;
 import android.view.KeyEvent;
-import android.view.Window;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewbinding.ViewBinding;
@@ -95,9 +97,13 @@ public class UpdateDialog extends BaseAlertDialog {
     public void onStart() {
         super.onStart();
         setCancelable(false);
-        if (getDialog() != null) getDialog().setCanceledOnTouchOutside(false);
+        if (getDialog() != null) {
+            getDialog().setCanceledOnTouchOutside(false);
+            getDialog().setOnKeyListener((dialog, keyCode, event) -> onDialogKey(keyCode, event));
+        }
         clearWindowInset();
-        setWidth(0.56f);
+        configureWindow();
+        configureScrollHeight();
         binding.stableItem.requestFocus();
     }
 
@@ -187,6 +193,10 @@ public class UpdateDialog extends BaseAlertDialog {
 
     private void updateFocusLinks() {
         int nextAfterStable = hasBeta() ? R.id.betaItem : R.id.cancel;
+        binding.close.setFocusable(true);
+        binding.close.setNextFocusUpId(R.id.close);
+        binding.close.setNextFocusLeftId(R.id.close);
+        binding.close.setNextFocusRightId(R.id.close);
         binding.close.setNextFocusDownId(R.id.stableItem);
         binding.stableItem.setNextFocusUpId(R.id.close);
         binding.stableItem.setNextFocusDownId(nextAfterStable);
@@ -196,6 +206,16 @@ public class UpdateDialog extends BaseAlertDialog {
         binding.betaConfirm.setNextFocusUpId(R.id.betaItem);
         binding.betaConfirm.setNextFocusDownId(R.id.cancel);
         binding.cancel.setNextFocusUpId(hasBeta() ? R.id.betaItem : R.id.stableItem);
+        binding.cancel.setNextFocusDownId(R.id.cancel);
+        binding.cancel.setNextFocusLeftId(R.id.cancel);
+        binding.cancel.setNextFocusRightId(R.id.cancel);
+    }
+
+    private boolean onDialogKey(int keyCode, KeyEvent event) {
+        if (keyCode != KeyEvent.KEYCODE_BACK || event.getAction() != KeyEvent.ACTION_UP) return false;
+        if (downloading) action(binding.cancel);
+        else close(binding.close);
+        return true;
     }
 
     private boolean onItemKey(String channel, View view, int keyCode, KeyEvent event) {
@@ -246,6 +266,28 @@ public class UpdateDialog extends BaseAlertDialog {
     private void clearWindowInset() {
         Window window = getDialog() == null ? null : getDialog().getWindow();
         if (window != null) window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+    }
+
+    private void configureWindow() {
+        Window window = getDialog() == null ? null : getDialog().getWindow();
+        if (window == null) return;
+        int screenWidth = ResUtil.getScreenWidth(requireContext());
+        int horizontalMargin = ResUtil.dp2px(96);
+        int width = Math.min(ResUtil.dp2px(960), (int) (screenWidth * 0.72f));
+        width = Math.min(width, screenWidth - horizontalMargin);
+        WindowManager.LayoutParams params = window.getAttributes();
+        params.width = width;
+        params.height = WindowManager.LayoutParams.WRAP_CONTENT;
+        window.setAttributes(params);
+        window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+    }
+
+    private void configureScrollHeight() {
+        int screenHeight = ResUtil.getScreenHeight(requireContext());
+        int height = Math.max(ResUtil.dp2px(220), Math.min(ResUtil.dp2px(320), (int) (screenHeight * 0.42f)));
+        ViewGroup.LayoutParams params = binding.listScroll.getLayoutParams();
+        params.height = height;
+        binding.listScroll.setLayoutParams(params);
     }
 
     private String getVersion(Update update) {

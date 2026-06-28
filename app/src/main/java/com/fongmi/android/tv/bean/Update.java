@@ -17,6 +17,7 @@ public class Update {
     public String apk;
     public String apkUrl;
     public String error;
+    public String sha256;
     public int code;
     public long size;
 

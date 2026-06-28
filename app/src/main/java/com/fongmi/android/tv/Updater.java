@@ -15,6 +15,7 @@ import com.fongmi.android.tv.utils.Download;
 import com.fongmi.android.tv.utils.FileUtil;
 import com.fongmi.android.tv.utils.Github;
 import com.fongmi.android.tv.utils.Notify;
+import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Task;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Path;
@@ -23,7 +24,10 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.lang.ref.WeakReference;
+import java.security.MessageDigest;
+import java.util.Locale;
 
 public class Updater implements Download.Callback, UpdateListener {
 
@@ -35,8 +39,7 @@ public class Updater implements Download.Callback, UpdateListener {
     private final LifecycleEventObserver lifecycleObserver = (source, event) -> {
         if (!(source instanceof FragmentActivity)) return;
         FragmentActivity activity = (FragmentActivity) source;
-        if (event == Lifecycle.Event.ON_RESUME) restoreDialog(activity);
-        else if (event == Lifecycle.Event.ON_DESTROY) unbind(activity);
+        if (event == Lifecycle.Event.ON_DESTROY) unbind(activity);
     };
 
     private WeakReference<FragmentActivity> activityRef;
@@ -86,6 +89,11 @@ public class Updater implements Download.Callback, UpdateListener {
         }
         if (!Setting.getUpdate()) return;
         Task.execute(() -> doInBackground(activity, forceCheck));
+    }
+
+    public void resume(FragmentActivity activity) {
+        bind(activity);
+        restoreDialog(activity);
     }
 
     private void doInBackground(FragmentActivity activity, boolean forceCheck) {
@@ -159,6 +167,7 @@ public class Updater implements Download.Callback, UpdateListener {
             update.code = object.optInt("code");
             update.apk = object.optString("apk");
             update.size = object.optLong("size");
+            update.sha256 = object.optString("sha256");
             update.apkUrl = getApkUrl(update, source);
             if (isDefaultReleaseNotes(update.notes)) update.notes = "";
             if (TextUtils.isEmpty(update.notes)) {
@@ -314,17 +323,52 @@ public class Updater implements Download.Callback, UpdateListener {
     @Override
     public void success(File file) {
         if (canceled) return;
-        downloading = false;
         download = null;
-        resetProgress();
-        FileUtil.openFile(file);
-        dismiss();
+        Update target = selected;
+        Task.execute(() -> {
+            String error = validate(file, target);
+            App.post(() -> {
+                if (canceled) return;
+                downloading = false;
+                resetProgress();
+                if (!TextUtils.isEmpty(error)) {
+                    Path.clear(file);
+                    Notify.show(error);
+                    dismiss();
+                    return;
+                }
+                FileUtil.openFile(file);
+                dismiss();
+            });
+        });
     }
 
     private void restoreDialog(FragmentActivity activity) {
         if (!downloading || selected == null) return;
         show(activity);
         setDialogProgress(lastProgress, lastBytes, lastTotal, lastSpeed, lastElapsed);
+    }
+
+    private String validate(File file, Update update) {
+        if (file == null || !file.exists() || file.length() <= 0) return ResUtil.getString(R.string.update_download_invalid);
+        if (update != null && update.size > 0 && file.length() != update.size) return ResUtil.getString(R.string.update_download_incomplete);
+        if (update != null && !TextUtils.isEmpty(update.sha256) && !update.sha256.equalsIgnoreCase(sha256(file))) return ResUtil.getString(R.string.update_download_checksum);
+        if (App.get().getPackageManager().getPackageArchiveInfo(file.getAbsolutePath(), 0) == null) return ResUtil.getString(R.string.update_download_invalid);
+        return "";
+    }
+
+    private String sha256(File file) {
+        try (FileInputStream input = new FileInputStream(file)) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[16384];
+            int read;
+            while ((read = input.read(buffer)) != -1) digest.update(buffer, 0, read);
+            StringBuilder builder = new StringBuilder();
+            for (byte value : digest.digest()) builder.append(String.format(Locale.ROOT, "%02x", value));
+            return builder.toString();
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private void bind(FragmentActivity activity) {

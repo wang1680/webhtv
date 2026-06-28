@@ -957,6 +957,9 @@
     <string name="update_downloading_detail">Downloading %1$d%% · %2$s/s · %3$s elapsed</string>
     <string name="update_downloading_detail_remaining">Downloading %1$d%% · %2$s/s · %3$s left · %4$s elapsed</string>
     <string name="update_downloading_detail_unknown">Downloading · %1$s/s · %2$s elapsed</string>
+    <string name="update_download_incomplete">The update package was not fully downloaded. Please try again.</string>
+    <string name="update_download_checksum">The update package failed verification. Please try again.</string>
+    <string name="update_download_invalid">The update package is invalid. Please try again.</string>
     <string name="update_confirm">Update</string>
     <string name="update_confirm_channel">Update %1$s</string>
     <string name="update_cancel">Cancel update</string>

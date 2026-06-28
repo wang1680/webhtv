@@ -103,6 +103,10 @@ public class UpdateDialog extends BaseAlertDialog {
     }
 
     private void toggle(String channel) {
+        if (isExpanded(channel)) {
+            update(channel, getItem(channel));
+            return;
+        }
         if (!hasBeta()) return;
         selected = channel;
         stableExpanded = Update.CHANNEL_STABLE.equals(channel);
@@ -206,6 +210,14 @@ public class UpdateDialog extends BaseAlertDialog {
 
     private Update getSelected() {
         return Update.CHANNEL_BETA.equals(selected) ? beta : stable;
+    }
+
+    private boolean isExpanded(String channel) {
+        return Update.CHANNEL_BETA.equals(channel) ? betaExpanded : stableExpanded;
+    }
+
+    private View getItem(String channel) {
+        return Update.CHANNEL_BETA.equals(channel) ? binding.betaItem : binding.stableItem;
     }
 
     private String getSelectedName() {
