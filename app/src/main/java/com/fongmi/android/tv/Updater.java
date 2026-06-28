@@ -13,6 +13,7 @@ import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.dialog.UpdateDialog;
 import com.fongmi.android.tv.utils.Download;
 import com.fongmi.android.tv.utils.FileUtil;
+import com.fongmi.android.tv.utils.GithubProxy;
 import com.fongmi.android.tv.utils.Github;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
@@ -157,7 +158,7 @@ public class Updater implements Download.Callback, UpdateListener {
     private Update readUpdate(String channel, String manifestUrl, String source) {
         Update update = Update.empty(channel);
         try {
-            String text = OkHttp.string(manifestUrl);
+            String text = OkHttp.string(GithubProxy.apply(manifestUrl));
             if (TextUtils.isEmpty(text)) throw new IllegalStateException("Empty update manifest: " + manifestUrl);
             JSONObject object = new JSONObject(text);
             update.name = object.optString("name");
@@ -214,7 +215,7 @@ public class Updater implements Download.Callback, UpdateListener {
 
     private String readReleaseNotes(String tag) {
         try {
-            return new JSONObject(OkHttp.string(Github.getReleaseApi(tag))).optString("body");
+            return new JSONObject(OkHttp.string(GithubProxy.apply(Github.getReleaseApi(tag)))).optString("body");
         } catch (Exception ignored) {
             return "";
         }

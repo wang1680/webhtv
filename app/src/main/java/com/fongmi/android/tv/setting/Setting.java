@@ -565,6 +565,14 @@ public class Setting {
         Prefers.put("update_channel", Update.CHANNEL_BETA.equals(channel) ? Update.CHANNEL_BETA : Update.CHANNEL_STABLE);
     }
 
+    public static String getGithubProxy() {
+        return Prefers.getString("github_proxy", com.fongmi.android.tv.utils.GithubProxy.defaultSources());
+    }
+
+    public static void putGithubProxy(String value) {
+        Prefers.put("github_proxy", com.fongmi.android.tv.utils.GithubProxy.normalizeConfig(value));
+    }
+
     public static boolean isAdblock() {
         return Prefers.getBoolean("adblock", true);
     }
