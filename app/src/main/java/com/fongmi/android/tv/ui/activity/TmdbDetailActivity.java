@@ -1012,17 +1012,17 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setCard(binding.tmdbPanel, colors.panel, colors.line);
         applyTemplateCardChrome(colors);
         tintTextTree(binding.getRoot(), colors);
-        setButton(binding.keep, colors.control, colors.line, colors.primary);
-        setButton(binding.keepTop, colors.control, colors.line, colors.primary);
-        setButton(binding.keepFusion, colors.control, colors.line, colors.primary);
-        setButton(binding.rematch, colors.control, colors.line, colors.primary);
-        setButton(binding.rematchTop, colors.control, colors.line, colors.primary);
-        setButton(binding.rematchFusion, colors.control, colors.line, colors.primary);
-        setButton(binding.changeSource, colors.control, colors.line, colors.primary);
-        setButton(binding.changeSourceDetail, colors.control, colors.line, colors.primary);
-        setButton(binding.themeModeTop, colors.control, colors.line, colors.primary);
-        setButton(binding.themeMode, colors.control, colors.line, colors.primary);
-        setButton(binding.themeModeDetail, colors.control, colors.line, colors.primary);
+        setDetailActionButton(binding.keep, colors);
+        setDetailActionButton(binding.keepTop, colors);
+        setDetailActionButton(binding.keepFusion, colors);
+        setDetailActionButton(binding.rematch, colors);
+        setDetailActionButton(binding.rematchTop, colors);
+        setDetailActionButton(binding.rematchFusion, colors);
+        setDetailActionButton(binding.changeSource, colors);
+        setDetailActionButton(binding.changeSourceDetail, colors);
+        setDetailActionButton(binding.themeModeTop, colors);
+        setDetailActionButton(binding.themeMode, colors);
+        setDetailActionButton(binding.themeModeDetail, colors);
         setButton(binding.episodeReverse, colors.control, colors.line, colors.primary);
         setButton(binding.episodeViewMode, colors.control, colors.line, colors.primary);
         setButton(binding.play, colors.play, colors.play, 0xFFFFFFFF);
@@ -1365,6 +1365,24 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerPanel.post(() -> {
             if (!isFinishing() && binding.playerPanel.getVisibility() == View.VISIBLE && !inlineFullscreen) binding.playerPanel.requestFocus();
         });
+    }
+
+    private void setDetailActionButton(MaterialButton button, ThemeColors colors) {
+        if (lightTheme) {
+            int[][] states = new int[][]{
+                    new int[]{android.R.attr.state_selected},
+                    new int[]{}
+            };
+            button.setAlpha(1f);
+            button.setBackgroundTintList(new ColorStateList(states, new int[]{colors.chipActive, 0xFFFFFFFF}));
+            button.setTextColor(new ColorStateList(states, new int[]{colors.primary, colors.primary}));
+            button.setIconTint(new ColorStateList(states, new int[]{colors.primary, colors.primary}));
+            button.setOnFocusChangeListener(null);
+            applyButtonFocus(button, colors.lineStrong, button.hasFocus());
+            button.setOnFocusChangeListener((view, focused) -> applyButtonFocus(button, colors.lineStrong, focused));
+            return;
+        }
+        setButton(button, colors.control, colors.line, colors.primary);
     }
 
     private void setButton(MaterialButton button, int background, int stroke, int text) {

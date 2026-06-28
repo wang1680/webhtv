@@ -19,6 +19,13 @@
             android:layout_height="match_parent"
             android:visibility="gone" />
 
+        <com.fongmi.android.tv.ui.custom.ContextWallImageView
+            android:id="@+id/contextWall"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:importantForAccessibility="no"
+            android:visibility="gone" />
+
         <!-- 渐变遮罩 -->
         <View
             android:id="@+id/backdropMask"
@@ -27,13 +34,6 @@
             android:background="@drawable/bg_backdrop_gradient" />
 
     </FrameLayout>
-
-    <com.fongmi.android.tv.ui.custom.ContextWallImageView
-        android:id="@+id/contextWall"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:importantForAccessibility="no"
-        android:visibility="gone" />
 
     <FrameLayout
         android:id="@+id/video"

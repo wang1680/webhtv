@@ -18,9 +18,8 @@
     <View
         android:id="@+id/videoContextScrim"
         android:layout_width="match_parent"
-        android:layout_height="320dp"
-        android:layout_below="@id/video"
-        android:background="@drawable/shape_video_context_scrim_top" />
+        android:layout_height="match_parent"
+        android:background="@drawable/shape_video_context_scrim" />
 
     <View
         android:id="@+id/statusBar"

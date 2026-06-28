@@ -25,6 +25,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewConfiguration;
 import android.view.animation.DecelerateInterpolator;
+import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -1781,6 +1782,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         boolean switchToList = mEpisodeGridMode;
         mBinding.episodeViewMode.setImageResource(switchToList ? R.drawable.ic_site_list : R.drawable.ic_site_grid);
         mBinding.episodeViewMode.setContentDescription(getString(switchToList ? R.string.detail_episode_view_list_action : R.string.detail_episode_view_grid_action));
+        applyTmdbPlaybackControlColors();
     }
 
     private boolean onChange() {
@@ -2636,6 +2638,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 mBinding.progressLayout.showContent();
                 mTmdbHeaderView.bind(mTmdbUIAdapter);
                 styleTmdbSourceInFlagTitle();
+                applyTmdbPlaybackControlColors();
                 applyFusionPlayerBelowSpacing();
                 updateTmdbKeepState();
                 requestIntroSkipPlan();
@@ -3189,7 +3192,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         wallParams.addRule(RelativeLayout.ALIGN_PARENT_END);
         mBinding.contextWall.setLayoutParams(wallParams);
         mBinding.statusBar.setBackgroundColor(Color.TRANSPARENT);
-        if (mBinding.videoContextScrim != null) mBinding.videoContextScrim.setVisibility(View.GONE);
+        if (mBinding.videoContextScrim != null) {
+            RelativeLayout.LayoutParams scrimParams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
+            scrimParams.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+            scrimParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+            scrimParams.addRule(RelativeLayout.ALIGN_PARENT_START);
+            scrimParams.addRule(RelativeLayout.ALIGN_PARENT_END);
+            mBinding.videoContextScrim.setLayoutParams(scrimParams);
+            mBinding.videoContextScrim.setVisibility(View.VISIBLE);
+            applyContextWallScrimTheme();
+        }
     }
 
     private void setFusionPlayerBottomGap() {
@@ -3250,6 +3262,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (mTmdbHeaderView != null && mTmdbUIAdapter != null && mTmdbUIAdapter.isLoaded()) {
             mTmdbHeaderView.bind(mTmdbUIAdapter);
             styleTmdbSourceInFlagTitle();
+            applyTmdbPlaybackControlColors();
             applyFusionPlayerBelowSpacing();
         }
     }
@@ -3269,10 +3282,18 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.swipeLayout.setBackgroundColor(Color.TRANSPARENT);
         mBinding.progressLayout.setBackgroundColor(Color.TRANSPARENT);
         if (mBinding.nativeContentContainer != null) mBinding.nativeContentContainer.setBackgroundColor(Color.TRANSPARENT);
+        applyContextWallScrimTheme();
         syncFusionHeaderTheme();
-        if (mFlagAdapter != null) mFlagAdapter.setTmdbLight(light);
+        if (mFlagAdapter != null) mFlagAdapter.setTmdbLight(isTmdbPlaybackLightTheme());
         applyFusionNativeTextColors();
         styleTmdbSourceInFlagTitle();
+        applyTmdbPlaybackControlColors();
+    }
+
+    private void applyContextWallScrimTheme() {
+        if (mBinding.videoContextScrim == null) return;
+        boolean light = Setting.isFusionDetailPage() && isFusionLightTheme();
+        mBinding.videoContextScrim.setBackgroundResource(light ? R.drawable.shape_video_context_scrim_light : R.drawable.shape_video_context_scrim);
     }
 
     private void applyFusionNativeTextColors() {
@@ -3290,6 +3311,47 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         }
         if (!(view instanceof ViewGroup group)) return;
         for (int i = 0; i < group.getChildCount(); i++) tintFusionNativeTextTree(group.getChildAt(i), light);
+    }
+
+    private void applyTmdbPlaybackControlColors() {
+        if (mTmdbHeaderView == null || mTmdbHeaderView.getHeaderRoot() == null) return;
+        boolean light = isTmdbPlaybackLightTheme();
+        int color = tmdbPlaybackControlColor(light);
+        if (mFlagAdapter != null) mFlagAdapter.setTmdbLight(light);
+        tintFusionPlaybackTextTree(mBinding.flagTitleBar, color, light);
+        tintFusionPlaybackTextTree(mBinding.episodeTitleBar, color, light);
+        tintFusionPlaybackText(mBinding.qualityText, color, light);
+        tintFusionPlaybackIcon(mBinding.reverse, color);
+        tintFusionPlaybackIcon(mBinding.episodeViewMode, color);
+        tintFusionPlaybackIcon(mBinding.more, color);
+    }
+
+    private boolean isTmdbPlaybackLightTheme() {
+        return mTmdbHeaderView == null ? isFusionLightTheme() : mTmdbHeaderView.isCurrentDetailLightTheme();
+    }
+
+    private int tmdbPlaybackControlColor(boolean light) {
+        if (mTmdbHeaderView != null) return mTmdbHeaderView.getFusionSectionTitleColor();
+        return light ? 0xFF12202D : Color.WHITE;
+    }
+
+    private void tintFusionPlaybackTextTree(View view, int color, boolean light) {
+        if (view == null || view instanceof RecyclerView) return;
+        if (view instanceof TextView textView) tintFusionPlaybackText(textView, color, light);
+        if (!(view instanceof ViewGroup group)) return;
+        for (int i = 0; i < group.getChildCount(); i++) tintFusionPlaybackTextTree(group.getChildAt(i), color, light);
+    }
+
+    private void tintFusionPlaybackText(TextView textView, int color, boolean light) {
+        if (textView == null) return;
+        textView.setTextColor(color);
+        textView.setLinkTextColor(light ? 0xFF1D8F5A : Color.WHITE);
+        if (light) textView.setShadowLayer(0, 0, 0, 0);
+        else textView.setShadowLayer(ResUtil.dp2px(2), 0, ResUtil.dp2px(1), 0xB0000000);
+    }
+
+    private void tintFusionPlaybackIcon(View view, int color) {
+        if (view instanceof ImageView imageView) imageView.setColorFilter(color);
     }
 
     private void updateFusionThemeButton() {
@@ -3317,7 +3379,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private int getFusionDetailThemeMode() {
-        return getIntent().getIntExtra(EXTRA_TMDB_DETAIL_THEME, Setting.getTmdbDetailTheme()) == 1 ? 1 : 2;
+        return Setting.getTmdbDetailTheme() == 1 ? 1 : 2;
     }
 
     private void syncFusionHeaderTheme() {
@@ -3603,6 +3665,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         }
         mTmdbControlsMoved = true;
         updateEpisodeGroupVisibility();
+        mTmdbHeaderView.refreshTheme();
         applyFusionThemeSurface();
     }
 
@@ -3634,7 +3697,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void styleTmdbSourceInFlagTitle() {
         View source = mBinding.flagTitleBar.findViewById(R.id.tmdbFusionSource);
         if (!(source instanceof TextView textView)) return;
-        int titleColor = mBinding.flagText.getCurrentTextColor();
+        boolean light = isTmdbPlaybackLightTheme();
+        int titleColor = tmdbPlaybackControlColor(light);
         textView.setAlpha(1f);
         textView.setTextColor(titleColor);
         textView.setLinkTextColor(titleColor);
@@ -3642,7 +3706,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         textView.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
         textView.setSingleLine(true);
         textView.setMaxWidth(ResUtil.dp2px(260));
-        if (isLightText(titleColor)) textView.setShadowLayer(ResUtil.dp2px(2), 0, ResUtil.dp2px(1), 0xB0000000);
+        if (light) textView.setShadowLayer(0, 0, 0, 0);
+        else if (isLightText(titleColor)) textView.setShadowLayer(ResUtil.dp2px(2), 0, ResUtil.dp2px(1), 0xB0000000);
         else textView.setShadowLayer(0, 0, 0, 0);
     }
 
@@ -3651,7 +3716,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setTmdbFlagStyle(boolean enabled) {
-        mFlagAdapter.setTmdbLight(!Setting.isFusionDetailPage() || isFusionLightTheme());
+        mFlagAdapter.setTmdbLight(isTmdbPlaybackLightTheme());
         mFlagAdapter.setTmdbStyle(enabled);
         mBinding.flag.setAdapter(null);
         mBinding.flag.setAdapter(mFlagAdapter);

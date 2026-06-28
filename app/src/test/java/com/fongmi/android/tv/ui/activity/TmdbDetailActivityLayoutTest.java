@@ -113,6 +113,39 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
+    public void lightActionButtonsStayReadableOnBackdropAndPanels() throws Exception {
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int theme = source.indexOf("private void applyDetailTheme()");
+        int themeEnd = source.indexOf("private void styleSourceValue()", theme);
+        int helper = source.indexOf("private void setDetailActionButton(MaterialButton button, ThemeColors colors)");
+        assertTrue(sourcePath + " is missing applyDetailTheme", theme >= 0 && themeEnd > theme);
+        assertTrue(sourcePath + " is missing setDetailActionButton", helper >= 0);
+
+        String themeBody = source.substring(theme, themeEnd);
+        assertTrue("light detail actions must use the readable action button helper",
+                themeBody.contains("setDetailActionButton(binding.keep, colors);")
+                        && themeBody.contains("setDetailActionButton(binding.keepTop, colors);")
+                        && themeBody.contains("setDetailActionButton(binding.keepFusion, colors);")
+                        && themeBody.contains("setDetailActionButton(binding.rematch, colors);")
+                        && themeBody.contains("setDetailActionButton(binding.rematchTop, colors);")
+                        && themeBody.contains("setDetailActionButton(binding.rematchFusion, colors);")
+                        && themeBody.contains("setDetailActionButton(binding.changeSource, colors);")
+                        && themeBody.contains("setDetailActionButton(binding.changeSourceDetail, colors);"));
+
+        int helperEnd = source.indexOf("private void setButton(MaterialButton button, int background, int stroke, int text)", helper);
+        assertTrue("setDetailActionButton must be placed before setButton", helperEnd > helper);
+        String helperBody = source.substring(helper, helperEnd);
+        assertTrue("light action buttons need an opaque surface instead of the translucent control color",
+                helperBody.contains("if (lightTheme)")
+                        && helperBody.contains("button.setAlpha(1f);")
+                        && helperBody.contains("0xFFFFFFFF")
+                        && helperBody.contains("colors.chipActive")
+                        && helperBody.contains("colors.lineStrong")
+                        && helperBody.contains("colors.primary"));
+    }
+
+    @Test
     public void inlineEpisodeDialogKeepsTallViewportAndReadableLightThemeStates() throws Exception {
         Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
