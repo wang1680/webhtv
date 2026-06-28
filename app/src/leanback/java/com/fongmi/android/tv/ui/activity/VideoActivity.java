@@ -1659,7 +1659,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void saveHistory(boolean exit) {
         if (mHistory == null || Setting.isIncognito()) return;
-        if (service() != null && isOwner()) {
+        if (exit && isOwner()) {
             updatePlaybackHistoryPosition();
             mHistory.setCreateTime(System.currentTimeMillis());
         }
@@ -1869,8 +1869,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void updatePlaybackHistoryPosition() {
         if (mHistory == null) return;
-        mHistory.setPosition(player().getPosition());
-        mHistory.setDuration(player().getDuration());
+        long position = player().getPosition();
+        long duration = player().getDuration();
+        if (position <= 0 || duration <= 0) return;
+        mHistory.setPosition(position);
+        mHistory.setDuration(duration);
         PlaybackEventCollector.get().updateHistory(mHistory);
     }
 
