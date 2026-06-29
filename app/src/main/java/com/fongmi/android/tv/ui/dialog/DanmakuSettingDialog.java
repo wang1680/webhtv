@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
@@ -97,7 +98,7 @@ public final class DanmakuSettingDialog {
         protected void setBehavior(BottomSheetDialog dialog) {
             FrameLayout sheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
             if (sheet == null) return;
-            sheet.setBackgroundColor(ResUtil.getColor(R.color.transparent));
+            clearBackground(sheet);
             int height = getPanelHeight();
             ViewGroup.LayoutParams params = sheet.getLayoutParams();
             params.height = height;
@@ -114,8 +115,15 @@ public final class DanmakuSettingDialog {
             Window window = dialog.getWindow();
             window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND | WindowManager.LayoutParams.FLAG_FULLSCREEN);
             window.setDimAmount(0f);
+            window.setBackgroundDrawableResource(android.R.color.transparent);
             window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
             WindowCompat.setDecorFitsSystemWindows(window, true);
+        }
+
+        private void clearBackground(FrameLayout sheet) {
+            int color = ResUtil.getColor(R.color.transparent);
+            sheet.setBackgroundColor(color);
+            if (sheet.getParent() instanceof View) ((View) sheet.getParent()).setBackgroundColor(color);
         }
 
         private int getPanelHeight() {
@@ -156,7 +164,11 @@ public final class DanmakuSettingDialog {
             Window window = dialog == null ? null : dialog.getWindow();
             if (window != null) window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             FrameLayout sheet = dialog == null ? null : dialog.findViewById(com.google.android.material.R.id.m3_side_sheet);
-            if (sheet != null) sheet.setBackgroundColor(ResUtil.getColor(R.color.transparent));
+            if (sheet != null) {
+                int color = ResUtil.getColor(R.color.transparent);
+                sheet.setBackgroundColor(color);
+                if (sheet.getParent() instanceof View) ((View) sheet.getParent()).setBackgroundColor(color);
+            }
         }
     }
 }

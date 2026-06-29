@@ -72,7 +72,6 @@ public final class DanmakuDialog extends BaseBottomSheetDialog implements Danmak
     private void onSearch(View view) {
         FragmentActivity activity = getActivity();
         if (activity == null) return;
-        dismissAllowingStateLoss();
         DanmakuSearchDialog.create().player(player).show(activity);
     }
 
@@ -84,7 +83,6 @@ public final class DanmakuDialog extends BaseBottomSheetDialog implements Danmak
     private void onSetting(View view) {
         FragmentActivity activity = getActivity();
         if (activity == null) return;
-        dismissAllowingStateLoss();
         DanmakuSettingDialog.create().player(player).show(activity);
     }
 
