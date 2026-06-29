@@ -994,7 +994,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         addActionButton(PlayerButtonSetting.PREV, mBinding.control.action.prev);
         addActionButton(PlayerButtonSetting.NEXT, mBinding.control.action.next);
         addActionButton(PlayerButtonSetting.EPISODES, mBinding.control.action.episodes);
-        PlayerButtonSetting.applyOrder(mBinding.control.action.container, mActionButtons);
+        applyActionButtonSettings();
     }
 
     private void addActionButton(String id, View view) {
@@ -1003,6 +1003,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void applyActionButtonVisibility() {
         if (mActionButtons != null) PlayerButtonSetting.applyVisibility(mActionButtons);
+    }
+
+    private void applyActionButtonSettings() {
+        if (mActionButtons != null) PlayerButtonSetting.applyOrder(mBinding.control.action.container, mActionButtons);
     }
 
     private void setVideoView(boolean isInPictureInPictureMode) {
@@ -1409,6 +1413,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (DanmakuApi.canSearch()) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), danmaku -> {
             if (DanmakuSetting.isSpiderFirst() && !result.getDanmaku().isEmpty()) player().addDanmaku(danmaku);
             else player().setDanmaku(danmaku);
+            refreshDanmakuControls();
         });
     }
 
@@ -2256,6 +2261,12 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         player().setDanmakuEnabled(false);
     }
 
+    private void refreshDanmakuControls() {
+        mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
+        applyActionButtonVisibility();
+        if (mBinding.control.getRoot().getVisibility() == View.VISIBLE) mBinding.control.danmaku.setVisibility(isLock() || !player().haveDanmaku() ? View.GONE : View.VISIBLE);
+    }
+
     private void showControl() {
         if (service() == null || isInPictureInPictureMode()) return;
         setOsdSuppressed(true);
@@ -2270,7 +2281,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.osdDiagnostics.setVisibility(PlayerSetting.isOsdDiagnostics() && !player().isEmpty() ? View.VISIBLE : View.GONE);
         mBinding.control.osdDiagnostics.setAlpha(mOsd != null && mOsd.isDiagnosticsVisible() ? 1f : 0.72f);
         mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() ? View.VISIBLE : View.GONE);
-        mBinding.control.action.getRoot().setVisibility(isFullscreen() ? View.VISIBLE : View.GONE);
+        mBinding.control.action.getRoot().setVisibility(isFullscreen() || isFusionPlayerActionsDocked() ? View.VISIBLE : View.GONE);
         mBinding.control.right.lock.setVisibility(isFullscreen() ? View.VISIBLE : View.GONE);
         mBinding.control.info.setVisibility(player().isEmpty() ? View.GONE : View.VISIBLE);
         mBinding.control.cast.setVisibility(isFullscreen() && mHistory != null && !player().isEmpty() ? View.VISIBLE : View.GONE);
@@ -2878,7 +2889,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         else if (event.getType() == RefreshEvent.Type.VOD) updateVod(event.getVod());
         else if (event.getType() == RefreshEvent.Type.HISTORY) refreshPersonalRecommendationsForHistory();
         else if (event.getType() == RefreshEvent.Type.SUBTITLE) player().setSub(Sub.from(event.getPath()));
-        else if (event.getType() == RefreshEvent.Type.DANMAKU) player().setDanmaku(Danmaku.from(event.getPath()));
+        else if (event.getType() == RefreshEvent.Type.DANMAKU) {
+            player().setDanmaku(Danmaku.from(event.getPath()));
+            refreshDanmakuControls();
+        }
     }
 
     private void requestIntroSkipPlan() {
@@ -3359,6 +3373,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         tintFusionPlaybackIcon(mBinding.reverse, color);
         tintFusionPlaybackIcon(mBinding.episodeViewMode, color);
         tintFusionPlaybackIcon(mBinding.more, color);
+        tintFusionPlaybackTextTree(mBinding.control.action.getRoot(), color, light);
     }
 
     private boolean isTmdbPlaybackLightTheme() {
@@ -3699,6 +3714,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             if (parent != null) parent.removeView(view);
             playbackControls.addView(view);
         }
+        moveFusionPlayerActionsToTmdb(playbackControls);
         mTmdbControlsMoved = true;
         updateEpisodeGroupVisibility();
         mTmdbHeaderView.refreshTheme();
@@ -3763,6 +3779,21 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (view == null) return;
         for (TmdbMovedView item : mTmdbMovedViews) if (item.view == view) return;
         if (view.getParent() instanceof ViewGroup) mTmdbMovedViews.add(new TmdbMovedView(view));
+    }
+
+    private void moveFusionPlayerActionsToTmdb(ViewGroup playbackControls) {
+        if (!Setting.isFusionDetailPage()) return;
+        View actions = mBinding.control.action.getRoot();
+        rememberTmdbMovedView(actions);
+        if (actions.getParent() instanceof ViewGroup parent) parent.removeView(actions);
+        actions.setLayoutParams(new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        playbackControls.addView(actions);
+        actions.setVisibility(View.VISIBLE);
+        applyActionButtonSettings();
+    }
+
+    private boolean isFusionPlayerActionsDocked() {
+        return Setting.isFusionDetailPage() && mBinding.control.action.getRoot().getParent() != mBinding.control.bottom;
     }
 
     private View[] getTmdbMovableViews() {
