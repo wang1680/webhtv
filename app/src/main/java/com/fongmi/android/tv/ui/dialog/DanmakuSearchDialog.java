@@ -473,7 +473,7 @@ public final class DanmakuSearchDialog extends DialogFragment implements Callbac
 
     private void showSourceItems() {
         adapter.clear();
-        adapter.addAll(groups.get(selectedSource));
+        adapter.addAll(groups.get(selectedSource), getKeywordText());
         recycler.setVisibility(adapter.getItemCount() == 0 ? GONE : VISIBLE);
     }
 
@@ -603,10 +603,11 @@ public final class DanmakuSearchDialog extends DialogFragment implements Callbac
         /**
          * 按剧名二次分组装配列表：同一剧名≥2条折叠成一个 Header（默认折叠），
          * 单条或解析不出剧名的直接作为普通项平铺。含已选中弹幕的分组默认展开。
+         * 分组头按关键词相似度排序，子项按集数排序。
          */
-        private void addAll(List<Danmaku> values) {
+        private void addAll(List<Danmaku> values, String keyword) {
             if (values == null) return;
-            // titleKey -> 该组弹幕（保持插入顺序）；null key 单独收集为平铺项
+            // titleKey -> 该组弹幕；null key 单独收集为平铺项
             LinkedHashMap<String, List<Danmaku>> grouped = new LinkedHashMap<>();
             List<Danmaku> ungrouped = new ArrayList<>();
             for (Danmaku item : values) {
@@ -617,14 +618,20 @@ public final class DanmakuSearchDialog extends DialogFragment implements Callbac
                     grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
                 }
             }
-            for (Map.Entry<String, List<Danmaku>> entry : grouped.entrySet()) {
-                List<Danmaku> items = entry.getValue();
+            // 组内按集数排序
+            for (List<Danmaku> items : grouped.values()) DanmakuTitle.sortByEpisode(items);
+            DanmakuTitle.sortByEpisode(ungrouped);
+            // 分组头按关键词相似度排序
+            List<String> titleKeys = new ArrayList<>(grouped.keySet());
+            DanmakuTitle.sortByKeyword(titleKeys, keyword);
+            for (String key : titleKeys) {
+                List<Danmaku> items = grouped.get(key);
                 if (items.size() < 2) {
                     ungrouped.addAll(items);
                 } else {
                     boolean hasSelected = false;
                     for (Danmaku item : items) if (item.isSelected()) { hasSelected = true; break; }
-                    Header header = new Header(entry.getKey(), items, hasSelected);
+                    Header header = new Header(key, items, hasSelected);
                     rows.add(header);
                     if (hasSelected) rows.addAll(items); // 默认展开：预插入子项
                 }

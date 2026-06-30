@@ -5,6 +5,9 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -124,4 +127,79 @@ public final class DanmakuTitle {
             return EPISODE_UNKNOWN;
         }
     }
+
+    // ---- 相似度排序（参考 CatVodSpider DanmakuUIHelper） ----
+
+    /** 按搜索关键词对剧名列表排序：相似度高的排前面，同分按长度升序再按字典序。 */
+    public static void sortByKeyword(List<String> titles, String keyword) {
+        if (titles == null || titles.size() <= 1) return;
+        String norm = normalizeSearchText(keyword);
+        if (TextUtils.isEmpty(norm)) { Collections.sort(titles); return; }
+        Collections.sort(titles, (left, right) -> {
+            int cmp = Double.compare(matchScore(right, norm), matchScore(left, norm));
+            if (cmp != 0) return cmp;
+            cmp = Integer.compare(safeLen(left), safeLen(right));
+            if (cmp != 0) return cmp;
+            return (left != null ? left : "").compareTo(right != null ? right : "");
+        });
+    }
+
+    /** 按集数对弹幕列表排序（升序，无法解析集数的排末尾）。 */
+    public static void sortByEpisode(List<Danmaku> items) {
+        if (items == null || items.size() <= 1) return;
+        Collections.sort(items, Comparator.comparingInt(DanmakuTitle::getEpisode));
+    }
+
+    /** 归一化搜索文本：去 from/括号/年份/空白，小写。 */
+    public static String normalizeSearchText(String text) {
+        if (TextUtils.isEmpty(text)) return "";
+        return text.replaceAll("(?i)\\s*from\\s*.*$", "")
+                .replaceAll("[【\\[][^】\\]]{0,24}[】\\]]", "")
+                .replaceAll("[(\\[（【]\\s*(?:19|20)\\d{2}\\s*[)\\]）】]", "")
+                .replaceAll("\\s+", "")
+                .trim()
+                .toLowerCase();
+    }
+
+    private static double matchScore(String title, String normKeyword) {
+        String normTitle = normalizeSearchText(title);
+        if (TextUtils.isEmpty(normTitle) || TextUtils.isEmpty(normKeyword)) return 0.0;
+        if (normTitle.equals(normKeyword)) return 3.0;
+        if (normTitle.contains(normKeyword)) return 2.0 + (double) normKeyword.length() / normTitle.length();
+        if (normKeyword.contains(normTitle)) return 1.8 + (double) normTitle.length() / normKeyword.length();
+        return similarity(normTitle, normKeyword);
+    }
+
+    private static double similarity(String left, String right) {
+        if (left == null) left = "";
+        if (right == null) right = "";
+        String longer = left, shorter = right;
+        if (left.length() < right.length()) { longer = right; shorter = left; }
+        int longerLen = longer.length();
+        if (longerLen == 0) return 1.0;
+        return (longerLen - editDistance(longer, shorter)) / (double) longerLen;
+    }
+
+    private static int editDistance(String left, String right) {
+        left = left.toLowerCase();
+        right = right.toLowerCase();
+        int[] costs = new int[right.length() + 1];
+        for (int i = 0; i <= left.length(); i++) {
+            int lastValue = i;
+            for (int j = 0; j <= right.length(); j++) {
+                if (i == 0) { costs[j] = j; }
+                else if (j > 0) {
+                    int newValue = costs[j - 1];
+                    if (left.charAt(i - 1) != right.charAt(j - 1))
+                        newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                    costs[j - 1] = lastValue;
+                    lastValue = newValue;
+                }
+            }
+            if (i > 0) costs[right.length()] = lastValue;
+        }
+        return costs[right.length()];
+    }
+
+    private static int safeLen(String text) { return text != null ? text.length() : 0; }
 }
