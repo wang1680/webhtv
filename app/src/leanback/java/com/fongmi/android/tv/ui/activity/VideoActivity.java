@@ -1136,6 +1136,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mTmdbDetailLoading = false;
         App.removeCallbacks(mTmdbDetailTimeout);
         mBinding.progressLayout.showContent();
+        // 内容从 INVISIBLE 恢复为 VISIBLE 后，焦点需要重新回到播放器
+        mBinding.video.post(() -> mBinding.video.requestFocus());
         SpiderDebug.log("tmdb-tv", "detail loading reveal (show content)");
     }
 
@@ -2821,8 +2823,17 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (item == null) return false;
         String id = item.getId();
         String siteKey = item.getSiteKey();
-        if (!TextUtils.isEmpty(id) && !TextUtils.equals(id, getId())) return false;
+        // 站点 id 可能包含分页标记（如 "140036/40"），而 Vod 的 id 通常不含（如 "140036"）
+        // 需要容忍 Intent id 中的分页后缀：去掉首个 "/" 之后的后缀再比较
+        if (!TextUtils.isEmpty(id) && !TextUtils.equals(id, stripPageSuffix(getId()))) return false;
         return TextUtils.isEmpty(siteKey) || TextUtils.equals(siteKey, getKey());
+    }
+
+    /** 去掉 id 中的分页后缀，如 "140036/40" → "140036" */
+    private static String stripPageSuffix(String id) {
+        if (TextUtils.isEmpty(id)) return id;
+        int slash = id.indexOf('/');
+        return slash >= 0 ? id.substring(0, slash) : id;
     }
 
     private void loadNativePersonalRecommendations(Vod item) {
