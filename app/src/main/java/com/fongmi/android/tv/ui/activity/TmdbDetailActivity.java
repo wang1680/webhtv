@@ -1007,6 +1007,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         applyDetailTheme();
         if (vod != null) {
             bindMeta();
+            bindExternalLinks();
             renderFlagSelection();
             renderSeasonSelection();
             renderEpisodes();
@@ -2326,14 +2327,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
         TextView label = new TextView(this);
         label.setText(name);
-        label.setTextColor(isCinemaMode() ? 0xFFFFFFFF : colors.primary);
+        label.setTextColor(colors.primary);
         label.setTextSize(14f);
         label.setTypeface(null, android.graphics.Typeface.BOLD);
         row.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         ImageView icon = new ImageView(this);
         icon.setImageResource(R.drawable.ic_open);
-        icon.setColorFilter(isCinemaMode() ? 0xCCFFFFFF : colors.secondary);
+        icon.setColorFilter(colors.secondary);
         row.addView(icon, new LinearLayout.LayoutParams(ResUtil.dp2px(20), ResUtil.dp2px(20)));
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
