@@ -483,6 +483,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         personalDoubanAdapter.setItems(new ArrayList<>());
         personalAiAdapter.setItems(new ArrayList<>());
         showAiRecommendationReason(null, false);
+        clearExternalLinks();
         binding.tmdbStatus.setVisibility(View.GONE);
         bindInitialArtwork();
     }
@@ -1097,7 +1098,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 binding.relatedTitle,
                 binding.personalTmdbTitle,
                 binding.personalDoubanTitle,
-                binding.personalAiTitle
+                binding.personalAiTitle,
+                binding.externalLinksTitle
         };
         int color = isCinemaMode() ? 0xFFFFFFFF : colors.primary;
         for (TextView title : titles) {
@@ -2270,6 +2272,81 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (!TextUtils.isEmpty(tmdb)) addRatingChip(key, "TMDB", tmdb + "/10", 0xFF21D07A);
         fetchDoubanRating(key);
         fetchOmdbRating(key);
+        bindExternalLinks();
+    }
+
+    private void bindExternalLinks() {
+        clearExternalLinks();
+        if (matchedTmdbDetail == null) return;
+        int count = 0;
+        String mediaType = matchedTmdbItem != null && "tv".equalsIgnoreCase(matchedTmdbItem.getMediaType()) ? "tv" : "movie";
+        int tmdbId = matchedTmdbItem == null ? 0 : matchedTmdbItem.getTmdbId();
+        if (tmdbId > 0) count += addExternalLink("TMDB", "https://www.themoviedb.org/" + mediaType + "/" + tmdbId);
+        String imdb = string(object(matchedTmdbDetail, "external_ids"), "imdb_id");
+        if (!TextUtils.isEmpty(imdb)) count += addExternalLink("IMDB", "https://www.imdb.com/title/" + imdb);
+        String title = ratingTitle();
+        if (!TextUtils.isEmpty(title)) count += addExternalLink("豆瓣", "https://search.douban.com/movie/subject_search?search_text=" + android.net.Uri.encode(title));
+        String query = externalSearchQuery(title);
+        if (!TextUtils.isEmpty(query)) {
+            count += addExternalLink("烂番茄", "https://www.rottentomatoes.com/search?search=" + android.net.Uri.encode(query));
+            count += addExternalLink("Metacritic", "https://www.metacritic.com/search/" + android.net.Uri.encode(query) + "/");
+        }
+        binding.externalLinksTitle.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+        binding.externalLinksContainer.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+    }
+
+    private void clearExternalLinks() {
+        binding.externalLinksContainer.removeAllViews();
+        binding.externalLinksTitle.setVisibility(View.GONE);
+        binding.externalLinksContainer.setVisibility(View.GONE);
+    }
+
+    private String externalSearchQuery(String title) {
+        if (TextUtils.isEmpty(title)) return "";
+        int year = ratingYear();
+        return year <= 0 || title.contains(String.valueOf(year)) ? title : title + " " + year;
+    }
+
+    private int addExternalLink(String name, String url) {
+        if (TextUtils.isEmpty(name) || TextUtils.isEmpty(url)) return 0;
+        ThemeColors colors = currentThemeColors();
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(ResUtil.dp2px(12), ResUtil.dp2px(10), ResUtil.dp2px(12), ResUtil.dp2px(10));
+        row.setClickable(true);
+        row.setFocusable(true);
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(isCinemaMode() ? TmdbCinemaTheme.palette(lightTheme).ratingChip() : colors.chip);
+        background.setCornerRadius(ResUtil.dp2px(10));
+        background.setStroke(ResUtil.dp2px(1), colors.line);
+        row.setBackground(background);
+        row.setOnClickListener(view -> openExternalLink(url));
+
+        TextView label = new TextView(this);
+        label.setText(name);
+        label.setTextColor(isCinemaMode() ? 0xFFFFFFFF : colors.primary);
+        label.setTextSize(14f);
+        label.setTypeface(null, android.graphics.Typeface.BOLD);
+        row.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(R.drawable.ic_open);
+        icon.setColorFilter(isCinemaMode() ? 0xCCFFFFFF : colors.secondary);
+        row.addView(icon, new LinearLayout.LayoutParams(ResUtil.dp2px(20), ResUtil.dp2px(20)));
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        if (binding.externalLinksContainer.getChildCount() > 0) params.topMargin = ResUtil.dp2px(8);
+        binding.externalLinksContainer.addView(row, params);
+        return 1;
+    }
+
+    private void openExternalLink(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)));
+        } catch (Throwable e) {
+            Notify.show("无法打开链接");
+        }
     }
 
     private void addRatingChip(String key, String platform, String value, int color) {
@@ -3117,7 +3194,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         boolean hasPersonalTmdb = !personalTmdbItems.isEmpty();
         boolean hasPersonalDouban = !personalDoubanItems.isEmpty();
         boolean hasPersonalAi = !personalAiItems.isEmpty();
-        binding.tmdbSection.setVisibility(hasPhotos || hasCast || hasCreators || hasRelated || hasPersonalTmdb || hasPersonalDouban || hasPersonalAi || matchedTmdbDetail != null || canMatchTmdb() ? View.VISIBLE : View.GONE);
+        boolean hasExternalLinks = binding.externalLinksContainer.getChildCount() > 0;
+        binding.tmdbSection.setVisibility(hasPhotos || hasCast || hasCreators || hasRelated || hasPersonalTmdb || hasPersonalDouban || hasPersonalAi || hasExternalLinks || matchedTmdbDetail != null || canMatchTmdb() ? View.VISIBLE : View.GONE);
 
         binding.episodePhotoTitle.setVisibility(hasPhotos ? View.VISIBLE : View.GONE);
         binding.episodePhotoList.setVisibility(hasPhotos ? View.VISIBLE : View.GONE);
@@ -3154,13 +3232,17 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         personalAiAdapter.setItems(personalAiItems);
         if (!hasPersonalAi) showAiRecommendationReason(null, false);
 
+        setTopMargin(binding.externalLinksTitle, hasPhotos || hasCast || hasCreators || hasRelated || hasPersonalTmdb || hasPersonalDouban || hasPersonalAi ? 20 : 0);
+        binding.externalLinksTitle.setVisibility(hasExternalLinks ? View.VISIBLE : View.GONE);
+        binding.externalLinksContainer.setVisibility(hasExternalLinks ? View.VISIBLE : View.GONE);
+
         if (!tmdbConfig.isReady()) {
             binding.tmdbStatus.setVisibility(View.VISIBLE);
             binding.tmdbStatus.setText(R.string.detail_tmdb_need_key);
         } else if (!isTmdbAllowedForCurrentSite()) {
             binding.tmdbStatus.setVisibility(View.VISIBLE);
             binding.tmdbStatus.setText(R.string.detail_tmdb_site_disabled);
-        } else if (!hasPhotos && !hasCast && !hasCreators && !hasRelated && !hasPersonalTmdb && !hasPersonalDouban && !hasPersonalAi) {
+        } else if (!hasPhotos && !hasCast && !hasCreators && !hasRelated && !hasPersonalTmdb && !hasPersonalDouban && !hasPersonalAi && !hasExternalLinks) {
             binding.tmdbStatus.setVisibility(View.VISIBLE);
             binding.tmdbStatus.setText(R.string.detail_tmdb_empty);
         } else {

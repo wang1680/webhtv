@@ -1405,11 +1405,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         updateFocus();
         if (scrollToCurrent) scrollToCurrentEpisode();
         setR2Callback();
-        // 延迟刷新一次，确保焦点状态正确初始化
-        mBinding.episode.post(() -> {
-            if (mEpisodeAdapter != null) mEpisodeAdapter.notifyDataSetChanged();
-            if (mEpisodeGridAdapter != null) mEpisodeGridAdapter.notifyDataSetChanged();
-        });
     }
 
     // TMDB 加载结束后兜底：若仍卡在剧集加载指示器（电影无集数、未匹配到、获取失败等），
@@ -1555,6 +1550,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mEpisodeGridAdapter.setGridMode(true);
         mEpisodeGridAdapter.setVerticalGridMode(true);
         mEpisodeGridAdapter.setColumn(spanCount);
+        updateEpisodeGridViewport();
         mBinding.episodeViewMode.setText(episodeGridMode ? R.string.detail_episode_view_list : R.string.detail_episode_view_grid);
         updateEpisodeReverseText();
         updateFocus();
@@ -1588,6 +1584,15 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private View getActiveEpisodeContentView() {
         return episodeGridMode ? mBinding.episodeGrid : mBinding.episode;
+    }
+
+    private void updateEpisodeGridViewport() {
+        ViewGroup.LayoutParams params = mBinding.episodeGrid.getLayoutParams();
+        if (params.height != ViewGroup.LayoutParams.WRAP_CONTENT) {
+            params.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+            mBinding.episodeGrid.setLayoutParams(params);
+        }
+        mBinding.episodeGrid.setNestedScrollingEnabled(false);
     }
 
     private void scrollToCurrentEpisode() {
