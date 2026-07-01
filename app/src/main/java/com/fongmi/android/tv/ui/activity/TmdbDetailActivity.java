@@ -74,6 +74,7 @@ import com.fongmi.android.tv.databinding.ActivityTmdbDetailBinding;
 import com.fongmi.android.tv.databinding.DialogTmdbEpisodeBinding;
 import com.fongmi.android.tv.db.AppDatabase;
 import com.fongmi.android.tv.event.RefreshEvent;
+import com.fongmi.android.tv.playback.PlaybackOrientation;
 import com.fongmi.android.tv.player.IntroSkipPlayback;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.player.PlayerHelper;
@@ -5672,7 +5673,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setLock(!isLock());
         if (inlineGestureDetector != null) inlineGestureDetector.setLock(isLock());
         if (isLock()) {
-            setRequestedOrientation(ResUtil.getScreenOrientation(this));
+            setRequestedOrientation(PlaybackOrientation.getScreenOrientation(this));
             hideInlineGestureOverlays();
         } else {
             setInlineFullscreenOrientation();

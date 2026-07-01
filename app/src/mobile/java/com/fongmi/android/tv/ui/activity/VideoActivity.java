@@ -80,6 +80,7 @@ import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.impl.CustomTarget;
 import com.fongmi.android.tv.model.SiteViewModel;
 import com.fongmi.android.tv.playback.PlaybackEventCollector;
+import com.fongmi.android.tv.playback.PlaybackOrientation;
 import com.fongmi.android.tv.player.IntroSkipPlayback;
 import com.fongmi.android.tv.player.PlayerHelper;
 import com.fongmi.android.tv.player.PlayerManager;
@@ -1721,7 +1722,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void seamless(Flag flag) {
-        Episode episode = flag.find(mHistory.getEpisode(), getMark().isEmpty());
+        Episode episode = getMark().isEmpty() ? flag.find(mHistory.getEpisode(), true) : flag.find(mHistory.getVodRemarks(), false);
         setQualityVisible(episode != null && episode.isSelected() && mQualityAdapter.getItemCount() > 1);
         if (episode == null || episode.isSelected()) return;
         mHistory.setVodRemarks(episode.getName());
@@ -1948,7 +1949,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void onRotate() {
         setR1Callback();
         setRotate(!isRotate());
-        setRequestedOrientation(ResUtil.isLand(this) ? ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        setRequestedOrientation(PlaybackOrientation.getRotateOrientation(this));
     }
 
     private void onFullscreen() {
@@ -2230,7 +2231,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         setFullscreen(true);
         if (isLand() && !player().isPortrait()) setTransition();
         mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
-        setRequestedOrientation(player().isPortrait() ? ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        setRequestedOrientation(PlaybackOrientation.getEnterFullscreenOrientation(player().isPortrait()));
         mBinding.control.title.setVisibility(View.VISIBLE);
         setSizeText();
         setRotate(player().isPortrait());
@@ -2243,7 +2244,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (!isFullscreen()) return;
         setFullscreen(false);
         if (isLand() && !player().isPortrait()) setTransition();
-        setRequestedOrientation(isPort() ? ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_FULL_USER);
+        setRequestedOrientation(PlaybackOrientation.getExitFullscreenOrientation(isPort()));
         mBinding.episodeGroup.postDelayed(() -> scrollToPosition(mBinding.episodeGroup, mEpisodeGroupAdapter.getPosition()), 100);
         mBinding.episode.postDelayed(this::scrollEpisodeToSelected, 100);
         mBinding.control.title.setVisibility(View.INVISIBLE);
@@ -2286,15 +2287,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private int getLockOrient() {
-        if (isLock()) {
-            return ResUtil.getScreenOrientation(this);
-        } else if (isRotate()) {
-            return ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT;
-        } else if (isPort() && isAutoRotate()) {
-            return ActivityInfo.SCREEN_ORIENTATION_FULL_USER;
-        } else {
-            return ResUtil.isLand(this) ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT;
-        }
+        return PlaybackOrientation.getLockOrientation(this, isLock(), isRotate(), isPort() && isAutoRotate());
     }
 
     private void showProgress() {
@@ -2399,8 +2392,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setOrient() {
-        if (isPort() && isAutoRotate()) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_USER);
-        if (isLand() && isAutoRotate()) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE);
+        if (isPort() && isAutoRotate()) setRequestedOrientation(PlaybackOrientation.getPortAutoRotateOrientation());
+        if (isLand() && isAutoRotate()) setRequestedOrientation(PlaybackOrientation.getLandAutoRotateOrientation());
     }
 
     private void setR1Callback() {
@@ -3030,10 +3023,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void checkOrientation() {
         if (isFullscreen() && !isRotate() && player().isPortrait()) {
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT);
+            setRequestedOrientation(PlaybackOrientation.getPortraitVideoSizeOrientation());
             setRotate(true);
         } else if (isFullscreen() && isRotate() && player().isLandscape()) {
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE);
+            setRequestedOrientation(PlaybackOrientation.getLandscapeVideoSizeOrientation());
             setRotate(false);
         }
     }
