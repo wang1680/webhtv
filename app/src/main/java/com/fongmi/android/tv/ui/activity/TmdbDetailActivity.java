@@ -501,8 +501,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.rematch.setOnClickListener(view -> showManualTmdbMatchDialog());
         binding.rematchTop.setOnClickListener(view -> showManualTmdbMatchDialog());
         binding.rematchFusion.setOnClickListener(view -> showManualTmdbMatchDialog());
-        binding.changeSource.setOnClickListener(view -> changeSource());
-        binding.changeSourceDetail.setOnClickListener(view -> changeSource());
+        binding.changeSource.setOnClickListener(view -> openGlobalSourceSearch());
+        binding.changeSourceDetail.setOnClickListener(view -> openGlobalSourceSearch());
         binding.changeSource.setOnLongClickListener(view -> openGlobalSourceSearch());
         binding.changeSourceDetail.setOnLongClickListener(view -> openGlobalSourceSearch());
         binding.themeModeTop.setOnClickListener(view -> cycleThemeMode());
@@ -677,7 +677,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerSpeed.setOnLongClickListener(view -> resetInlineSpeed());
         binding.playerScale.setOnClickListener(view -> cycleInlineScale());
         binding.playerRefresh.setOnClickListener(view -> refreshInlinePlayback());
-        binding.playerChangeSource.setOnClickListener(view -> changeSource());
+        binding.playerChangeSource.setOnClickListener(view -> openGlobalSourceSearch());
+        binding.playerChangeSource.setOnLongClickListener(view -> openGlobalSourceSearch());
         binding.playerRepeat.setOnClickListener(view -> toggleInlineRepeat());
         binding.playerDisplay.setOnClickListener(view -> showInlineDisplay());
         binding.playerDecode.setOnClickListener(view -> toggleInlineDecode());
