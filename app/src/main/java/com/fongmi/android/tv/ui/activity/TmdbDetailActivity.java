@@ -1417,6 +1417,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void tintTextTree(View view, ThemeColors colors) {
         if (view instanceof RecyclerView) return;
+        if (view.getId() == R.id.loading) return;
         if (view instanceof TextView textView && !(view instanceof MaterialButton)) {
             textView.setTextColor(colors.primary);
         }
