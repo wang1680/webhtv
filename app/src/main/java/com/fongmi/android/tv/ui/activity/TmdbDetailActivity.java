@@ -1538,7 +1538,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private int initialStandaloneSeasonNumber(Vod loadedVod, TmdbBundle bundle) {
         List<Episode> episodes = initialStandaloneEpisodes(loadedVod);
         if (episodes.isEmpty()) return -1;
-        Episode selected = initialStandaloneEpisode(episodes);
+        Episode selected = initialStandaloneEpisode(loadedVod, episodes);
         int sourceSeason = sourceSeasonNumber(selected);
         if (sourceSeason > 0 && bundle.seasons().contains(sourceSeason)) return sourceSeason;
         int titleSeason = sourceSeasonNumber(loadedVod.getName());
@@ -1554,7 +1554,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (flags == null || flags.isEmpty()) return List.of();
         String historyFlag = "";
         try {
-            History saved = History.find(getHistoryKey());
+            History saved = History.findPlayback(getHistoryKey(), List.of(loadedVod.getName(), getNameText()), flags);
             historyFlag = saved == null ? "" : saved.getVodFlag();
         } catch (Throwable ignored) {
         }
@@ -1568,10 +1568,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         return selected.getEpisodes();
     }
 
-    private Episode initialStandaloneEpisode(List<Episode> episodes) {
+    private Episode initialStandaloneEpisode(Vod loadedVod, List<Episode> episodes) {
         if (episodes == null || episodes.isEmpty()) return null;
         try {
-            History saved = History.find(getHistoryKey());
+            History saved = History.findPlayback(getHistoryKey(), List.of(loadedVod.getName(), getNameText()), loadedVod.getFlags());
             Episode episode = findEpisodeByUrl(saved == null ? "" : saved.getEpisodeUrl(), episodes);
             if (episode != null) return episode;
             if (saved != null) {
@@ -3452,7 +3452,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void initHistory() {
-        history = History.find(getHistoryKey());
+        history = History.findPlayback(getHistoryKey(), List.of(vod.getName(), getNameText()), vod.getFlags());
         if (history == null) {
             history = new History();
             history.setKey(getHistoryKey());

@@ -2533,7 +2533,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void checkHistory(Vod item) {
-        mHistory = History.find(getHistoryKey());
+        mHistory = History.findPlayback(getHistoryKey(), List.of(item.getName(), getName()), item.getFlags());
         mHistory = mHistory == null ? createHistory(item) : mHistory;
         if (!TextUtils.isEmpty(getWallPic())) mHistory.setWallPic(getWallPic());
         if (!TextUtils.isEmpty(getMark())) mHistory.setVodRemarks(getMark());
