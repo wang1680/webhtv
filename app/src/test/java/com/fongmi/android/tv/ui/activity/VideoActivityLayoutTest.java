@@ -188,6 +188,17 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void mobileTmdbDetailHidesNativeActionRowInColorfulMode() throws Exception {
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int method = source.indexOf("private void setDetail(Vod item)");
+
+        assertTrue(sourcePath + " is missing setDetail", method >= 0);
+        assertTrue("TMDB detail playback must hide the native action row for colorful/native styled detail pages",
+                source.indexOf("setOriginalEnhancedActionVisibility(tmdbMode);", method) > method);
+    }
+
+    @Test
     public void mobileDirectPlaybackUsesUpstreamNativeEpisodeStrip() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
@@ -707,6 +718,9 @@ public class VideoActivityLayoutTest {
                 source.indexOf("if (!Setting.isFusionDetailPage()) return true;", method) < 0);
         assertTrue("TMDB playback labels and icons must use the header's current detail theme",
                 source.indexOf("mTmdbHeaderView.isCurrentDetailLightTheme()", method) > method);
+        assertTrue("dynamic backdrop playback labels must force white text instead of profile dark text",
+                methodBody.contains("boolean light = !shouldUseTmdbBackdropSurface() && isTmdbPlaybackLightTheme()")
+                        && methodBody.contains("int color = shouldUseTmdbBackdropSurface() ? Color.WHITE : tmdbPlaybackControlColor(light)"));
         assertTrue("TMDB playback labels and icons must match the header section title color",
                 source.indexOf("mTmdbHeaderView.getFusionSectionTitleColor()", method) > method);
         assertTrue("TMDB flag chips must use the same resolved playback theme as the moved labels",
@@ -793,7 +807,71 @@ public class VideoActivityLayoutTest {
                 source.indexOf("mBinding.videoContextScrim.setBackgroundResource(R.drawable.shape_video_context_scrim);", scrim) > scrim
                         && source.indexOf("mBinding.videoContextScrim.setVisibility(View.VISIBLE);", scrim) > scrim);
         assertTrue("fusion theme refresh must not cover unmatched fallback with a solid color",
-                source.indexOf("mBinding.getRoot().setBackgroundColor(mTmdbFallbackToNative ? Color.TRANSPARENT", theme) > theme);
+                source.indexOf("mBinding.getRoot().setBackgroundColor(mTmdbFallbackToNative || shouldUseTmdbBackdropSurface() ? Color.TRANSPARENT", theme) > theme);
+    }
+
+    @Test
+    public void mobileColorfulAndNativeStyledTmdbDetailUseDynamicBackdropSurface() throws Exception {
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int predicate = source.indexOf("private boolean shouldUseTmdbBackdropSurface()");
+        int setContextWall = source.indexOf("private void setContextWall(String url, boolean skipLock)");
+        int init = source.indexOf("private void initTmdbMode()");
+        int themeSurface = source.indexOf("private void applyFusionThemeSurface()");
+        int move = source.indexOf("private void moveFlagAndEpisodeToTmdb()");
+
+        assertTrue(sourcePath + " is missing shouldUseTmdbBackdropSurface", predicate >= 0);
+        assertTrue("colorful and native styled TMDB detail must opt into the dynamic backdrop surface",
+                source.indexOf("Setting.getDetailOpenMode() == Setting.DETAIL_OPEN_ENHANCED", predicate) > predicate
+                        && source.indexOf("Setting.isTmdbNativeStyle()", predicate) > predicate);
+        assertTrue("dynamic backdrop surface must be allowed even when playback artwork wall is disabled",
+                source.indexOf("!shouldUseTmdbBackdropSurface()", setContextWall) > setContextWall);
+        assertTrue("colorful and native styled TMDB detail must receive backdrop slideshow changes",
+                source.indexOf("shouldUseTmdbBackdropSurface()", init) > init
+                        && source.indexOf("setContextWall(imageUrl, true);", init) > init);
+        assertTrue("colorful and native styled TMDB detail must use the transparent fullscreen backdrop layout",
+                source.indexOf("applyOriginalEnhancedBackdropLayout();", init) > init
+                        && source.indexOf("mBinding.scroll.setBackgroundColor(Color.TRANSPARENT);", init) > init);
+        assertTrue("colorful and native styled TMDB detail must not be covered by later theme surface refreshes",
+                source.indexOf("mTmdbFallbackToNative || shouldUseTmdbBackdropSurface() ? Color.TRANSPARENT", themeSurface) > themeSurface);
+        assertTrue("header theme refresh must re-hide the standalone hero artwork",
+                source.indexOf("mTmdbHeaderView.refreshTheme();", move) > move
+                        && source.indexOf("mTmdbHeaderView.hideNativeHeroBackdrop();", move) > move);
+    }
+
+    @Test
+    public void tmdbPlaybackBackdropSurfaceHidesTopPosterArtwork() throws Exception {
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int method = source.indexOf("public void hideNativeHeroBackdrop()");
+
+        assertTrue(sourcePath + " is missing hideNativeHeroBackdrop", method >= 0);
+        assertTrue("dynamic backdrop surface must keep the hidden backdrop from reserving hero height",
+                source.indexOf("params.height = 1;", method) > method);
+        assertTrue("dynamic backdrop surface must hide the top poster card",
+                source.indexOf("R.id.tmdbPoster", method) > method
+                        && source.indexOf("posterCard.setVisibility(View.GONE);", method) > method);
+        assertTrue("title text must align after the poster card is removed",
+                source.indexOf("textParams.setMarginStart(0);", method) > method);
+        assertTrue("dynamic backdrop surface must force header text to white with shadow",
+                source.indexOf("backdropSurfaceMode = true;", method) > method
+                        && source.indexOf("applyBackdropSurfaceTextColors();", method) > method
+                        && source.indexOf("private void applyBackdropSurfaceTextColors()") > method
+                        && source.indexOf("styleFusionBackdropText(textView, COLOR_FUSION_BACKDROP_TEXT)", method) > method);
+        assertTrue("dynamic backdrop surface must not recolor action button text on light pills",
+                source.indexOf("!(view instanceof MaterialButton)", method) > method);
+        assertTrue("dynamic backdrop surface must style rating chips and action buttons as dark translucent glass",
+                source.contains("COLOR_BACKDROP_SURFACE_CONTROL_BG = 0x6610141A")
+                        && source.contains("styleBackdropSurfaceRatingChips();")
+                        && source.contains("tintActions(Setting.DETAIL_STYLE_CINEMA);")
+                        && source.contains("if (backdropSurfaceMode) {")
+                        && source.contains("button.setTextColor(COLOR_FUSION_BACKDROP_TEXT);"));
+        assertTrue("rating chips created after backdrop mode starts must keep white text instead of source colors",
+                source.contains("chip.setTextColor(backdropSurfaceMode ? COLOR_FUSION_BACKDROP_TEXT")
+                        && source.contains("valueView.setTextColor(backdropSurfaceMode ? COLOR_FUSION_BACKDROP_TEXT"));
+        assertTrue("dynamic backdrop surface must be reported as a dark readable surface",
+                source.contains("if (backdropSurfaceMode) return false;")
+                        && source.contains("if (backdropSurfaceMode) return COLOR_FUSION_BACKDROP_TEXT;"));
     }
 
     @Test

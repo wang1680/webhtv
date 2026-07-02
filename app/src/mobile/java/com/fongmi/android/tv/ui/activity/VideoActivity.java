@@ -575,6 +575,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return hasTmdbDetailAdapter() && !mTmdbFallbackToNative;
     }
 
+    private boolean shouldUseTmdbBackdropSurface() {
+        return !Setting.isFusionDetailPage() && (Setting.isOriginalEnhancedDetailPage() || shouldUseTmdbDetailLayout() && (Setting.getDetailOpenMode() == Setting.DETAIL_OPEN_ENHANCED || Setting.isTmdbNativeStyle()));
+    }
+
     private com.fongmi.android.tv.bean.TmdbItem getTmdbItem() {
         return (com.fongmi.android.tv.bean.TmdbItem) getIntent().getSerializableExtra("tmdbItem");
     }
@@ -1146,7 +1150,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mTmdbFallbackToNative = false;
         mTmdbContentLoaded = false;
         mTmdbAutoDialogShown = false;
-        setOriginalEnhancedActionVisibility(tmdbMode && Setting.isOriginalEnhancedDetailPage());
+        setOriginalEnhancedActionVisibility(tmdbMode);
         if (tmdbMode) {
             hideTmdbHeader();
             setNativeDetailInfoVisible(false);
@@ -2463,7 +2467,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setContextWall(String url, boolean skipLock) {
-        if (!Setting.isPlaybackArtworkWall() && !Setting.isFusionDetailPage() && !Setting.isOriginalEnhancedDetailPage()) {
+        if (!Setting.isPlaybackArtworkWall() && !Setting.isFusionDetailPage() && !shouldUseTmdbBackdropSurface()) {
             mContextWallUrl = "";
             hideContextWall();
             return;
@@ -2513,7 +2517,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void restoreContextWall() {
-        if (!Setting.isPlaybackArtworkWall() && !Setting.isFusionDetailPage() && !Setting.isOriginalEnhancedDetailPage()) return;
+        if (!Setting.isPlaybackArtworkWall() && !Setting.isFusionDetailPage() && !shouldUseTmdbBackdropSurface()) return;
         String wall = getContextWall();
         if (TextUtils.isEmpty(wall)) {
             hideContextWall();
@@ -3323,8 +3327,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             public void onImagesLoaded() {
                 // TMDB 内容加载完成，设置标记并隐藏进度条
                 android.util.Log.d("VideoActivity", "TMDB 内容加载完成，隐藏进度条");
-                // 原生增强模式：在内容加载后隐藏独立 backdrop
-                if (Setting.isOriginalEnhancedDetailPage() && mTmdbHeaderView != null) {
+                // 原生增强/原生样式：在内容加载后隐藏独立 backdrop，让全屏动态背景透出
+                if (shouldUseTmdbBackdropSurface() && mTmdbHeaderView != null) {
                     mTmdbHeaderView.hideNativeHeroBackdrop();
                 }
                 mTmdbContentLoaded = true;
@@ -3332,8 +3336,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             }
         });
 
-        // 原生增强模式和 Fusion 模式：设置 Backdrop 变化监听器，同步轮播到 contextWall
-        if (Setting.isFusionDetailPage() || Setting.isOriginalEnhancedDetailPage()) {
+        // 原生增强、原生样式和 Fusion 模式：设置 Backdrop 变化监听器，同步轮播到 contextWall
+        if (Setting.isFusionDetailPage() || shouldUseTmdbBackdropSurface()) {
             mTmdbHeaderView.setOnBackdropChangeListener(new com.fongmi.android.tv.ui.custom.TmdbHeaderView.OnBackdropChangeListener() {
                 @Override
                 public void onBackdropChanged(String imageUrl) {
@@ -3352,7 +3356,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
         if (Setting.isFusionDetailPage()) {
             applyFusionDetailChrome();
-        } else if (Setting.isOriginalEnhancedDetailPage()) {
+        } else if (shouldUseTmdbBackdropSurface()) {
             // 原生增强模式：启用全屏背景
             applyOriginalEnhancedBackdropLayout();
             mBinding.getRoot().setBackgroundColor(Color.TRANSPARENT);
@@ -3513,7 +3517,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void applyFusionThemeSurface() {
         boolean light = isFusionLightTheme();
-        mBinding.getRoot().setBackgroundColor(mTmdbFallbackToNative ? Color.TRANSPARENT : light ? 0xFFF3F6F9 : 0xFF0F141A);
+        mBinding.getRoot().setBackgroundColor(mTmdbFallbackToNative || shouldUseTmdbBackdropSurface() ? Color.TRANSPARENT : light ? 0xFFF3F6F9 : 0xFF0F141A);
         mBinding.scroll.setBackgroundColor(Color.TRANSPARENT);
         mBinding.swipeLayout.setBackgroundColor(Color.TRANSPARENT);
         mBinding.progressLayout.setBackgroundColor(Color.TRANSPARENT);
@@ -3556,8 +3560,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void applyTmdbPlaybackControlColors() {
         if (mTmdbHeaderView == null || mTmdbHeaderView.getHeaderRoot() == null) return;
-        boolean light = isTmdbPlaybackLightTheme();
-        int color = tmdbPlaybackControlColor(light);
+        boolean light = !shouldUseTmdbBackdropSurface() && isTmdbPlaybackLightTheme();
+        int color = shouldUseTmdbBackdropSurface() ? Color.WHITE : tmdbPlaybackControlColor(light);
         if (mFlagAdapter != null) mFlagAdapter.setTmdbLight(light);
         tintFusionPlaybackTextTree(mBinding.flagTitleBar, color, light);
         tintFusionPlaybackTextTree(mBinding.episodeTitleBar, color, light);
@@ -3921,6 +3925,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mTmdbControlsMoved = true;
         updateEpisodeGroupVisibility();
         mTmdbHeaderView.refreshTheme();
+        if (shouldUseTmdbBackdropSurface()) mTmdbHeaderView.hideNativeHeroBackdrop();
         applyFusionThemeSurface();
     }
 
