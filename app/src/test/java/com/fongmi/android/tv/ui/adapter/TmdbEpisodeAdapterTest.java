@@ -61,6 +61,26 @@ public class TmdbEpisodeAdapterTest {
                         && source.indexOf("private boolean sameItems(", notify) > notify);
     }
 
+    @Test
+    public void themeRefreshUpdatesLightAndAccentWithSingleRebind() throws Exception {
+        String adapter = tmdbEpisodeAdapterSource();
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int method = adapter.indexOf("public void setTheme(boolean light, int activeStrokeColor)");
+        int methodEnd = adapter.indexOf("public void setFallbackStillUrl", method);
+        String body = methodEnd > method ? adapter.substring(method, methodEnd) : adapter.substring(method);
+
+        assertTrue("theme changes should update light and active stroke together",
+                method >= 0
+                        && body.contains("boolean changed = this.light != light || this.activeStrokeColor != activeStrokeColor;")
+                        && body.contains("this.light = light;")
+                        && body.contains("this.activeStrokeColor = activeStrokeColor;")
+                        && body.contains("if (changed) notifyDataSetChanged();"));
+        assertTrue("detail theme refresh should avoid separate full rebinds for light and active stroke",
+                activity.contains("episodeAdapter.setTheme(lightTheme, colors.accent);")
+                        && !activity.contains("episodeAdapter.setLight(lightTheme);\n            episodeAdapter.setActiveStrokeColor(colors.accent);"));
+    }
+
     private static String tmdbEpisodeAdapterSource() throws Exception {
         Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java"));
         return new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);

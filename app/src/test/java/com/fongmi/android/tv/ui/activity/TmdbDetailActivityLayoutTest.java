@@ -221,6 +221,35 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
+    public void detailThemeToggleRestylesDynamicViewsWithoutRebuildingEpisodes() throws Exception {
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int cycle = source.indexOf("private void cycleThemeMode()");
+        int cycleEnd = source.indexOf("private void applyDetailTheme()", cycle);
+        int refresh = source.indexOf("private void refreshDetailThemeDynamicViews()");
+        int refreshEnd = source.indexOf("private void clearExternalLinks()", refresh);
+
+        assertTrue(sourcePath + " is missing cycleThemeMode", cycle >= 0 && cycleEnd > cycle);
+        assertTrue(sourcePath + " is missing refreshDetailThemeDynamicViews", refresh >= 0 && refreshEnd > refresh);
+        String cycleBody = source.substring(cycle, cycleEnd);
+        String refreshBody = source.substring(refresh, refreshEnd);
+
+        assertTrue("theme toggle should preserve episode scroll and card data instead of rebuilding the detail sections",
+                cycleBody.contains("applyDetailTheme();")
+                        && cycleBody.contains("refreshDetailThemeDynamicViews();")
+                        && !cycleBody.contains("bindMeta();")
+                        && !cycleBody.contains("bindExternalLinks();")
+                        && !cycleBody.contains("renderSeasonSelection();")
+                        && !cycleBody.contains("renderEpisodes();"));
+        assertTrue("theme toggle still needs to restyle dynamic chips and external links in place",
+                refreshBody.contains("styleMetaChips();")
+                        && refreshBody.contains("styleExternalLinks();")
+                        && refreshBody.contains("renderFlagSelection();")
+                        && refreshBody.contains("updateSeasonButtonStates();")
+                        && refreshBody.contains("updateEpisodeRangeButtonStates();"));
+    }
+
+    @Test
     public void standaloneEpisodeViewportRerenderOnlyNumbersCurrentPage() throws Exception {
         Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);

@@ -1013,13 +1013,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailThemeMode = Setting.nextTmdbDetailTheme(detailThemeMode);
         Setting.putTmdbDetailTheme(detailThemeMode);
         applyDetailTheme();
-        if (vod != null) {
-            bindMeta();
-            bindExternalLinks();
-            renderFlagSelection();
-            renderSeasonSelection();
-            renderEpisodes();
-        }
+        refreshDetailThemeDynamicViews();
     }
 
     private void applyDetailTheme() {
@@ -1075,8 +1069,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             tintInlineLoading();
         }
         if (episodeAdapter != null) {
-            episodeAdapter.setLight(lightTheme);
-            episodeAdapter.setActiveStrokeColor(colors.accent);
+            episodeAdapter.setTheme(lightTheme, colors.accent);
         }
         if (episodePhotoAdapter != null) episodePhotoAdapter.setLight(lightTheme);
         setDetailAdaptersLight(lightTheme);
@@ -2440,6 +2433,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.externalLinksContainer.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
     }
 
+    private void refreshDetailThemeDynamicViews() {
+        styleMetaChips();
+        styleExternalLinks();
+        if (vod == null) return;
+        renderFlagSelection();
+        updateSeasonButtonStates();
+        updateEpisodeRangeButtonStates();
+    }
+
     private void clearExternalLinks() {
         binding.externalLinksContainer.removeAllViews();
         binding.externalLinksTitle.setVisibility(View.GONE);
@@ -2461,29 +2463,45 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         row.setPadding(ResUtil.dp2px(12), ResUtil.dp2px(10), ResUtil.dp2px(12), ResUtil.dp2px(10));
         row.setClickable(true);
         row.setFocusable(true);
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(isCinemaMode() ? TmdbCinemaTheme.palette(lightTheme).ratingChip() : colors.chip);
-        background.setCornerRadius(ResUtil.dp2px(10));
-        background.setStroke(ResUtil.dp2px(1), colors.line);
-        row.setBackground(background);
         row.setOnClickListener(view -> openExternalLink(url));
 
         TextView label = new TextView(this);
         label.setText(name);
-        label.setTextColor(colors.primary);
         label.setTextSize(14f);
         label.setTypeface(null, android.graphics.Typeface.BOLD);
         row.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         ImageView icon = new ImageView(this);
         icon.setImageResource(R.drawable.ic_open);
-        icon.setColorFilter(colors.secondary);
         row.addView(icon, new LinearLayout.LayoutParams(ResUtil.dp2px(20), ResUtil.dp2px(20)));
+        styleExternalLinkRow(row, colors);
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         if (binding.externalLinksContainer.getChildCount() > 0) params.topMargin = ResUtil.dp2px(8);
         binding.externalLinksContainer.addView(row, params);
         return 1;
+    }
+
+    private void styleExternalLinks() {
+        if (binding == null || binding.externalLinksContainer == null) return;
+        ThemeColors colors = currentThemeColors();
+        for (int i = 0; i < binding.externalLinksContainer.getChildCount(); i++) {
+            styleExternalLinkRow(binding.externalLinksContainer.getChildAt(i), colors);
+        }
+    }
+
+    private void styleExternalLinkRow(View view, ThemeColors colors) {
+        if (!(view instanceof LinearLayout row)) return;
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(isCinemaMode() ? TmdbCinemaTheme.palette(lightTheme).ratingChip() : colors.chip);
+        background.setCornerRadius(ResUtil.dp2px(10));
+        background.setStroke(ResUtil.dp2px(1), colors.line);
+        row.setBackground(background);
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View child = row.getChildAt(i);
+            if (child instanceof TextView label) label.setTextColor(colors.primary);
+            if (child instanceof ImageView icon) icon.setColorFilter(colors.secondary);
+        }
     }
 
     private void openExternalLink(String url) {
@@ -3300,6 +3318,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 renderEpisodes();
             });
             binding.seasonContainer.addView(button);
+        }
+    }
+
+    private void updateSeasonButtonStates() {
+        boolean hasSeasons = seasonNumbers.size() > 1 && !usesSingleTmdbSeasonEpisodeData(selectedFlag == null ? null : selectedFlag.getEpisodes());
+        if (!hasSeasons) return;
+        for (int i = 0; i < binding.seasonContainer.getChildCount() && i < seasonNumbers.size(); i++) {
+            View child = binding.seasonContainer.getChildAt(i);
+            if (child instanceof MaterialButton button) setChipState(button, seasonNumbers.get(i) == selectedSeasonNumber);
         }
     }
 
@@ -7839,6 +7866,21 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void applyChipFocus(MaterialButton button, boolean selected, boolean focused, ThemeColors colors) {
         button.setStrokeWidth(ResUtil.dp2px(focused ? FOCUS_STROKE_DP : (selected ? 2 : CHIP_STROKE_DP)));
         button.setStrokeColor(ColorStateList.valueOf(focused ? FOCUS_STROKE : (selected ? colors.accent : colors.line)));
+    }
+
+    private void styleMetaChips() {
+        if (binding == null || binding.metaContainer == null) return;
+        ThemeColors colors = lightTheme ? ThemeColors.light() : ThemeColors.dark();
+        for (int i = 0; i < binding.metaContainer.getChildCount(); i++) {
+            View child = binding.metaContainer.getChildAt(i);
+            if (!(child instanceof TextView chip)) continue;
+            chip.setTextColor(colors.primary);
+            GradientDrawable background = new GradientDrawable();
+            background.setColor(colors.chip);
+            background.setCornerRadius(999f);
+            background.setStroke(1, colors.line);
+            chip.setBackground(background);
+        }
     }
 
     private void addMetaChip(String text) {

@@ -1008,19 +1008,24 @@ public class VideoActivityLayoutTest {
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int cycle = source.indexOf("private void cycleThemeMode()");
         int apply = source.indexOf("applyDetailTheme();", cycle);
-        int external = source.indexOf("bindExternalLinks();", apply);
-        int render = source.indexOf("renderFlagSelection();", apply);
+        int refresh = source.indexOf("refreshDetailThemeDynamicViews();", apply);
         int method = source.indexOf("private int addExternalLink(String name, String url)");
         int nextMethod = source.indexOf("private void openExternalLink(String url)", method);
+        int style = source.indexOf("private void styleExternalLinkRow(View view, ThemeColors colors)");
+        int styleEnd = source.indexOf("private void openExternalLink(String url)", style);
         String methodBody = nextMethod > method ? source.substring(method, nextMethod) : source.substring(method);
+        String styleBody = styleEnd > style ? source.substring(style, styleEnd) : source.substring(style);
 
         assertTrue(sourcePath + " is missing cycleThemeMode", cycle >= 0);
-        assertTrue("theme toggle must rebuild external link rows after theme colors change",
-                external > apply && external < render);
+        assertTrue(sourcePath + " is missing styleExternalLinkRow", style >= 0);
+        assertTrue("theme toggle must restyle dynamic rows without rebuilding the whole detail section",
+                refresh > apply);
+        assertTrue("new external link rows must share the same styling path as theme refreshes",
+                methodBody.contains("styleExternalLinkRow(row, colors);"));
         assertTrue("direct detail external link labels must use resolved theme text color",
-                methodBody.contains("label.setTextColor(colors.primary)"));
+                styleBody.contains("label.setTextColor(colors.primary)"));
         assertTrue("direct detail external link icons must use resolved theme icon color",
-                methodBody.contains("icon.setColorFilter(colors.secondary)"));
+                styleBody.contains("icon.setColorFilter(colors.secondary)"));
     }
 
     @Test
