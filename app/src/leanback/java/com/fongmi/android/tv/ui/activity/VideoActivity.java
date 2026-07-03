@@ -1878,8 +1878,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         updateEpisodeHeaderFocus();
         mPartAdapter.setNextFocus(findFocusUp(part), findFocusDown(part));
         mQuickAdapter.setNextFocus(findFocusUp(quick), findFocusDown(quick));
-        int searchDown = isVisible(mBinding.quick) ? R.id.quick : isVisible(mBinding.part) ? R.id.part : findFocusDown(-1);
-        mBinding.searchDetail.setNextFocusDownId(searchDown == 0 ? View.NO_ID : searchDown);
+        setDetailButtonsNextFocus(findFocusDown(-1));
     }
 
     private void updateEpisodeHeaderFocus() {
@@ -3325,11 +3324,15 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         NONE, RECOMMENDATIONS, PERSONAL_TMDB, PERSONAL_DOUBAN, PERSONAL_AI
     }
 
-    private void setDetailButtonsNextFocus(int next) {
-        mBinding.content.setNextFocusDownId(next);
-        mBinding.keep.setNextFocusDownId(next);
-        mBinding.searchDetail.setNextFocusDownId(next);
-        mBinding.tmdbRematch.setNextFocusDownId(next);
+    private void setDetailButtonsNextFocus(int fallback) {
+        int target = isVisible(mBinding.flag) ? R.id.flag : fallback;
+        if (target == 0) target = View.NO_ID;
+        mBinding.content.setNextFocusDownId(target);
+        mBinding.shortDisplay.setNextFocusDownId(target);
+        mBinding.searchDetail.setNextFocusDownId(target);
+        mBinding.keep.setNextFocusDownId(target);
+        mBinding.change1.setNextFocusDownId(target);
+        mBinding.tmdbRematch.setNextFocusDownId(target);
     }
 
     private void bindTmdbData() {

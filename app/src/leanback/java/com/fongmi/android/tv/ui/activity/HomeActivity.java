@@ -114,6 +114,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private String webDefaultChromeMode = TV_FULL;
     private boolean webToolbarVisible = true;
     private boolean loadingHomeCategory;
+    private long lastBackPressTime = 0;
+    private static final int EXIT_INTERVAL = 2000;
 
     private Site getHome() {
         return VodConfig.get().getHome();
@@ -836,7 +838,13 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         } else if (mBinding.recycler.getSelectedPosition() != 0) {
             mBinding.recycler.scrollToPosition(0);
         } else {
-            exitHome();
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastBackPressTime < EXIT_INTERVAL) {
+                exitHome();
+            } else {
+                lastBackPressTime = currentTime;
+                Notify.show(R.string.app_exit_confirm);
+            }
         }
     }
 

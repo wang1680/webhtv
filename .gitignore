@@ -26,3 +26,4 @@ third_party/sources/
 app/signing/
 .gradle-user-home/
 plans/
+.tokensave

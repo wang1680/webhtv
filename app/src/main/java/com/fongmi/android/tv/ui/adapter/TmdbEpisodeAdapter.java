@@ -95,13 +95,22 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
     }
 
     public void setLight(boolean light) {
+        if (this.light == light) return;
         this.light = light;
         notifyDataSetChanged();
     }
 
     public void setActiveStrokeColor(int activeStrokeColor) {
+        if (this.activeStrokeColor == activeStrokeColor) return;
         this.activeStrokeColor = activeStrokeColor;
         notifyDataSetChanged();
+    }
+
+    public void setTheme(boolean light, int activeStrokeColor) {
+        boolean changed = this.light != light || this.activeStrokeColor != activeStrokeColor;
+        this.light = light;
+        this.activeStrokeColor = activeStrokeColor;
+        if (changed) notifyDataSetChanged();
     }
 
     public void setFallbackStillUrl(String fallbackStillUrl) {

@@ -11,7 +11,6 @@ import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.bean.Collect;
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.databinding.AdapterTypeBinding;
-import com.fongmi.android.tv.utils.ResUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -90,7 +89,7 @@ public class CollectAdapter extends RecyclerView.Adapter<CollectAdapter.ViewHold
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Collect item = mItems.get(position);
-        holder.binding.text.getLayoutParams().width = ResUtil.dp2px(160);
+        holder.binding.text.getLayoutParams().width = ViewGroup.LayoutParams.WRAP_CONTENT;
         holder.binding.text.setSingleLine(true);
         holder.binding.text.setEllipsize(android.text.TextUtils.TruncateAt.MARQUEE);
         holder.binding.text.setMarqueeRepeatLimit(-1);

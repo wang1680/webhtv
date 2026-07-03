@@ -2,6 +2,7 @@
 
     <!-- App -->
     <string name="app_name">影視</string>
+    <string name="app_exit_confirm">再按一次退出應用</string>
 
     <!-- Live -->
     <string name="live_pass">密碼</string>
