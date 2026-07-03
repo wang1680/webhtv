@@ -41,6 +41,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     private String[] bufferBytes;
     private String[] caption;
     private String[] kernel;
+    private String[] padLiveMode;
     private String[] playCache;
     private String[] render;
     private String[] scale;
@@ -66,6 +67,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.aacText.setText(getSwitch(PlayerSetting.isPreferAAC()));
         mBinding.tunnelText.setText(getSwitch(PlayerSetting.isTunnel()));
         mBinding.exo4kCompatText.setText(getSwitch(PlayerSetting.isExoEnhanced()));
+        setPadLiveModeText();
         setPlayerButtonsText();
         mBinding.adblockText.setText(getSwitch(Setting.isAdblock()));
         mBinding.speedText.setText(format.format(PlayerSetting.getSpeed()));
@@ -97,6 +99,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.lut.setOnClickListener(this::onLut);
         mBinding.osd.setOnClickListener(this::onOsd);
         mBinding.playerButtons.setOnClickListener(view -> PlayerButtonConfigDialog.show(this, this::setPlayerButtonsText));
+        mBinding.padLive.setOnClickListener(this::setPadLiveMode);
         mBinding.speed.setOnClickListener(this::onSpeed);
         mBinding.buffer.setOnClickListener(this::onBuffer);
         mBinding.bufferBytes.setOnClickListener(this::onBufferBytes);
@@ -164,6 +167,17 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
 
     private void setPlayerButtonsText() {
         mBinding.playerButtonsText.setText(getString(R.string.player_button_config_summary, PlayerButtonSetting.getVisibleCount(), PlayerButtonSetting.getTotalCount()));
+    }
+
+    private void setPadLiveModeText() {
+        mBinding.padLive.setVisibility(ResUtil.isPad() ? View.VISIBLE : View.GONE);
+        mBinding.padLiveText.setText((padLiveMode = ResUtil.getStringArray(R.array.select_pad_live_mode))[PlayerSetting.getPadLiveMode()]);
+    }
+
+    private void setPadLiveMode(View view) {
+        int index = (PlayerSetting.getPadLiveMode() + 1) % padLiveMode.length;
+        PlayerSetting.putPadLiveMode(index);
+        mBinding.padLiveText.setText(padLiveMode[index]);
     }
 
     private boolean[] getOsdChecked() {
