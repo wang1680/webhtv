@@ -801,10 +801,28 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerFullscreenAction.setNextFocusLeftId(R.id.playerRepeat);
         binding.playerFullscreenAction.setNextFocusDownId(R.id.timeBar);
         binding.playerRepeat.setNextFocusRightId(R.id.playerFullscreenAction);
-        binding.playerExternal.setNextFocusUpId(R.id.playerFullscreenAction);
-        binding.playerDecode.setNextFocusUpId(R.id.playerFullscreenAction);
-        binding.playerDisplay.setNextFocusUpId(R.id.playerFullscreenAction);
-        binding.playerEpisodes.setNextFocusUpId(R.id.playerFullscreenAction);
+        // 为所有控制栏按钮设置 nextFocusUp 指向自己，防止向上键导致焦点丢失
+        binding.playerFullscreenAction.setNextFocusUpId(R.id.playerFullscreenAction);
+        binding.playerNext.setNextFocusUpId(R.id.playerNext);
+        binding.playerPrev.setNextFocusUpId(R.id.playerPrev);
+        binding.playerEpisodes.setNextFocusUpId(R.id.playerEpisodes);
+        binding.playerRefresh.setNextFocusUpId(R.id.playerRefresh);
+        binding.playerChangeSource.setNextFocusUpId(R.id.playerChangeSource);
+        binding.playerExternal.setNextFocusUpId(R.id.playerExternal);
+        binding.playerDecode.setNextFocusUpId(R.id.playerDecode);
+        binding.playerSpeed.setNextFocusUpId(R.id.playerSpeed);
+        binding.playerScale.setNextFocusUpId(R.id.playerScale);
+        binding.playerQuality.setNextFocusUpId(R.id.playerQuality);
+        binding.playerParse.setNextFocusUpId(R.id.playerParse);
+        binding.playerTextTrack.setNextFocusUpId(R.id.playerTextTrack);
+        binding.playerAudioTrack.setNextFocusUpId(R.id.playerAudioTrack);
+        binding.playerVideoTrack.setNextFocusUpId(R.id.playerVideoTrack);
+        binding.playerOpening.setNextFocusUpId(R.id.playerOpening);
+        binding.playerEnding.setNextFocusUpId(R.id.playerEnding);
+        binding.playerDanmaku.setNextFocusUpId(R.id.playerDanmaku);
+        binding.playerChapter.setNextFocusUpId(R.id.playerChapter);
+        binding.playerDisplay.setNextFocusUpId(R.id.playerDisplay);
+        binding.playerRepeat.setNextFocusUpId(R.id.playerRepeat);
     }
 
     private void setupInlineControlFocus() {
