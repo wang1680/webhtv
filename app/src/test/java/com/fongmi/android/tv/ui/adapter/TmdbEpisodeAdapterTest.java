@@ -81,6 +81,28 @@ public class TmdbEpisodeAdapterTest {
                         && !activity.contains("episodeAdapter.setLight(lightTheme);\n            episodeAdapter.setActiveStrokeColor(colors.accent);"));
     }
 
+    @Test
+    public void nativeEnhancedEpisodeCardsDoNotShowSelectedGrayOverlay() throws Exception {
+        String adapter = tmdbEpisodeAdapterSource();
+        Path layoutPath = findMainResPath().resolve(Path.of("layout", "adapter_tmdb_episode.xml"));
+        String layout = new String(Files.readAllBytes(layoutPath), StandardCharsets.UTF_8);
+        int nativeFocus = adapter.indexOf("private void applyNativeEnhancedCardFocus");
+        int nativeFocusEnd = adapter.indexOf("private boolean isNativeEnhanced()", nativeFocus);
+        String nativeFocusBody = nativeFocus >= 0 && nativeFocusEnd > nativeFocus ? adapter.substring(nativeFocus, nativeFocusEnd) : "";
+
+        assertTrue("episode cards should not stack platform ripple/focus overlays over the still image",
+                layout.contains("android:defaultFocusHighlightEnabled=\"false\"")
+                        && layout.contains("android:stateListAnimator=\"@null\"")
+                        && layout.contains("app:rippleColor=\"@android:color/transparent\"")
+                        && !layout.contains("?attr/selectableItemBackground"));
+        assertTrue("native-enhanced selected episodes should use stroke only, not Material selected/checked state overlays",
+                nativeFocusBody.contains("setSelected(false);")
+                        && nativeFocusBody.contains("setActivated(false);")
+                        && nativeFocusBody.contains("setChecked(false);")
+                        && nativeFocusBody.contains("activated ? activeStrokeColor : 0x00000000")
+                        && !nativeFocusBody.contains("setSelected(activated)"));
+    }
+
     private static String tmdbEpisodeAdapterSource() throws Exception {
         Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java"));
         return new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
@@ -90,5 +112,11 @@ public class TmdbEpisodeAdapterTest {
         Path moduleRelative = Path.of("src", "main", "java");
         if (Files.exists(moduleRelative)) return moduleRelative;
         return Path.of("app", "src", "main", "java");
+    }
+
+    private static Path findMainResPath() {
+        Path moduleRelative = Path.of("src", "main", "res");
+        if (Files.exists(moduleRelative)) return moduleRelative;
+        return Path.of("app", "src", "main", "res");
     }
 }

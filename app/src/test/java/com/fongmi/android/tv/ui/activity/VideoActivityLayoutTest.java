@@ -1022,10 +1022,15 @@ public class VideoActivityLayoutTest {
                 refresh > apply);
         assertTrue("new external link rows must share the same styling path as theme refreshes",
                 methodBody.contains("styleExternalLinkRow(row, colors);"));
+        assertTrue("external link rows must repaint their chrome when remote focus changes",
+                methodBody.contains("row.setOnFocusChangeListener((view, focused) -> styleExternalLinkRow(view, currentThemeColors()));"));
         assertTrue("direct detail external link labels must use resolved theme text color",
                 styleBody.contains("label.setTextColor(colors.primary)"));
         assertTrue("direct detail external link icons must use resolved theme icon color",
                 styleBody.contains("icon.setColorFilter(colors.secondary)"));
+        assertTrue("focused direct detail external links must use the shared yellow focus stroke",
+                styleBody.contains("boolean focused = row.hasFocus();")
+                        && styleBody.contains("background.setStroke(ResUtil.dp2px(focused ? FOCUS_STROKE_DP : CHIP_STROKE_DP), focused ? FOCUS_STROKE : colors.line);"));
     }
 
     @Test
