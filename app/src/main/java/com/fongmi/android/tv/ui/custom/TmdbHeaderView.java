@@ -128,8 +128,11 @@ public class TmdbHeaderView {
     private java.util.List<String> backdropPhotos = new java.util.ArrayList<>();
     private int currentBackdropIndex = 0;
     private int detailThemeModeOverride;
+    private boolean backdropSurfaceMode;
     private android.os.Handler backdropHandler;
     private Runnable backdropRunnable;
+    private static final int COLOR_BACKDROP_SURFACE_CONTROL_BG = 0x6610141A;
+    private static final int COLOR_BACKDROP_SURFACE_CONTROL_STROKE = 0x33FFFFFF;
 
     public TmdbHeaderView(Activity activity, ViewGroup scrollContainer) {
         this.activity = activity;
@@ -165,10 +168,12 @@ public class TmdbHeaderView {
     }
 
     public boolean isCurrentDetailLightTheme() {
+        if (backdropSurfaceMode) return false;
         return isLightDetailChrome();
     }
 
     public int getFusionSectionTitleColor() {
+        if (backdropSurfaceMode) return COLOR_FUSION_BACKDROP_TEXT;
         if (Setting.isFusionDetailPage()) return isCurrentDetailLightTheme() ? 0xFF12202D : COLOR_FUSION_BACKDROP_TEXT;
         return isCurrentDetailLightTheme() ? 0xFF15222B : COLOR_FUSION_BACKDROP_TEXT;
     }
@@ -862,9 +867,11 @@ public class TmdbHeaderView {
     private com.google.android.material.textview.MaterialTextView createRatingChip(String platform, String value, String color) {
         boolean fusion = Setting.isFusionDetailPage();
         boolean lightChrome = isLightDetailChrome() || (fusion && !isDarkDetailTheme());
+        boolean lightSurface = !backdropSurfaceMode && lightChrome;
         com.google.android.material.textview.MaterialTextView chip = new com.google.android.material.textview.MaterialTextView(activity);
         chip.setText(platform + " ★ " + value);
-        chip.setTextColor(resolveRatingChipTextColor(color, fusion && lightChrome));
+        chip.setTag(color);
+        chip.setTextColor(backdropSurfaceMode ? COLOR_FUSION_BACKDROP_TEXT : resolveRatingChipTextColor(color, lightSurface));
         chip.setTextSize(15);
         chip.setTypeface(null, android.graphics.Typeface.BOLD);
         chip.setSingleLine(true);
@@ -875,11 +882,9 @@ public class TmdbHeaderView {
 
         // 设置圆角背景
         android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
-        background.setColor(fusion ? (lightChrome ? 0xDDEAF0F5 : 0xB314171C) : lightChrome ? 0xD9FFFFFF : 0x30FFFFFF);
         background.setCornerRadius(ResUtil.dp2px(6));  // 圆角
-        background.setStroke(ResUtil.dp2px(1), lightChrome ? 0x55FFFFFF : 0x33FFFFFF);
         chip.setBackground(background);
-        if (fusion && !lightChrome) applyFusionTextShadow(chip);
+        styleRatingChip(chip, fusion, lightChrome, lightSurface);
 
         com.google.android.flexbox.FlexboxLayout.LayoutParams params =
                 new com.google.android.flexbox.FlexboxLayout.LayoutParams(
@@ -1299,23 +1304,19 @@ public class TmdbHeaderView {
         chip.setPadding(28, 14, 28, 14);
 
         android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
-        background.setColor(0x26FFFFFF);
-        background.setCornerRadius(10);
+        background.setCornerRadius(ResUtil.dp2px(6));
         chip.setBackground(background);
 
         com.google.android.material.textview.MaterialTextView platformView = new com.google.android.material.textview.MaterialTextView(activity);
         platformView.setText(platform);
-        platformView.setTextColor(0xFF9AA7B4);
         platformView.setTextSize(11);
-        if (Setting.isFusionDetailPage()) styleFusionBackdropText(platformView, COLOR_FUSION_BACKDROP_TEXT_SECONDARY);
         chip.addView(platformView);
 
         com.google.android.material.textview.MaterialTextView valueView = new com.google.android.material.textview.MaterialTextView(activity);
         valueView.setText(value);
-        valueView.setTextColor(android.graphics.Color.parseColor(color));
+        valueView.setTag(color);
         valueView.setTextSize(15);
         valueView.setTypeface(null, android.graphics.Typeface.BOLD);
-        if (Setting.isFusionDetailPage()) applyFusionTextShadow(valueView);
         androidx.appcompat.widget.LinearLayoutCompat.LayoutParams valueParams =
                 new androidx.appcompat.widget.LinearLayoutCompat.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -1328,7 +1329,54 @@ public class TmdbHeaderView {
                         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.setMarginEnd(12);
         chip.setLayoutParams(params);
+        boolean fusion = Setting.isFusionDetailPage();
+        boolean lightChrome = isLightDetailChrome() || (fusion && !isDarkDetailTheme());
+        boolean lightSurface = !backdropSurfaceMode && lightChrome;
+        styleSourceRatingChip(chip, fusion, lightChrome, lightSurface);
         return chip;
+    }
+
+    private void styleRatingChipContainer(ViewGroup container) {
+        if (container == null) return;
+        boolean fusion = Setting.isFusionDetailPage();
+        boolean lightChrome = isLightDetailChrome() || (fusion && !isDarkDetailTheme());
+        boolean lightSurface = !backdropSurfaceMode && lightChrome;
+        for (int i = 0; i < container.getChildCount(); i++) {
+            View child = container.getChildAt(i);
+            if (child instanceof TextView textView) styleRatingChip(textView, fusion, lightChrome, lightSurface);
+            else if (child instanceof ViewGroup group) styleSourceRatingChip(group, fusion, lightChrome, lightSurface);
+        }
+    }
+
+    private void styleRatingChip(TextView chip, boolean fusion, boolean lightChrome, boolean lightSurface) {
+        String color = chip.getTag() instanceof String ? (String) chip.getTag() : "#21D07A";
+        chip.setTextColor(backdropSurfaceMode ? COLOR_FUSION_BACKDROP_TEXT : resolveRatingChipTextColor(color, lightSurface));
+        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+        background.setColor(backdropSurfaceMode ? COLOR_BACKDROP_SURFACE_CONTROL_BG : fusion ? (lightSurface ? 0xDDEAF0F5 : 0xB314171C) : lightSurface ? 0xD9FFFFFF : 0x30FFFFFF);
+        background.setCornerRadius(ResUtil.dp2px(6));
+        background.setStroke(ResUtil.dp2px(1), backdropSurfaceMode ? COLOR_BACKDROP_SURFACE_CONTROL_STROKE : lightSurface ? 0x33424B57 : 0x33FFFFFF);
+        chip.setBackground(background);
+        if (backdropSurfaceMode || fusion && !lightChrome) applyFusionTextShadow(chip);
+        else clearTextShadow(chip);
+    }
+
+    private void styleSourceRatingChip(ViewGroup chip, boolean fusion, boolean lightChrome, boolean lightSurface) {
+        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+        background.setColor(backdropSurfaceMode ? COLOR_BACKDROP_SURFACE_CONTROL_BG : fusion ? (lightSurface ? 0xDDEAF0F5 : 0xB314171C) : lightSurface ? 0xD9FFFFFF : 0x26FFFFFF);
+        background.setCornerRadius(ResUtil.dp2px(6));
+        background.setStroke(ResUtil.dp2px(1), backdropSurfaceMode ? COLOR_BACKDROP_SURFACE_CONTROL_STROKE : lightSurface ? 0x33424B57 : 0x33FFFFFF);
+        chip.setBackground(background);
+        for (int i = 0; i < chip.getChildCount(); i++) {
+            View child = chip.getChildAt(i);
+            if (!(child instanceof TextView textView)) continue;
+            if (textView.getTag() instanceof String color) {
+                textView.setTextColor(backdropSurfaceMode ? COLOR_FUSION_BACKDROP_TEXT : resolveRatingChipTextColor(color, lightSurface));
+            } else {
+                textView.setTextColor(backdropSurfaceMode ? COLOR_FUSION_BACKDROP_TEXT : lightSurface ? 0xCC12202D : 0xFF9AA7B4);
+            }
+            if (backdropSurfaceMode || fusion && !lightChrome) applyFusionTextShadow(textView);
+            else clearTextShadow(textView);
+        }
     }
 
     private void applyTheme() {
@@ -1366,6 +1414,8 @@ public class TmdbHeaderView {
         clearBackdropTextShadows();
         clearFusionActionStyling();
         styleTmdbPlaybackControls(primary);
+        styleRatingChipContainer(headerRoot.findViewById(R.id.tmdbRatingsContainer));
+        styleRatingChipContainer(headerRoot.findViewById(R.id.tmdbOmdbRatings));
         tintActions(style);
     }
 
@@ -1417,6 +1467,8 @@ public class TmdbHeaderView {
         styleFusionSpacing();
         TextView powered = findPoweredBy();
         if (powered != null) styleFusionBackdropText(powered, COLOR_FUSION_BACKDROP_WATERMARK);
+        styleRatingChipContainer(headerRoot.findViewById(R.id.tmdbRatingsContainer));
+        styleRatingChipContainer(headerRoot.findViewById(R.id.tmdbOmdbRatings));
         tintActions(dark ? Setting.DETAIL_STYLE_CINEMA : Setting.DETAIL_STYLE_PROFILE);
     }
 
@@ -1825,6 +1877,12 @@ public class TmdbHeaderView {
         MaterialButton button = headerRoot.findViewById(id);
         if (button == null) return;
         button.setAlpha(1f);
+        if (backdropSurfaceMode) {
+            button.setTextColor(COLOR_FUSION_BACKDROP_TEXT);
+            button.setStrokeColor(ColorStateList.valueOf(COLOR_BACKDROP_SURFACE_CONTROL_STROKE));
+            button.setBackgroundTintList(ColorStateList.valueOf(COLOR_BACKDROP_SURFACE_CONTROL_BG));
+            return;
+        }
         if (Setting.isFusionDetailPage()) {
             boolean dark = style == Setting.DETAIL_STYLE_CINEMA;
             button.setTextColor(0xFFFFFFFF);
@@ -2192,6 +2250,7 @@ public class TmdbHeaderView {
      */
     public void hideNativeHeroBackdrop() {
         if (headerRoot == null) return;
+        backdropSurfaceMode = true;
 
         // 将 TmdbHeaderView 的根视图背景设为透明，让下方的 contextWall 透出来
         headerRoot.setBackgroundColor(android.graphics.Color.TRANSPARENT);
@@ -2205,6 +2264,16 @@ public class TmdbHeaderView {
         if (backdropView != null) {
             backdropView.setAlpha(0f);  // 完全透明，但保持可见状态
             backdropView.setVisibility(View.VISIBLE);
+            ViewGroup.LayoutParams params = backdropView.getLayoutParams();
+            if (params != null) {
+                params.height = 1;
+                backdropView.setLayoutParams(params);
+            }
+        }
+
+        View poster = nativeHero.findViewById(R.id.tmdbPoster);
+        if (poster != null && poster.getParent() instanceof View posterCard) {
+            posterCard.setVisibility(View.GONE);
         }
 
         // 隐藏渐变遮罩（backdrop 下方的第二个 View）
@@ -2236,9 +2305,59 @@ public class TmdbHeaderView {
                     ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) child.getLayoutParams();
                     params.topMargin = ResUtil.dp2px(16);  // 减小顶部边距
                     child.setLayoutParams(params);
+                    child.setPadding(child.getPaddingLeft(), ResUtil.dp2px(16), child.getPaddingRight(), child.getPaddingBottom());
+                    androidx.appcompat.widget.LinearLayoutCompat row = (androidx.appcompat.widget.LinearLayoutCompat) child;
+                    if (row.getChildCount() > 1 && row.getChildAt(1).getLayoutParams() instanceof ViewGroup.MarginLayoutParams textParams) {
+                        textParams.setMarginStart(0);
+                        row.getChildAt(1).setLayoutParams(textParams);
+                    }
                     break;
                 }
             }
         }
+        applyBackdropSurfaceTextColors();
+    }
+
+    private void applyBackdropSurfaceTextColors() {
+        headerRoot.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        tintBackdropSurfaceTextTree(headerRoot);
+        styleFusionBackdropLabels(true);
+        styleFusionAiReason(true);
+        styleFusionExternalLinks(true);
+        styleBackdropSurfaceRatingChips();
+        tintActions(Setting.DETAIL_STYLE_CINEMA);
+        styleTmdbPlaybackControls(COLOR_FUSION_BACKDROP_TEXT);
+        TextView powered = findPoweredBy();
+        if (powered != null) styleFusionBackdropText(powered, COLOR_FUSION_BACKDROP_WATERMARK);
+    }
+
+    private void styleBackdropSurfaceRatingChips() {
+        styleBackdropSurfaceRatingChipContainer(headerRoot.findViewById(R.id.tmdbRatingsContainer));
+        styleBackdropSurfaceRatingChipContainer(headerRoot.findViewById(R.id.tmdbOmdbRatings));
+    }
+
+    private void styleBackdropSurfaceRatingChipContainer(ViewGroup container) {
+        if (container == null) return;
+        for (int i = 0; i < container.getChildCount(); i++) styleBackdropSurfaceRatingChip(container.getChildAt(i));
+    }
+
+    private void styleBackdropSurfaceRatingChip(View chip) {
+        if (chip == null) return;
+        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+        background.setColor(COLOR_BACKDROP_SURFACE_CONTROL_BG);
+        background.setCornerRadius(ResUtil.dp2px(6));
+        background.setStroke(ResUtil.dp2px(1), COLOR_BACKDROP_SURFACE_CONTROL_STROKE);
+        chip.setBackground(background);
+        tintBackdropSurfaceTextTree(chip);
+    }
+
+    private void tintBackdropSurfaceTextTree(View view) {
+        if (view == null || view instanceof RecyclerView) return;
+        if (view instanceof TextView textView && !(view instanceof MaterialButton)) {
+            styleFusionBackdropText(textView, COLOR_FUSION_BACKDROP_TEXT);
+            textView.setLinkTextColor(android.graphics.Color.WHITE);
+        }
+        if (!(view instanceof ViewGroup group)) return;
+        for (int i = 0; i < group.getChildCount(); i++) tintBackdropSurfaceTextTree(group.getChildAt(i));
     }
 }

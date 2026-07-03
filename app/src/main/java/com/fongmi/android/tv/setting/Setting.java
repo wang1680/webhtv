@@ -988,7 +988,7 @@ public class Setting {
     }
 
     public static boolean getTmdbEpisodeGridMode() {
-        return Prefers.getBoolean("tmdb_episode_grid_mode", false);
+        return Prefers.getBoolean("tmdb_episode_grid_mode", !"mobile".equals(BuildConfig.FLAVOR_mode));
     }
 
     public static void putTmdbEpisodeGridMode(boolean gridMode) {

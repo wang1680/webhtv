@@ -530,7 +530,7 @@
                                     android:id="@+id/playerChangeSource"
                                     style="@style/Control"
                                     android:layout_marginEnd="12dp"
-                                    android:text="@string/play_change" />
+                                    android:text="@string/play_search" />
 
                                 <TextView
                                     android:id="@+id/playerExternal"
@@ -694,7 +694,7 @@
                     android:layout_height="wrap_content"
                     android:minHeight="42dp"
                     android:minWidth="76dp"
-                    android:text="@string/play_change"
+                    android:text="@string/play_search"
                     android:textColor="@android:color/white"
                     android:textSize="12sp"
                     android:textStyle="bold"
@@ -893,7 +893,7 @@
                                 android:paddingStart="0dp"
                                 android:paddingEnd="0dp"
                                 android:singleLine="true"
-                                android:text="@string/play_change"
+                                android:text="@string/play_search"
                                 android:textColor="@android:color/white"
                                 android:textSize="13sp"
                                 app:backgroundTint="#2B3743"

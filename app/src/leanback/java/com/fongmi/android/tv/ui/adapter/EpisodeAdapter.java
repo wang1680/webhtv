@@ -442,13 +442,13 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
     }
 
     private boolean isTopEdge(int position) {
-        if (column <= 1) return position == 0;
+        if (column <= 1) return !verticalGridMode || position == 0;
         if (verticalGridMode) return position < column;
         return position % column == 0;
     }
 
     private boolean isBottomEdge(int position) {
-        if (column <= 1) return position == getItemCount() - 1;
+        if (column <= 1) return !verticalGridMode || position == getItemCount() - 1;
         if (verticalGridMode) {
             int lastRowCount = (getItemCount() - 1) % column + 1;
             return position >= getItemCount() - lastRowCount;

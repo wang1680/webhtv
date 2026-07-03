@@ -196,7 +196,7 @@ public class TmdbDetailActivityLayoutTest {
 
         assertTrue(sourcePath + " is missing initial standalone season preload", load >= 0 && preload > load && fetch > preload);
         assertTrue("standalone initial detail should preload the current season before the first UI bind",
-                source.indexOf("if (singlePassStandaloneTmdb) finalResult = preloadInitialStandaloneSeason(finalResult, finalVod);", load) > load
+                source.indexOf("if (singlePassStandaloneTmdb) loadedResult = preloadInitialStandaloneSeason(loadedResult, finalVod);", load) > load
                         && source.indexOf("tmdbService.season(bundle.item(), seasonNumber, tmdbConfig, bundle.detail(), false);", preload) > preload
                         && source.indexOf("seasonEpisodes.put(seasonNumber, episodes);", preload) > preload
                         && source.indexOf("return new TmdbLoadResult(withSeason, result.searchItems());", preload) > preload);
@@ -370,6 +370,68 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
+    public void detailRatingChipsKeepReadableBrandColorsAfterThemeTint() throws Exception {
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int theme = source.indexOf("private void applyDetailTheme()");
+        int add = source.indexOf("private void addRatingChip");
+        int style = source.indexOf("private void styleDetailRatingChip");
+        int readable = source.indexOf("private int readableDetailRatingColor");
+
+        assertTrue(sourcePath + " is missing detail rating chip styling helpers",
+                theme >= 0 && add >= 0 && style >= 0 && readable >= 0);
+        assertTrue("theme refresh must restyle existing rating chips after tintTextTree recolors text",
+                source.indexOf("tintTextTree(binding.getRoot(), colors);", theme) > theme
+                        && source.indexOf("styleDetailRatingChips();", theme) > source.indexOf("tintTextTree(binding.getRoot(), colors);", theme));
+        assertTrue("rating chips must keep their source color so async ratings and theme refreshes can restyle them",
+                source.indexOf("new RatingChipTag(platform, color)", add) > add
+                        && source.indexOf("styleDetailRatingChip(chip, color);", add) > add);
+        assertTrue("dark detail rating chips need a dark glass surface instead of translucent theme chips over bright artwork",
+                source.indexOf("background.setColor(lightTheme ? ratingChipBackground(colors) : 0x6610141A);", style) > style
+                        && source.indexOf("background.setStroke(ResUtil.dp2px(1), lightTheme ? colors.line : 0x33FFFFFF);", style) > style);
+        assertTrue("light detail rating chips must darken yellow green and red source colors for contrast",
+                source.indexOf("return 0xFF0F7A4A;", readable) > readable
+                        && source.indexOf("return 0xFF8A5A00;", readable) > readable
+                        && source.indexOf("return 0xFFB42318;", readable) > readable);
+    }
+
+    @Test
+    public void detailEpisodeToolsAndCardsKeepDistinctFocusChrome() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path selectorPath = findMainResPath().resolve(Path.of("drawable", "selector_episode_card.xml"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        String selector = new String(Files.readAllBytes(selectorPath), StandardCharsets.UTF_8);
+        int focusDetailEpisode = activity.indexOf("private boolean focusDetailEpisode(int position)");
+        int focusDetailEpisodeEnd = activity.indexOf("private int detailEpisodeSpanCount()", focusDetailEpisode);
+        int align = activity.indexOf("private void alignDetailEpisodeFocusedRow");
+        int alignEnd = activity.indexOf("private boolean isDetailEpisodeRowFullyVisible", align);
+        String focusBody = focusDetailEpisode >= 0 && focusDetailEpisodeEnd > focusDetailEpisode ? activity.substring(focusDetailEpisode, focusDetailEpisodeEnd) : "";
+        String alignBody = align >= 0 && alignEnd > align ? activity.substring(align, alignEnd) : "";
+
+        assertTrue("episode reverse/list tools should use their own focus refresh instead of generic yellow focus chrome",
+                activity.contains("setEpisodeToolButton(binding.episodeReverse, colors);")
+                        && activity.contains("setEpisodeToolButton(binding.episodeViewMode, colors);")
+                        && activity.contains("private void applyEpisodeToolButtonsFocus()")
+                        && activity.contains("applyEpisodeToolButtonFocus(binding.episodeReverse, colors);")
+                        && activity.contains("applyEpisodeToolButtonFocus(binding.episodeViewMode, colors);")
+                        && activity.contains("button.setStrokeColor(ColorStateList.valueOf(focused ? colors.accent : colors.lineStrong));"));
+        assertTrue("episode tool delayed refocus must not steal focus back from the sibling tool",
+                activity.contains("isEpisodeToolFocusedOtherThan(button)")
+                        && activity.contains("retryDetailButtonFocus(button, previousFocus)")
+                        && activity.contains("if (focus != null && previousFocus != null && focus != previousFocus) return;"));
+        assertTrue("episode-card selector must let focused state override current-playing selected state",
+                selector.indexOf("android:state_focused=\"true\"") >= 0
+                        && selector.indexOf("android:state_focused=\"true\"") < selector.indexOf("android:state_selected=\"true\""));
+        assertTrue("episode DPAD movement should focus an already visible card without forcing RecyclerView to re-scroll and rebind",
+                focusBody.contains("RecyclerView.ViewHolder visibleHolder = binding.episodeContainer.findViewHolderForAdapterPosition(target);")
+                        && focusBody.contains("if (visibleHolder != null)")
+                        && focusBody.indexOf("findViewHolderForAdapterPosition(target)") < focusBody.indexOf("scrollEpisodeToPosition(rowStart, ResUtil.dp2px(8));"));
+        assertTrue("outer detail scroll alignment should skip fully visible episode rows to avoid visual flicker",
+                alignBody.contains("if (isDetailEpisodeRowFullyVisible(rowView)) return;")
+                        && activity.contains("private boolean isDetailEpisodeRowFullyVisible(View rowView)"));
+    }
+
+    @Test
     public void inlineEpisodesReuseSharedNativeEnhancedAdaptivePanel() throws Exception {
         Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
@@ -403,7 +465,7 @@ public class TmdbDetailActivityLayoutTest {
                         && panelBody.contains("scroll.addView(panel, new NestedScrollView.LayoutParams")
                         && panelBody.contains("recycler.setNestedScrollingEnabled(false);")
                         && panelBody.contains("updateNativeEnhancedInlineEpisodeLayoutManager(recycler, layout.spanCount())")
-                        && panelBody.contains("adapter.setGridSpanCount(layout.spanCount())")
+                        && panelBody.contains("adapter.setDisplayMode(TmdbEpisodeAdapter.Mode.GRID, layout.spanCount())")
                         && panelBody.contains("new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)")
                         && panelBody.contains("setView(scroll)")
                         && panelBody.contains("window.getDecorView().setPadding(0, 0, 0, 0)")
@@ -415,21 +477,26 @@ public class TmdbDetailActivityLayoutTest {
                         && activity.contains("private void alignNativeEnhancedInlineEpisodeRow(NestedScrollView scroll, RecyclerView recycler, int position, int spanCount)")
                         && activity.contains("int rowStart = Math.max(0, position - position % span);")
                         && activity.contains("scroll.scrollTo(0, Math.max(0, targetY));"));
-        assertTrue("native-enhanced inline episode chips should use the shared original enhanced video chip treatment",
+        assertTrue("native-enhanced inline episode chips should use the current detail theme instead of the old white video selector",
                 activity.contains("private TextView createNativeEnhancedInlineChipButton(String text)")
                         && activity.contains("new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ResUtil.dp2px(34))")
                         && activity.contains("button.setMinWidth(ResUtil.dp2px(64));")
-                        && activity.contains("button.setBackgroundResource(R.drawable.shape_video_item);")
-                        && activity.contains("ContextCompat.getColorStateList(this, R.color.selector_video_text);")
-                        && activity.contains("button.setActivated(selected);"));
+                        && activity.contains("ThemeColors colors = currentThemeColors();")
+                        && activity.contains("background.setColor(focused ? colors.control : selected ? colors.chipActive : colors.chip);")
+                        && activity.contains("background.setStroke(ResUtil.dp2px(focused ? 2 : CHIP_STROKE_DP), focused ? colors.accent : selected ? colors.accent : colors.line);")
+                        && activity.contains("button.setTextColor(colors.primary);")
+                        && activity.contains("button.setBackground(background);")
+                        && activity.contains("button.setActivated(selected);")
+                        && !activity.contains("button.setBackgroundResource(R.drawable.shape_video_item);")
+                        && !activity.contains("ContextCompat.getColorStateList(this, R.color.selector_video_text);"));
         assertTrue("native-enhanced inline episodes should keep mobile native columns and adaptive TV columns",
                 activity.contains("private int nativeEnhancedInlineEpisodeSpanCount()")
                         && activity.contains("TmdbEpisodeGridPolicy.nativeEnhancedSpanCount(Util.isMobile(), ResUtil.isPad(), ResUtil.isLand(this), getResources().getConfiguration().screenWidthDp)")
                         && policy.contains("public static int nativeEnhancedSpanCount(boolean mobile, boolean pad, boolean landscape, int screenWidthDp)")
                         && policy.contains("if (mobile) return pad ? landscape ? 4 : 3 : landscape ? 3 : 2;")
                         && policy.contains("public static int tvAdaptiveSpanCount(int screenWidthDp)")
-                        && policy.contains("if (screenWidthDp >= 1600) return 5;")
-                        && policy.contains("if (screenWidthDp >= 1200) return 4;")
+                        && policy.contains("if (screenWidthDp >= 1100) return 5;")
+                        && policy.contains("if (screenWidthDp >= 600) return 4;")
                         && policy.contains("return 3;")
                         && activity.contains("WindowManager.LayoutParams.MATCH_PARENT")
                         && !activity.contains("Gravity.END | Gravity.CENTER_VERTICAL")
@@ -438,10 +505,10 @@ public class TmdbDetailActivityLayoutTest {
                 activity.contains("episodeAdapter.setNativeEnhanced(true);")
                         && activity.contains("private int episodeSpanCount()")
                         && activity.contains("return nativeEnhancedInlineEpisodeSpanCount();")
-                        && activity.contains("private boolean shouldForceAdaptiveEpisodeGrid()")
-                        && activity.contains("return !Util.isMobile();")
-                        && activity.contains("if (shouldForceAdaptiveEpisodeGrid()) episodeGridMode = true;")
-                        && activity.contains("if (shouldForceAdaptiveEpisodeGrid()) return;")
+                        && activity.contains("binding.episodeViewMode.setVisibility(View.VISIBLE);")
+                        && activity.contains("Setting.putTmdbEpisodeGridMode(episodeGridMode);")
+                        && !activity.contains("if (shouldForceAdaptiveEpisodeGrid()) episodeGridMode = true;")
+                        && !activity.contains("if (shouldForceAdaptiveEpisodeGrid()) return;")
                         && activity.contains("private int nativeEnhancedEpisodeCardHeightDp()")
                         && activity.contains("TmdbEpisodeGridPolicy.nativeGridCardHeightDp(getResources().getConfiguration().smallestScreenWidthDp < 600)")
                         && activity.contains("TmdbEpisodeGridPolicy.NATIVE_GRID_CARD_BOTTOM_MARGIN_DP"));
@@ -475,6 +542,150 @@ public class TmdbDetailActivityLayoutTest {
                         && adapter.contains("public void setOnFocusChangeListener(View.OnFocusChangeListener focusChangeListener)")
                         && adapter.contains("holder.binding.getRoot().setOnFocusChangeListener(focusChangeListener);")
                         && adapter.contains("if (focusChangeListener != null) focusChangeListener.onFocusChange(holder.binding.getRoot(), focused);"));
+    }
+
+    @Test
+    public void detailEpisodeBottomRowDpadDownFocusesFirstVisibleTmdbRow() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int episodeKey = activity.indexOf("private boolean onDetailEpisodeKey");
+        int flagFocus = activity.indexOf("private boolean focusDetailFlagButton()", episodeKey);
+        String episodeKeyBody = flagFocus > episodeKey ? activity.substring(episodeKey, flagFocus) : "";
+        int firstTmdb = activity.indexOf("private boolean focusFirstVisibleTmdbRow()", episodeKey);
+        int focusRecycler = activity.indexOf("private boolean focusTmdbRecycler(RecyclerView recycler)", firstTmdb);
+        String firstTmdbBody = focusRecycler > firstTmdb ? activity.substring(firstTmdb, focusRecycler) : "";
+
+        assertTrue(activityPath + " is missing onDetailEpisodeKey", episodeKey >= 0);
+        assertTrue("detail episode bottom row DPAD_DOWN must leave the episode grid instead of consuming the key",
+                episodeKeyBody.contains("if (target >= episodeAdapter.getItemCount()) return focusFirstVisibleTmdbRow();"));
+        assertTrue(activityPath + " is missing focusFirstVisibleTmdbRow", firstTmdb >= 0);
+        assertTrue("TMDB photo row should be the first focus target below episodes",
+                firstTmdbBody.indexOf("binding.episodePhotoList") >= 0
+                        && firstTmdbBody.indexOf("binding.episodePhotoList") < firstTmdbBody.indexOf("binding.castList"));
+        assertTrue("TMDB row focusing must request focus on a concrete RecyclerView item",
+                activity.indexOf("holder.itemView.requestFocus();", focusRecycler) > focusRecycler);
+    }
+
+    @Test
+    public void detailEpisodeListModeDpadUpDownLeavesHorizontalEpisodeRow() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int move = activity.indexOf("private boolean moveDetailEpisodeFocus");
+        int firstTmdb = activity.indexOf("private boolean focusFirstVisibleTmdbRow()", move);
+        String moveBody = move >= 0 && firstTmdb > move ? activity.substring(move, firstTmdb) : "";
+        int listBranch = moveBody.indexOf("if (!episodeGridMode)");
+        int gridBranch = moveBody.indexOf("int span = detailEpisodeSpanCount()");
+        String listBody = listBranch >= 0 && gridBranch > listBranch ? moveBody.substring(listBranch, gridBranch) : "";
+
+        assertTrue(activityPath + " is missing moveDetailEpisodeFocus", move >= 0);
+        assertTrue("detail list-mode episodes are a horizontal row, so DPAD handling must happen before grid span math",
+                listBranch >= 0 && gridBranch > listBranch);
+        assertTrue("list-mode DPAD_UP should leave the horizontal episode row toward range/tools/lines",
+                listBody.contains("if (focusDetailEpisodeRangeButton()) return true;")
+                        && listBody.contains("if (focusDetailEpisodeToolButton(View.FOCUS_UP)) return true;")
+                        && listBody.contains("return focusDetailFlagButton();"));
+        assertTrue("list-mode DPAD_DOWN should leave the horizontal episode row toward the first visible TMDB row",
+                listBody.contains("return focusFirstVisibleTmdbRow();"));
+    }
+
+    @Test
+    public void detailEpisodeDownToTmdbRowsUsesImmediateFocusWithoutScrollFlicker() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int focusRecycler = activity.indexOf("private boolean focusTmdbRecycler(RecyclerView recycler)");
+        int scrollHelper = activity.indexOf("private void scrollDetailChildIntoView", focusRecycler);
+        String body = focusRecycler >= 0 && scrollHelper > focusRecycler ? activity.substring(focusRecycler, scrollHelper) : "";
+
+        assertTrue(activityPath + " is missing focusTmdbRecycler", focusRecycler >= 0);
+        assertTrue("DPAD_DOWN from episode cards should stop row scrolling before moving into TMDB rows",
+                body.contains("recycler.stopScroll();"));
+        assertTrue("DPAD_DOWN from episode cards should align the TMDB row immediately instead of animating the outer scroll",
+                body.contains("scrollDetailChildIntoViewNow(recycler, 12);")
+                        && !body.contains("scrollDetailChildIntoView(recycler, 12);"));
+        assertTrue("DPAD_DOWN from episode cards should not delay focus long enough to show a visual blink",
+                body.contains("recycler.post(() ->")
+                        && !body.contains("postDelayed"));
+    }
+
+    @Test
+    public void detailEpisodeToolButtonsRefreshNeutralThemeChromeOnFocus() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int setup = activity.indexOf("private void setEpisodeToolButton(MaterialButton button, ThemeColors colors)");
+        int setupEnd = activity.indexOf("private void applyEpisodeToolButtonsFocus()", setup);
+        int apply = activity.indexOf("private void applyEpisodeToolButtonFocus(MaterialButton button, ThemeColors colors)");
+        int applyEnd = activity.indexOf("private void tintTextTree", apply);
+        String setupBody = setup >= 0 && setupEnd > setup ? activity.substring(setup, setupEnd) : "";
+        String applyBody = apply >= 0 && applyEnd > apply ? activity.substring(apply, applyEnd) : "";
+
+        assertTrue(activityPath + " is missing episode tool button setup", setup >= 0 && apply >= 0);
+        assertTrue("episode tool buttons should clear selected/activated state so the current-playing accent cannot bleed into reverse/grid",
+                setupBody.contains("button.setSelected(false);")
+                        && setupBody.contains("button.setActivated(false);"));
+        assertTrue("episode tool buttons should suppress Material ripple color so focus does not flash with the generic accent",
+                setupBody.contains("button.setRippleColor(ColorStateList.valueOf(0x00000000));"));
+        assertTrue("episode tool focus refresh should keep text and icons on the neutral detail theme color",
+                applyBody.contains("button.setTextColor(colors.primary);")
+                        && applyBody.contains("button.setIconTint(ColorStateList.valueOf(colors.primary));"));
+        assertTrue("episode tool focus refresh should use themed accent focus stroke and themed idle stroke, not the yellow generic focus stroke",
+                applyBody.contains("focused ? colors.accent : colors.lineStrong")
+                        && !applyBody.contains("FOCUS_STROKE"));
+    }
+
+    @Test
+    public void detailEpisodeHeaderToolsStayVisibleAndDpadReachable() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        Path layoutPath = findMainResPath().resolve(Path.of("layout", "activity_tmdb_detail.xml"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        String layout = new String(Files.readAllBytes(layoutPath), StandardCharsets.UTF_8);
+        int flagKey = activity.indexOf("private boolean onDetailFlagKey");
+        int rangeKey = activity.indexOf("private boolean onDetailEpisodeRangeKey");
+        int episodeKey = activity.indexOf("private boolean onDetailEpisodeKey");
+        String flagKeyBody = flagKey >= 0 && rangeKey > flagKey ? activity.substring(flagKey, rangeKey) : "";
+        String rangeKeyBody = rangeKey >= 0 && episodeKey > rangeKey ? activity.substring(rangeKey, episodeKey) : "";
+        int helper = activity.indexOf("private boolean focusDetailEpisodeToolButton(int direction)");
+        int nextHelper = activity.indexOf("private boolean focusDetailFlagButton()", helper);
+        String episodeKeyBody = episodeKey >= 0 && helper > episodeKey ? activity.substring(episodeKey, helper) : "";
+        String helperBody = helper >= 0 && nextHelper > helper ? activity.substring(helper, nextHelper) : "";
+        int dispatch = activity.indexOf("public boolean dispatchKeyEvent(KeyEvent event)");
+        int inlineKey = activity.indexOf("private boolean handleInlineKey(KeyEvent event)", dispatch);
+        String dispatchBody = dispatch >= 0 && inlineKey > dispatch ? activity.substring(dispatch, inlineKey) : "";
+
+        assertTrue("detail layout must include both reverse and grid/list controls",
+                layout.indexOf("android:id=\"@+id/episodeReverse\"") >= 0
+                        && layout.indexOf("android:id=\"@+id/episodeReverse\"") < layout.indexOf("android:id=\"@+id/episodeViewMode\""));
+        assertTrue("detail episode view-mode button must stay visible on TV detail pages",
+                activity.contains("binding.episodeViewMode.setVisibility(View.VISIBLE);")
+                        && !activity.contains("binding.episodeViewMode.setVisibility(shouldForceAdaptiveEpisodeGrid() ? View.GONE : View.VISIBLE);"));
+        assertTrue("line-row DPAD_DOWN should reach the episode header tool button before episode pages",
+                flagKeyBody.contains("if (focusDetailEpisodeToolButton(View.FOCUS_DOWN)) return true;")
+                        && flagKeyBody.indexOf("focusDetailEpisodeToolButton(View.FOCUS_DOWN)") < flagKeyBody.indexOf("focusDetailEpisodeRangeButton()")
+                        && activity.contains("button.setNextFocusDownId(R.id.episodeReverse);"));
+        assertTrue("episode-page DPAD_UP should reach the episode header tool button",
+                rangeKeyBody.contains("if (KeyUtil.isUpKey(event)) return focusDetailEpisodeToolButton(View.FOCUS_UP) || focusDetailFlagButton();")
+                        && activity.contains("button.setNextFocusUpId(R.id.episodeReverse);"));
+        assertTrue("top-row episode DPAD_UP should fall back to the header tools before lines",
+                episodeKeyBody.contains("if (focusDetailEpisodeRangeButton()) return true;")
+                        && episodeKeyBody.contains("if (focusDetailEpisodeToolButton(View.FOCUS_UP)) return true;")
+                        && episodeKeyBody.indexOf("focusDetailEpisodeRangeButton()") < episodeKeyBody.indexOf("focusDetailEpisodeToolButton(View.FOCUS_UP)")
+                        && episodeKeyBody.indexOf("focusDetailEpisodeToolButton(View.FOCUS_UP)") < episodeKeyBody.indexOf("focusDetailFlagButton()"));
+        assertTrue("episode header tool focusing should prefer reverse and expose the grid/list toggle",
+                helperBody.contains("return focusDetailButton(binding.episodeReverse, direction)")
+                        && helperBody.contains("|| focusDetailButton(binding.episodeViewMode, direction);")
+                        && helperBody.contains("button.requestFocus(direction);"));
+        assertTrue("episode header tools should let remote users move back up or down",
+                activity.contains("binding.episodeReverse.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));")
+                        && activity.contains("binding.episodeViewMode.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));")
+                        && activity.contains("if (KeyUtil.isRightKey(event) && view == binding.episodeReverse) return focusDetailButton(binding.episodeViewMode, View.FOCUS_RIGHT);")
+                        && activity.contains("if (KeyUtil.isLeftKey(event) && view == binding.episodeViewMode) return focusDetailButton(binding.episodeReverse, View.FOCUS_LEFT);"));
+        assertTrue("activity-level key dispatch should guard the detail episode focus chain when child listeners are bypassed",
+                dispatchBody.contains("if (handleDetailEpisodeNavigationKey(event)) return true;")
+                        && dispatchBody.contains("isFocusInside(focus, binding.flagScroll)") && dispatchBody.contains("onDetailFlagKey(event.getKeyCode(), event)")
+                        && dispatchBody.contains("focus == binding.episodeReverse || focus == binding.episodeViewMode") && dispatchBody.contains("onDetailEpisodeToolKey(focus, event.getKeyCode(), event)")
+                        && dispatchBody.contains("isFocusInside(focus, binding.episodeRangeScroll)") && dispatchBody.contains("onDetailEpisodeRangeKey(event.getKeyCode(), event)")
+                        && dispatchBody.contains("isFocusInside(focus, binding.episodeContainer)") && dispatchBody.contains("onDetailEpisodeContainerKey(focus, event)")
+                        && activity.contains("binding.episodeContainer.findContainingViewHolder(focus)")
+                        && activity.contains("return moveDetailEpisodeFocus(position, event);"));
     }
 
     @Test
