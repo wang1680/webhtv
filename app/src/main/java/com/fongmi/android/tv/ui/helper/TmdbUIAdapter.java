@@ -16,6 +16,12 @@ import com.fongmi.android.tv.service.AiRecommendationService;
 import com.fongmi.android.tv.service.PersonalRecommendationService;
 import com.fongmi.android.tv.service.TmdbService;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.title.MediaTitleLearningExample;
+import com.fongmi.android.tv.title.MediaTitleLearningStore;
+import com.fongmi.android.tv.title.MediaTitleParser;
+import com.fongmi.android.tv.title.MediaTitleRequest;
+import com.fongmi.android.tv.title.MediaTitleResolution;
+import com.fongmi.android.tv.title.MediaTitleResolver;
 import com.fongmi.android.tv.utils.EpisodeTitleFormatter;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Task;
@@ -146,6 +152,10 @@ public class TmdbUIAdapter {
         loadDetail(vod, item, generation);
     }
 
+    public void rememberManualMatch(Vod vod, TmdbItem item) {
+        saveTitleLearning(vod, item);
+    }
+
     /**
      * 根据视频名称自动搜索匹配并加载详情。
      *
@@ -176,7 +186,7 @@ public class TmdbUIAdapter {
             }
             if (matched == null) {
                 long searchStart = System.currentTimeMillis();
-                matched = tmdbMatcher.searchAndMatch(videoName, vod);
+                matched = searchResolvedMatch(videoName, vod);
                 SpiderDebug.log("tmdb", "auto match search cost=%dms hit=%s name=%s", System.currentTimeMillis() - searchStart, matched != null, videoName);
             }
             if (!isCurrentGeneration(generation)) return;
@@ -191,6 +201,35 @@ public class TmdbUIAdapter {
             SpiderDebug.log("tmdb", "auto match ready title=%s total=%dms", matched.getTitle(), System.currentTimeMillis() - start);
             loadDetailSync(vod, matched, generation);
         });
+    }
+
+    private TmdbItem searchResolvedMatch(String videoName, Vod vod) {
+        MediaTitleRequest request = MediaTitleRequest.builder()
+                .siteKey(cacheSiteKey(vod))
+                .vodId(cacheVodId(vod))
+                .rawTitle(videoName)
+                .rawRemarks(vod == null ? "" : vod.getRemarks())
+                .vodYear(vod == null ? "" : vod.getYear())
+                .source(MediaTitleLearningExample.SOURCE_TMDB_AUTO)
+                .allowAi(true)
+                .build();
+        MediaTitleResolver resolver = new MediaTitleResolver();
+        MediaTitleResolution resolution = resolver.resolve(request);
+        int attempts = 0;
+        for (String title : resolution.queryTitles()) {
+            if (TextUtils.isEmpty(title)) continue;
+            TmdbItem item = tmdbMatcher.searchAndMatch(title, vod);
+            if (item != null) return item;
+            if (++attempts >= 4) break;
+        }
+        MediaTitleResolution fallback = resolver.resolveWithAiFallback(request);
+        SpiderDebug.log("tmdb", "auto match ai fallback source=%s raw=%s titles=%s", fallback.getSource(), videoName, fallback.queryTitles());
+        for (String title : fallback.queryTitles()) {
+            if (TextUtils.isEmpty(title) || resolution.queryTitles().contains(title)) continue;
+            TmdbItem item = tmdbMatcher.searchAndMatch(title, vod);
+            if (item != null) return item;
+        }
+        return null;
     }
 
     public List<TmdbItem> search(String keyword) throws Exception {
@@ -457,6 +496,22 @@ public class TmdbUIAdapter {
         TmdbMatchCache cache = Setting.getTmdbMatchCache();
         cache.put(cacheSiteKey(vod), cacheVodId(vod), item);
         Setting.putTmdbMatchCache(cache);
+    }
+
+    private void saveTitleLearning(Vod vod, TmdbItem item) {
+        if (vod == null || item == null || item.getTitle().isEmpty()) return;
+        String rawTitle = vod.getName();
+        MediaTitleParser parser = new MediaTitleParser();
+        MediaTitleLearningStore.load().putManual(
+                cacheSiteKey(vod),
+                cacheVodId(vod),
+                rawTitle,
+                parser.cleanTitle(rawTitle),
+                item.getTitle(),
+                item.getMediaType(),
+                parser.firstYear(vod.getYear()),
+                parser.seasonNumber(rawTitle),
+                MediaTitleLearningExample.SOURCE_TMDB_MANUAL);
     }
 
     private String cacheSiteKey(Vod vod) {

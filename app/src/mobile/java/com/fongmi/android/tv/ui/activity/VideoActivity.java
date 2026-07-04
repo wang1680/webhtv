@@ -97,6 +97,8 @@ import com.fongmi.android.tv.setting.PlayerButtonSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.setting.SiteHealthStore;
+import com.fongmi.android.tv.title.MediaTitleLearningExample;
+import com.fongmi.android.tv.title.MediaTitleRequest;
 import com.fongmi.android.tv.subtitle.SubtitlePlaybackSession;
 import com.fongmi.android.tv.ui.adapter.EpisodeAdapter;
 import com.fongmi.android.tv.ui.adapter.EpisodeGroupAdapter;
@@ -207,6 +209,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private PlayerOsdController mOsd;
     private final IntroSkipPlayback mIntroSkipPlayback = new IntroSkipPlayback();
     private final SubtitlePlaybackSession subtitlePlaybackSession = new SubtitlePlaybackSession(this);
+    private androidx.appcompat.app.AlertDialog mIntroSkipConfirmDialog;
     private ValueAnimator mAnimator;
     private CustomKeyDown mKeyDown;
     private List<String> mBroken;
@@ -738,6 +741,22 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         showProgress();
         setAnimator();
         if (isShortDramaSource()) enterShortDramaFullscreen();
+        setupIntroSkipConfirmListener();
+    }
+
+    private void setupIntroSkipConfirmListener() {
+        mIntroSkipPlayback.setSkipConfirmListener((segment, action) -> {
+            if (mIntroSkipConfirmDialog != null && mIntroSkipConfirmDialog.isShowing()) return;
+            int messageId = segment.isOpening()
+                ? (segment.getKind() == IntroSkipService.Segment.Kind.INTRO ? R.string.intro_skip_confirm_intro : R.string.intro_skip_confirm_recap)
+                : R.string.intro_skip_confirm_outro;
+            mIntroSkipConfirmDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.intro_skip_confirm_title)
+                .setMessage(messageId)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> action.run())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+        });
     }
 
     @Override
@@ -1432,7 +1451,15 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         List<Danmaku> siteDanmakus = result.getDanmaku();
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
         subtitlePlaybackSession.onPlaybackStarted(this, result);
-        if (DanmakuApi.canAutoSearch(siteDanmakus)) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), danmaku -> {
+        if (DanmakuApi.canAutoSearch(siteDanmakus)) DanmakuApi.search(MediaTitleRequest.builder()
+                .siteKey(getKey())
+                .vodId(getId())
+                .rawTitle(mHistory.getVodName())
+                .rawRemarks(mHistory.getVodRemarks())
+                .episodeName(getEpisode().getName())
+                .source(MediaTitleLearningExample.SOURCE_DANMAKU_AUTO)
+                .allowAi(true)
+                .build(), danmaku -> {
             if (DanmakuSetting.isSpiderFirst() && !siteDanmakus.isEmpty()) player().addDanmaku(danmaku);
             else player().setDanmaku(danmaku);
             refreshDanmakuControls();
@@ -1997,13 +2024,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void onDanmaku() {
-        DanmakuDialog.create().player(player()).show(this);
+        DanmakuDialog.create().player(player()).identity(getKey(), getId(), mHistory == null ? "" : mHistory.getVodName(), getEpisode().getName()).show(this);
         hideControl();
     }
 
     @Override
     public void onDanmakuPanel() {
-        DanmakuDialog.create().player(player()).show(this);
+        DanmakuDialog.create().player(player()).identity(getKey(), getId(), mHistory == null ? "" : mHistory.getVodName(), getEpisode().getName()).show(this);
     }
 
     private void onDanmakuShow() {
@@ -3037,7 +3064,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void requestIntroSkipPlan() {
-        if (!Setting.isAutoSkipIntroOutro() || player() == null) {
+        if (!Setting.isIntroSkipEnabled() || player() == null) {
             mIntroSkipPlayback.reset();
             return;
         }
@@ -3047,7 +3074,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private boolean applyAutoIntroSkip() {
-        if (!Setting.isAutoSkipIntroOutro() || player() == null) return false;
+        if (!Setting.isIntroSkipEnabled() || player() == null) return false;
         return mIntroSkipPlayback.apply(player(), () -> checkEnded(false));
     }
 
@@ -3895,6 +3922,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         hideTmdbHeader();
         if (mBinding.videoShadow != null) mBinding.videoShadow.setVisibility(View.GONE);
         mBinding.progressLayout.showProgress();
+        mTmdbUIAdapter.rememberManualMatch(mVod, item);
         mTmdbUIAdapter.load(item, mVod);
         Notify.show(R.string.detail_tmdb_match_saved);
     }

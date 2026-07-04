@@ -40,8 +40,12 @@ import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.DanmakuApi;
 import com.fongmi.android.tv.bean.Danmaku;
+import com.fongmi.android.tv.bean.DanmakuMatchCache;
 import com.fongmi.android.tv.bean.DanmakuTitle;
 import com.fongmi.android.tv.player.PlayerManager;
+import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.title.MediaTitleLearningExample;
+import com.fongmi.android.tv.title.MediaTitleLearningStore;
 import com.fongmi.android.tv.ui.custom.CustomRecyclerView;
 import com.fongmi.android.tv.utils.KeyUtil;
 import com.fongmi.android.tv.utils.Notify;
@@ -80,6 +84,10 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
     private boolean selected;
     private boolean restoreParent;
     private String selectedSource;
+    private String siteKey;
+    private String vodId;
+    private String rawTitle;
+    private String episodeName;
 
     public static DanmakuSearchInputDialog create() {
         return new DanmakuSearchInputDialog();
@@ -97,6 +105,14 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
 
     public DanmakuSearchInputDialog restoreParent(boolean restoreParent) {
         this.restoreParent = restoreParent;
+        return this;
+    }
+
+    public DanmakuSearchInputDialog identity(String siteKey, String vodId, String rawTitle, String episodeName) {
+        this.siteKey = clean(siteKey);
+        this.vodId = clean(vodId);
+        this.rawTitle = clean(rawTitle);
+        this.episodeName = clean(episodeName);
         return this;
     }
 
@@ -142,7 +158,7 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
         super.onDismiss(dialog);
         FragmentActivity activity = getActivity();
         if (selected || !restoreParent || activity == null || activity.isFinishing()) return;
-        DanmakuDialog.create().player(player).show(activity);
+        DanmakuDialog.create().player(player).identity(siteKey, vodId, rawTitle, episodeName).show(activity);
     }
 
     @Override
@@ -155,8 +171,17 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
     private void onItemClick(Danmaku item) {
         selected = true;
         if (SpiderDebug.isEnabled()) SpiderDebug.log("danmaku", "search dialog item click selected=%s name=%s url=%s", item.isSelected(), item.getName(), item.getUrl());
+        if (!item.isSelected()) rememberManualDanmaku(item);
         player.setDanmaku(item.isSelected() ? Danmaku.empty() : item);
         dismiss();
+    }
+
+    private void rememberManualDanmaku(Danmaku item) {
+        if (TextUtils.isEmpty(siteKey) || TextUtils.isEmpty(vodId) || item == null || item.isEmpty()) return;
+        DanmakuMatchCache cache = Setting.getDanmakuMatchCache();
+        MediaTitleLearningExample example = cache.put(siteKey, vodId, first(episodeName, getEpisode()), getKeyword(), first(rawTitle, getTitle()), item);
+        Setting.putDanmakuMatchCache(cache);
+        if (example != null) MediaTitleLearningStore.load().put(example);
     }
 
     private TextInputEditText createInput() {
@@ -341,6 +366,23 @@ public final class DanmakuSearchInputDialog extends DialogFragment implements Ca
     private String getEpisode() {
         CharSequence episode = player == null || player.getMetadata() == null ? "" : player.getMetadata().artist;
         return episode == null ? "" : episode.toString().trim();
+    }
+
+    private String getTitle() {
+        CharSequence title = player == null || player.getMetadata() == null ? "" : player.getMetadata().title;
+        return title == null ? "" : title.toString().trim();
+    }
+
+    private String getKeyword() {
+        return input == null || input.getText() == null ? "" : input.getText().toString().trim();
+    }
+
+    private String first(String first, String second) {
+        return !TextUtils.isEmpty(first) ? first : clean(second);
+    }
+
+    private String clean(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private void showProgress() {

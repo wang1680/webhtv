@@ -47,6 +47,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     private String[] render;
     private String[] scale;
     private String[] osd;
+    private String[] introSkipMode;
 
     public static SettingPlayerFragment newInstance() {
         return new SettingPlayerFragment();
@@ -78,7 +79,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.playCacheText.setText((playCache = ResUtil.getStringArray(R.array.select_play_cache))[PlayerSetting.getPlayCacheOption()]);
         setPreloadText();
         mBinding.autoChangeText.setText(getSwitch(PlayerSetting.isAutoChange()));
-        mBinding.autoSkipIntroOutroText.setText(getSwitch(Setting.isAutoSkipIntroOutro()));
+        mBinding.autoSkipIntroOutroText.setText((introSkipMode = ResUtil.getStringArray(R.array.select_auto_skip_intro_outro))[Setting.getIntroSkipMode()]);
         mBinding.musicNotificationText.setText(getSwitch(PlayerSetting.isMusicNotification()));
         mBinding.audioBookNotificationText.setText(getSwitch(PlayerSetting.isAudioBookNotification()));
         mBinding.audioDecodeText.setText(getSwitch(PlayerSetting.isAudioPrefer()));
@@ -332,8 +333,8 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     }
 
     private void setAutoSkipIntroOutro(View view) {
-        Setting.putAutoSkipIntroOutro(!Setting.isAutoSkipIntroOutro());
-        mBinding.autoSkipIntroOutroText.setText(getSwitch(Setting.isAutoSkipIntroOutro()));
+        Setting.putIntroSkipMode((Setting.getIntroSkipMode() + 1) % introSkipMode.length);
+        mBinding.autoSkipIntroOutroText.setText(introSkipMode[Setting.getIntroSkipMode()]);
     }
 
     private void setRender(View view) {

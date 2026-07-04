@@ -19,6 +19,7 @@ import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.BuildConfig;
 import com.fongmi.android.tv.bean.AiConfig;
 import com.fongmi.android.tv.bean.AudioConfig;
+import com.fongmi.android.tv.bean.DanmakuMatchCache;
 import com.fongmi.android.tv.bean.ShortDramaConfig;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.bean.TmdbMatchCache;
@@ -48,6 +49,9 @@ public class Setting {
     public static final int TMDB_MATCH_STRICT_DIALOG = 2;
     public static final int TMDB_MATCH_SMART_DIALOG = 3;
     public static final int DETAIL_INTERACTION_SYSTEM = 0;
+    public static final int INTRO_SKIP_OFF = 0;
+    public static final int INTRO_SKIP_AUTO = 1;
+    public static final int INTRO_SKIP_CONFIRM = 2;
     public static final int DETAIL_INTERACTION_ORIGINAL = 1;
     public static final int DETAIL_THEME_CURRENT = DETAIL_STYLE_NATIVE;
     public static final int LANGUAGE_FOLLOW_SYSTEM = 0;
@@ -733,12 +737,28 @@ public class Setting {
         return AiConfig.objectFrom(getAiConfig()).isReady();
     }
 
+    public static boolean isAiTitleExtraction() {
+        return Prefers.getBoolean("ai_title_extraction", false);
+    }
+
+    public static void putAiTitleExtraction(boolean enabled) {
+        Prefers.put("ai_title_extraction", enabled);
+    }
+
     public static TmdbMatchCache getTmdbMatchCache() {
         return TmdbMatchCache.objectFrom(Prefers.getString("tmdb_match_cache"));
     }
 
     public static void putTmdbMatchCache(TmdbMatchCache cache) {
         Prefers.put("tmdb_match_cache", App.gson().toJson(cache));
+    }
+
+    public static DanmakuMatchCache getDanmakuMatchCache() {
+        return DanmakuMatchCache.objectFrom(Prefers.getString("danmaku_match_cache"));
+    }
+
+    public static void putDanmakuMatchCache(DanmakuMatchCache cache) {
+        Prefers.put("danmaku_match_cache", App.gson().toJson(cache));
     }
 
     public static boolean isTmdbEnabled() {
@@ -1081,12 +1101,24 @@ public class Setting {
         Prefers.put("subtitle_assrt_token", token);
     }
 
+    public static int getIntroSkipMode() {
+        return Prefers.getInt("intro_skip_mode", INTRO_SKIP_OFF);
+    }
+
+    public static void putIntroSkipMode(int mode) {
+        Prefers.put("intro_skip_mode", mode);
+    }
+
     public static boolean isAutoSkipIntroOutro() {
-        return Prefers.getBoolean("auto_skip_intro_outro", false);
+        return getIntroSkipMode() == INTRO_SKIP_AUTO;
+    }
+
+    public static boolean isIntroSkipEnabled() {
+        return getIntroSkipMode() != INTRO_SKIP_OFF;
     }
 
     public static void putAutoSkipIntroOutro(boolean enabled) {
-        Prefers.put("auto_skip_intro_outro", enabled);
+        putIntroSkipMode(enabled ? INTRO_SKIP_AUTO : INTRO_SKIP_OFF);
     }
 
     public static int getSearchUi() {

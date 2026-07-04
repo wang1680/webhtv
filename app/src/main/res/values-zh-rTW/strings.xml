@@ -156,6 +156,10 @@
     <string name="setting_personal_recommendation">個性推薦</string>
     <string name="setting_tmdb_episode_file_size">TMDB 劇集保留檔案大小</string>
     <string name="setting_auto_skip_intro_outro">自動跳過片頭片尾</string>
+    <string name="intro_skip_confirm_title">跳過片頭/片尾？</string>
+    <string name="intro_skip_confirm_intro">跳過片頭</string>
+    <string name="intro_skip_confirm_recap">跳過前情提要</string>
+    <string name="intro_skip_confirm_outro">跳過片尾</string>
     <string name="personal_recommendation_confirm_title">啟用個性推薦</string>
     <string name="personal_recommendation_confirm_message">個性推薦會讀取本機觀看歷史中的影片名稱，並可能將當前影片名和歷史影片名作為搜尋關鍵詞發送到 TMDB 或豆瓣，用於生成相關作品列表。\n\n不會發送播放地址、帳號資訊、站源配置或播放進度。你可以隨時關閉此功能。</string>
     <string name="setting_search_ui">搜尋佈局</string>
@@ -1123,7 +1127,7 @@
     </string-array>
 
     <string name="setting_tmdb_source">TMDB 數據配置</string>
-    <string name="setting_ai_recommendation">AI 推薦配置</string>
+    <string name="setting_ai_recommendation">AI 通用配置</string>
     <string name="setting_tmdb_model">TMDB 交互模型</string>
     <string name="setting_tmdb_model_native">原生增強</string>
     <string name="setting_tmdb_match_mode">TMDB 匹配模式</string>
@@ -1186,7 +1190,11 @@
     <string name="tmdb_personal_recommendations_tmdb_label">個性推薦 · TMDB</string>
     <string name="tmdb_personal_recommendations_douban_label">個性推薦 · 豆瓣</string>
     <string name="tmdb_personal_recommendations_ai_label">個性推薦 · 智能</string>
-    <string name="dialog_ai_enable">啟用智能推薦</string>
+    <string name="dialog_ai_enable">啟用 AI 服務</string>
+    <string name="dialog_ai_title_extraction">AI 真實劇名識別</string>
+    <string name="dialog_ai_section_service">服務</string>
+    <string name="dialog_ai_section_connection">連線參數</string>
+    <string name="dialog_ai_section_model">模型設定</string>
     <string name="dialog_ai_protocol_label">協議類型</string>
     <string-array name="dialog_ai_protocol_labels">
         <item>OpenAI Responses API</item>
@@ -1207,13 +1215,14 @@
     <string name="dialog_ai_fetch_models_failed">模型取得失敗：%1$s</string>
     <string name="dialog_ai_user_agent_label">自訂 User-Agent</string>
     <string name="dialog_ai_user_agent_hint">可選，用於有 UA 限制的供應商</string>
-    <string name="dialog_ai_prompt_config">提示詞設定</string>
+    <string name="dialog_ai_prompt_config">AI 提示詞配置</string>
     <string name="dialog_ai_recommend_prompt_label">推薦提示詞</string>
+    <string name="dialog_ai_title_extraction_prompt_label">名稱提取提示詞</string>
     <string name="dialog_ai_prompt_reset">重置預設</string>
     <string name="dialog_ai_test">測試配置</string>
     <string name="dialog_ai_test_running">正在測試 AI 配置...</string>
-    <string name="dialog_ai_test_success">AI 測試通過：解析到 %1$d 條，示例 %2$s</string>
-    <string name="dialog_ai_test_failed">AI 測試失敗：%1$s</string>
+    <string name="dialog_ai_test_success">AI 測試通過：%1$s（耗時 %2$s）</string>
+    <string name="dialog_ai_test_failed">AI 測試失敗：%1$s（耗時 %2$s）</string>
     <string name="ai_recommendation_info_title">智能推薦詳情</string>
     <string name="ai_recommendation_reason_label">推薦理由</string>
     <string name="ai_recommendation_reason_preview">推薦理由：%1$s</string>
@@ -1300,6 +1309,12 @@
         <item>智能</item>
         <item>嚴格 + 彈窗</item>
         <item>智能 + 彈窗</item>
+    </string-array>
+
+    <string-array name="select_auto_skip_intro_outro">
+        <item>關閉</item>
+        <item>自動跳過</item>
+        <item>彈框確認</item>
     </string-array>
 
     <string-array name="select_site_column">
