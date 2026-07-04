@@ -22,7 +22,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.ImageView;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.LinearLayoutCompat;
@@ -34,7 +33,10 @@ import androidx.fragment.app.FragmentActivity;
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.Config;
+import com.fongmi.android.tv.databinding.DialogRemoteTrustConfirmBinding;
 import com.fongmi.android.tv.databinding.DialogRemoteTrustAddDeviceBinding;
+import com.fongmi.android.tv.databinding.DialogRemoteTrustQrBinding;
+import com.fongmi.android.tv.databinding.DialogRemoteTrustTextCommandBinding;
 import com.fongmi.android.tv.remote.RemoteAgent;
 import com.fongmi.android.tv.remote.RemoteAgentService;
 import com.fongmi.android.tv.remote.RemoteClient;
@@ -1142,17 +1144,17 @@ public final class RemoteTrustDialog {
     }
 
     private static void showTextCommandDialog(FragmentActivity activity, Binding binding, int title, int hint, String type, String payloadKey) {
-        TextInputEditText input = input(activity, InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI, true);
-        LinearLayoutCompat root = dialogRoot(activity);
-        root.addView(inputLayout(activity, hint, input), matchWrap());
+        DialogRemoteTrustTextCommandBinding dialogBinding = DialogRemoteTrustTextCommandBinding.inflate(LayoutInflater.from(activity));
+        dialogBinding.title.setText(title);
+        dialogBinding.inputLayout.setHint(activity.getString(hint));
+        dialogBinding.input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        dialogBinding.positive.setText("action.push".equals(type) ? R.string.remote_trust_send_push : R.string.remote_trust_send_search);
         AlertDialog dialog = new MaterialAlertDialogBuilder(activity, R.style.ThemeOverlay_WebHTV_LightDialog)
-                .setTitle(title)
-                .setView(root)
-                .setNegativeButton(R.string.dialog_cancel, null)
-                .setPositiveButton("action.push".equals(type) ? R.string.remote_trust_send_push : R.string.remote_trust_send_search, null)
+                .setView(dialogBinding.getRoot())
                 .create();
-        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String value = textOf(input);
+        dialogBinding.negative.setOnClickListener(v -> dialog.dismiss());
+        dialogBinding.positive.setOnClickListener(v -> {
+            String value = textOf(dialogBinding.input);
             if (TextUtils.isEmpty(value)) {
                 Notify.show(hint);
                 return;
@@ -1161,7 +1163,18 @@ public final class RemoteTrustDialog {
             payload.addProperty(payloadKey, value);
             dialog.dismiss();
             sendCommand(activity, binding, type, payload);
-        }));
+        });
+        dialogBinding.input.setOnEditorActionListener((textView, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                dialogBinding.positive.performClick();
+                return true;
+            }
+            return false;
+        });
+        dialog.setOnShowListener(d -> {
+            configureSmallModalWindow(activity, dialog);
+            dialogBinding.input.requestFocus();
+        });
         showModal(dialog);
     }
 
@@ -2156,12 +2169,19 @@ public final class RemoteTrustDialog {
             Notify.show(R.string.remote_trust_sync_self_forbidden);
             return;
         }
-        showModal(new MaterialAlertDialogBuilder(activity, R.style.ThemeOverlay_WebHTV_LightDialog)
-                .setTitle(R.string.remote_trust_action_sync)
-                .setMessage(activity.getString(R.string.remote_trust_sync_confirm, deviceName(selected.device)))
-                .setNegativeButton(R.string.dialog_cancel, null)
-                .setPositiveButton(R.string.dialog_confirm, (dialog, which) -> startRemoteSync(activity, binding, selected))
-                .create());
+        DialogRemoteTrustConfirmBinding dialogBinding = DialogRemoteTrustConfirmBinding.inflate(LayoutInflater.from(activity));
+        dialogBinding.title.setText(R.string.remote_trust_action_sync);
+        dialogBinding.message.setText(activity.getString(R.string.remote_trust_sync_confirm, deviceName(selected.device)));
+        AlertDialog dialog = new MaterialAlertDialogBuilder(activity, R.style.ThemeOverlay_WebHTV_LightDialog)
+                .setView(dialogBinding.getRoot())
+                .create();
+        dialogBinding.negative.setOnClickListener(v -> dialog.dismiss());
+        dialogBinding.positive.setOnClickListener(v -> {
+            dialog.dismiss();
+            startRemoteSync(activity, binding, selected);
+        });
+        dialog.setOnShowListener(d -> configureSmallModalWindow(activity, dialog));
+        showModal(dialog);
     }
 
     private static void startRemoteSync(FragmentActivity activity, Binding binding, DeviceRow selected) {
@@ -2961,26 +2981,17 @@ public final class RemoteTrustDialog {
     private static void showServerQr(FragmentActivity activity, Binding binding) {
         Server.get().start();
         String server = Server.get().getAddress(false) + "/remote/trust/setup";
-        LinearLayoutCompat root = dialogRoot(activity);
-        ImageView image = new ImageView(activity);
-        image.setImageBitmap(QRCode.getLightBitmap(server, 220, 1));
-        image.setAdjustViewBounds(true);
-        image.setBackgroundColor(Color.WHITE);
-        image.setPadding(dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
-        root.addView(image, new LinearLayoutCompat.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(activity, 240)));
-        MaterialTextView value = text(activity, server, 12, "#5F6368", false);
-        value.setGravity(Gravity.CENTER);
-        value.setTextIsSelectable(true);
-        value.setPadding(0, dp(activity, 8), 0, 0);
-        root.addView(value, matchWrap());
+        DialogRemoteTrustQrBinding dialogBinding = DialogRemoteTrustQrBinding.inflate(LayoutInflater.from(activity));
+        dialogBinding.image.setImageBitmap(QRCode.getLightBitmap(server, 220, 1));
+        dialogBinding.value.setText(server);
         AlertDialog dialog = new MaterialAlertDialogBuilder(activity, R.style.ThemeOverlay_WebHTV_LightDialog)
-                .setTitle(R.string.remote_trust_server_qr)
-                .setView(root)
-                .setNegativeButton(R.string.dialog_cancel, null)
+                .setView(dialogBinding.getRoot())
                 .create();
+        dialogBinding.negative.setOnClickListener(v -> dialog.dismiss());
         dialog.setOnDismissListener(d -> {
             if (binding.serverQrDialog == dialog) binding.serverQrDialog = null;
         });
+        dialog.setOnShowListener(d -> configureSmallModalWindow(activity, dialog));
         binding.serverQrDialog = showModal(dialog);
     }
 
