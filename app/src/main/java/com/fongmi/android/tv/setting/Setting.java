@@ -19,6 +19,7 @@ import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.BuildConfig;
 import com.fongmi.android.tv.bean.AiConfig;
 import com.fongmi.android.tv.bean.AudioConfig;
+import com.fongmi.android.tv.bean.DanmakuMatchCache;
 import com.fongmi.android.tv.bean.ShortDramaConfig;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.bean.TmdbMatchCache;
@@ -733,12 +734,28 @@ public class Setting {
         return AiConfig.objectFrom(getAiConfig()).isReady();
     }
 
+    public static boolean isAiTitleExtraction() {
+        return Prefers.getBoolean("ai_title_extraction", false);
+    }
+
+    public static void putAiTitleExtraction(boolean enabled) {
+        Prefers.put("ai_title_extraction", enabled);
+    }
+
     public static TmdbMatchCache getTmdbMatchCache() {
         return TmdbMatchCache.objectFrom(Prefers.getString("tmdb_match_cache"));
     }
 
     public static void putTmdbMatchCache(TmdbMatchCache cache) {
         Prefers.put("tmdb_match_cache", App.gson().toJson(cache));
+    }
+
+    public static DanmakuMatchCache getDanmakuMatchCache() {
+        return DanmakuMatchCache.objectFrom(Prefers.getString("danmaku_match_cache"));
+    }
+
+    public static void putDanmakuMatchCache(DanmakuMatchCache cache) {
+        Prefers.put("danmaku_match_cache", App.gson().toJson(cache));
     }
 
     public static boolean isTmdbEnabled() {

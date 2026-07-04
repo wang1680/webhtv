@@ -1212,7 +1212,7 @@
     </string-array>
 
     <string name="setting_tmdb_source">TMDB data config</string>
-    <string name="setting_ai_recommendation">AI recommendation</string>
+    <string name="setting_ai_recommendation">AI configuration</string>
     <string name="setting_tmdb_model">TMDB interaction model</string>
     <string name="setting_tmdb_model_native">Native enhancement</string>
     <string name="setting_tmdb_match_mode">TMDB match mode</string>
@@ -1275,7 +1275,11 @@
     <string name="tmdb_personal_recommendations_tmdb_label">Personal Picks - TMDB</string>
     <string name="tmdb_personal_recommendations_douban_label">Personal Picks - Douban</string>
     <string name="tmdb_personal_recommendations_ai_label">Personal Picks - Smart</string>
-    <string name="dialog_ai_enable">Enable smart recommendations</string>
+    <string name="dialog_ai_enable">Enable AI service</string>
+    <string name="dialog_ai_title_extraction">AI real title recognition</string>
+    <string name="dialog_ai_section_service">Service</string>
+    <string name="dialog_ai_section_connection">Connection</string>
+    <string name="dialog_ai_section_model">Model settings</string>
     <string name="dialog_ai_protocol_label">Protocol type</string>
     <string-array name="dialog_ai_protocol_labels">
         <item>OpenAI Responses API</item>
@@ -1296,13 +1300,14 @@
     <string name="dialog_ai_fetch_models_failed">Failed to fetch models: %1$s</string>
     <string name="dialog_ai_user_agent_label">Custom User-Agent</string>
     <string name="dialog_ai_user_agent_hint">Optional, for UA-restricted providers</string>
-    <string name="dialog_ai_prompt_config">Prompt settings</string>
+    <string name="dialog_ai_prompt_config">AI prompt configuration</string>
     <string name="dialog_ai_recommend_prompt_label">Recommendation prompt</string>
+    <string name="dialog_ai_title_extraction_prompt_label">Title extraction prompt</string>
     <string name="dialog_ai_prompt_reset">Reset default</string>
     <string name="dialog_ai_test">Test configuration</string>
     <string name="dialog_ai_test_running">Testing AI configuration...</string>
-    <string name="dialog_ai_test_success">AI test passed: parsed %1$d item(s), sample %2$s</string>
-    <string name="dialog_ai_test_failed">AI test failed: %1$s</string>
+    <string name="dialog_ai_test_success">AI test passed: %1$s (time %2$s)</string>
+    <string name="dialog_ai_test_failed">AI test failed: %1$s (time %2$s)</string>
     <string name="ai_recommendation_info_title">Smart recommendation</string>
     <string name="ai_recommendation_reason_label">Recommendation reason</string>
     <string name="ai_recommendation_reason_preview">Reason: %1$s</string>

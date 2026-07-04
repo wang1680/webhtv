@@ -87,6 +87,12 @@ import com.fongmi.android.tv.setting.DanmakuSetting;
 import com.fongmi.android.tv.setting.PlayerButtonSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.title.MediaTitleLearningExample;
+import com.fongmi.android.tv.title.MediaTitleLearningStore;
+import com.fongmi.android.tv.title.MediaTitleParser;
+import com.fongmi.android.tv.title.MediaTitleRequest;
+import com.fongmi.android.tv.title.MediaTitleResolution;
+import com.fongmi.android.tv.title.MediaTitleResolver;
 import com.fongmi.android.tv.subtitle.SubtitlePlaybackSession;
 import com.fongmi.android.tv.ui.adapter.EpisodeAdapter;
 import com.fongmi.android.tv.ui.adapter.InlineEpisodeAdapter;
@@ -1739,17 +1745,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                     }
                 }
                 if (match == null) {
-                    String query = getTmdbSearchQuery();
-                    searchItems = searchTmdbItems(query, getNameText());
-                    logTmdbMatch("搜索完成：原始标题=%s，实际搜索词=%s，返回数量=%d", getNameText(), query, searchItems.size());
-                    match = chooseTmdbMatch(searchItems, query, null);
-                    if (match == null) {
-                        SplitYearSearch split = searchSplitYearTmdbItems(query, null);
-                        if (split != null) {
-                            searchItems = split.items();
-                            match = chooseTmdbMatch(searchItems, split.query(), null);
-                        }
-                    }
+                    AutoTmdbMatch autoMatch = searchResolvedTmdbMatch();
+                    searchItems = autoMatch.items();
+                    match = autoMatch.item();
                 }
                 if (match != null && tmdbBundle == null) {
                     tmdbBundle = loadTmdbBundle(match);
@@ -2017,7 +2015,18 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private TmdbItem getCachedTmdbMatch() {
         if (!isTmdbAllowedForCurrentSite()) return null;
-        return Setting.getTmdbMatchCache().find(getKeyText(), getIdText());
+        TmdbItem item = Setting.getTmdbMatchCache().find(getKeyText(), getIdText());
+        if (!isCachedTmdbMatchCompatible(item)) return null;
+        return item;
+    }
+
+    private boolean isCachedTmdbMatchCompatible(TmdbItem item) {
+        if (item == null || TextUtils.isEmpty(item.getTitle())) return false;
+        String parsedTitle = new MediaTitleParser().cleanTitle(getTmdbRawTitle());
+        if (TextUtils.isEmpty(parsedTitle)) return true;
+        boolean compatible = normalize(item.getTitle()).equals(normalize(parsedTitle));
+        if (!compatible) logTmdbMatch("缓存匹配跳过：缓存标题=%s，当前解析标题=%s，原始标题=%s", item.getTitle(), parsedTitle, getTmdbRawTitle());
+        return compatible;
     }
 
     private boolean canMatchTmdb() {
@@ -2039,10 +2048,107 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         Setting.putTmdbMatchCache(cache);
     }
 
+    private void saveManualTmdbLearning(TmdbItem item) {
+        if (item == null || item.getTitle().isEmpty()) return;
+        String rawTitle = !TextUtils.isEmpty(sourceVodName) ? sourceVodName : vod != null ? vod.getName() : getNameText();
+        MediaTitleParser parser = new MediaTitleParser();
+        MediaTitleLearningStore.load().putManual(
+                getKeyText(),
+                getIdText(),
+                rawTitle,
+                parser.cleanTitle(rawTitle),
+                item.getTitle(),
+                item.getMediaType(),
+                parser.firstYear(vod == null ? "" : vod.getYear()),
+                parser.seasonNumber(rawTitle),
+                MediaTitleLearningExample.SOURCE_TMDB_MANUAL);
+    }
+
     private String getTmdbSearchQuery() {
         if (matchedTmdbItem != null && !TextUtils.isEmpty(matchedTmdbItem.getTitle())) return matchedTmdbItem.getTitle();
         if (vod != null && !TextUtils.isEmpty(vod.getName())) return cleanTmdbSearchQuery(vod.getName());
         return cleanTmdbSearchQuery(getNameText());
+    }
+
+    private AutoTmdbMatch searchResolvedTmdbMatch() throws Exception {
+        String rawTitle = getTmdbRawTitle();
+        MediaTitleRequest request = buildTmdbTitleRequest(rawTitle);
+        MediaTitleResolver resolver = new MediaTitleResolver();
+        List<String> attempted = new ArrayList<>();
+        MediaTitleResolution resolution = resolver.resolve(request);
+        AutoTmdbMatch match = searchResolvedTmdbMatch(rawTitle, resolution, attempted);
+        if (match.item() != null) return match;
+        MediaTitleResolution fallback = resolver.resolveWithAiFallback(request);
+        logTmdbMatch("AI 标题兜底：source=%s，原始标题=%s，候选=%s", fallback.getSource(), rawTitle, fallback.queryTitles());
+        AutoTmdbMatch fallbackMatch = searchResolvedTmdbMatch(rawTitle, fallback, attempted);
+        return fallbackMatch.items().isEmpty() && !match.items().isEmpty() ? match : fallbackMatch;
+    }
+
+    private AutoTmdbMatch searchResolvedTmdbMatch(String rawTitle, MediaTitleResolution resolution, List<String> attempted) throws Exception {
+        List<TmdbItem> lastItems = new ArrayList<>();
+        for (String title : automaticTmdbQueries(resolution, rawTitle)) {
+            String query = cleanTmdbSearchQuery(title);
+            if (TextUtils.isEmpty(query) || containsQuery(attempted, query)) continue;
+            attempted.add(query);
+            List<TmdbItem> items = searchTmdbItems(query, title);
+            lastItems = items;
+            logTmdbMatch("搜索完成：原始标题=%s，解析来源=%s，候选标题=%s，实际搜索词=%s，返回数量=%d", rawTitle, resolution.getSource(), title, query, items.size());
+            TmdbItem item = chooseTmdbMatch(items, query, null);
+            if (item == null) {
+                SplitYearSearch split = searchSplitYearTmdbItems(query, null);
+                if (split != null) {
+                    lastItems = split.items();
+                    item = chooseTmdbMatch(lastItems, split.query(), null);
+                }
+            }
+            if (item != null) return new AutoTmdbMatch(item, lastItems);
+        }
+        return new AutoTmdbMatch(null, lastItems);
+    }
+
+    private MediaTitleRequest buildTmdbTitleRequest(String rawTitle) {
+        return MediaTitleRequest.builder()
+                .siteKey(getKeyText())
+                .vodId(getIdText())
+                .rawTitle(rawTitle)
+                .rawRemarks(vod == null ? getMarkText() : coalesce(vod.getRemarks(), getMarkText()))
+                .vodYear(vod == null ? "" : vod.getYear())
+                .source(MediaTitleLearningExample.SOURCE_TMDB_AUTO)
+                .allowAi(true)
+                .build();
+    }
+
+    private String getTmdbRawTitle() {
+        return !TextUtils.isEmpty(sourceVodName) ? sourceVodName : vod != null && !TextUtils.isEmpty(vod.getName()) ? vod.getName() : getNameText();
+    }
+
+    private List<String> automaticTmdbQueries(MediaTitleResolution resolution, String rawTitle) {
+        List<String> result = new ArrayList<>();
+        for (String title : resolution.queryTitles()) {
+            if (TextUtils.isEmpty(title)) continue;
+            if (title.equals(rawTitle) && shouldSkipRawTmdbQuery(rawTitle, resolution)) continue;
+            addQuery(result, title);
+        }
+        if (result.isEmpty()) addQuery(result, rawTitle);
+        return result;
+    }
+
+    private boolean shouldSkipRawTmdbQuery(String rawTitle, MediaTitleResolution resolution) {
+        String canonical = resolution.getCanonicalTitle();
+        return !TextUtils.isEmpty(rawTitle)
+                && !TextUtils.isEmpty(canonical)
+                && !normalize(rawTitle).equals(normalize(canonical));
+    }
+
+    private void addQuery(List<String> queries, String query) {
+        String value = Objects.toString(query, "").trim();
+        if (TextUtils.isEmpty(value) || containsQuery(queries, value)) return;
+        queries.add(value);
+    }
+
+    private boolean containsQuery(List<String> queries, String query) {
+        for (String item : queries) if (item.equalsIgnoreCase(query)) return true;
+        return false;
     }
 
     private void searchTmdb(String keyword, TmdbSearchDialog dialog) {
@@ -2081,6 +2187,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                     binding.loading.setVisibility(View.GONE);
                     applyTmdbBundle(bundle);
                     saveTmdbMatch(item);
+                    saveManualTmdbLearning(item);
                     enrichVod();
                     bindPage();
                     loadTmdbMediaBlocks(bundle);
@@ -4578,7 +4685,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void searchInlineDanmaku(Result result) {
         if (!DanmakuApi.canSearch() || history == null || selectedEpisode == null) return;
-        DanmakuApi.search(playbackHistoryName(), historyEpisodeTitle(selectedEpisode), danmaku -> applyInlineDanmaku(result, danmaku));
+        DanmakuApi.search(MediaTitleRequest.builder()
+                .siteKey(getKeyText())
+                .vodId(getIdText())
+                .rawTitle(playbackHistoryName())
+                .rawRemarks(history.getVodRemarks())
+                .episodeName(historyEpisodeTitle(selectedEpisode))
+                .source(MediaTitleLearningExample.SOURCE_DANMAKU_AUTO)
+                .allowAi(true)
+                .build(), danmaku -> applyInlineDanmaku(result, danmaku));
     }
 
     private void applyInlineDanmaku(Result result, Danmaku danmaku) {
@@ -5383,7 +5498,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void showInlineDanmaku() {
         if (service() == null || player().isEmpty()) return;
-        DanmakuDialog.create().player(player()).show(this);
+        DanmakuDialog.create().player(player()).identity(getKeyText(), getIdText(), playbackHistoryName(), selectedEpisode == null ? "" : historyEpisodeTitle(selectedEpisode)).show(this);
     }
 
     private void showInlineTitle() {
@@ -7477,10 +7592,22 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         TmdbCandidate best = candidates.get(0);
         TmdbCandidate second = candidates.size() > 1 ? candidates.get(1) : null;
         int gap = second == null ? best.score : best.score - second.score;
+        if (shouldAcceptFirstExactTmdbCandidate(best, second, keyword, sourceVod)) {
+            logTmdbMatch("自动匹配成功：同名同分候选采用 TMDB 搜索首位，标题=%s，年份=%d，评分=%d",
+                    best.item.getTitle(), tmdbItemYear(best.item), best.score);
+            return best.item;
+        }
         boolean accepted = best.score >= 360 && gap >= 50;
         logTmdbMatch("自动匹配判定：最佳=%s(%d年, 分=%d)，第二=%s，分差=%d，结果=%s",
                 best.item.getTitle(), tmdbItemYear(best.item), best.score, second == null ? "无" : second.item.getTitle() + "(" + second.score + ")", gap, accepted ? "通过" : "不通过");
         return accepted ? best.item : null;
+    }
+
+    private boolean shouldAcceptFirstExactTmdbCandidate(TmdbCandidate best, @Nullable TmdbCandidate second, String keyword, @Nullable Vod sourceVod) {
+        if (sourceVod != null || best == null || second == null) return false;
+        if (best.score != second.score || best.titleScore < 300 || second.titleScore < 300) return false;
+        String normalized = normalize(keyword);
+        return normalize(best.item.getTitle()).equals(normalized) && normalize(second.item.getTitle()).equals(normalized);
     }
 
     private TmdbBundle chooseTmdbBundle(List<TmdbItem> items, String keyword, Vod sourceVod) {
@@ -8417,6 +8544,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private record TmdbLoadResult(TmdbBundle bundle, List<TmdbItem> searchItems) {
+    }
+
+    private record AutoTmdbMatch(@Nullable TmdbItem item, List<TmdbItem> items) {
     }
 
     private record SplitYearQuery(String query, int year) {

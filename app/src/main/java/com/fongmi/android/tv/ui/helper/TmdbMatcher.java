@@ -267,10 +267,15 @@ public class TmdbMatcher {
         clean = clean.replaceAll("(?i)\\b(HD|4K|8K|1080P|2160P|720P|HDR|HDR10|DV|BluRay|WEB[- ]?DL|HDTV|BDRip|Remux|HEVC|H\\.?265|H\\.?264|x265|x264)\\b", "");
         clean = clean.replaceAll("(国语版|国配版|普通话版|粤语版|台语版|闽南语版|原声版|配音版|中字版|字幕版|台版|台灣版|台湾版|港版|港澳版|大陆版|內地版|内地版|中国版|中國版|泰版|泰国版|泰國版|韩版|韩国版|韓國版|日版|日本版|美版|美国版|美國版|英版|英国版|英國版)", "");
         clean = clean.replaceAll("(臻彩|高码|高码率|无水印|无台标|国语|国配|国粤|粤语|中字|字幕|内封|简繁|双语|官中|杜比|合集|全集|完结|未删减|加长版|修复版)", "");
+        clean = clean.replaceAll("[#＃]+", "");
+        clean = clean.replaceAll("(?i)(^|\\s)(动漫|动画|电视剧|剧集|电影|综艺)(\\s|$)", " ");
 
         // 移除多余空格
         clean = clean.replaceAll("[._\\-+]+", " ");
         clean = clean.trim().replaceAll("\\s+", " ");
+        clean = clean.replaceAll("(?i)^[a-z]\\s+(?=.*[\\u4e00-\\u9fff])", "");
+        if (clean.matches("(?i).*[\\u4e00-\\u9fff].*\\s+[a-z]")) clean = clean.replaceAll("(?i)\\s+[a-z]$", "");
+        clean = clean.replaceAll("([\\u4e00-\\u9fff])\\s+([\\u4e00-\\u9fff])", "$1$2");
         clean = clean.replaceAll("^[\\s:：,，.。·|/\\\\]+|[\\s:：,，.。·|/\\\\]+$", "");
 
         return TextUtils.isEmpty(clean) ? raw : clean;

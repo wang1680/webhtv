@@ -81,6 +81,8 @@ import com.fongmi.android.tv.setting.PlayerButtonSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.setting.SiteHealthStore;
+import com.fongmi.android.tv.title.MediaTitleLearningExample;
+import com.fongmi.android.tv.title.MediaTitleRequest;
 import com.fongmi.android.tv.subtitle.SubtitlePlaybackSession;
 import com.fongmi.android.tv.ui.activity.SearchActivity;
 import com.fongmi.android.tv.ui.adapter.ArrayAdapter;
@@ -1352,7 +1354,15 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         List<Danmaku> siteDanmakus = result.getDanmaku();
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
         subtitlePlaybackSession.onPlaybackStarted(this, result);
-        if (DanmakuApi.canAutoSearch(siteDanmakus)) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), danmaku -> {
+        if (DanmakuApi.canAutoSearch(siteDanmakus)) DanmakuApi.search(MediaTitleRequest.builder()
+                .siteKey(getKey())
+                .vodId(getId())
+                .rawTitle(mHistory.getVodName())
+                .rawRemarks(mHistory.getVodRemarks())
+                .episodeName(getEpisode().getName())
+                .source(MediaTitleLearningExample.SOURCE_DANMAKU_AUTO)
+                .allowAi(true)
+                .build(), danmaku -> {
             if (DanmakuSetting.isSpiderFirst() && !siteDanmakus.isEmpty()) player().addDanmaku(danmaku);
             else player().setDanmaku(danmaku);
         });
@@ -2427,7 +2437,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void onDanmaku() {
-        DanmakuDialog.create().player(player()).show(this);
+        DanmakuDialog.create().player(player()).identity(getKey(), getId(), mHistory == null ? "" : mHistory.getVodName(), getEpisode().getName()).show(this);
         hideControl();
     }
 
@@ -3635,6 +3645,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (mTmdbUIAdapter == null || mVod == null || item == null) return;
         mTmdbDialogGeneration++;
         showTmdbDetailLoading();
+        mTmdbUIAdapter.rememberManualMatch(mVod, item);
         mTmdbUIAdapter.load(item, mVod);
         Notify.show(R.string.detail_tmdb_match_saved);
     }

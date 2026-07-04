@@ -1195,7 +1195,7 @@
     </string-array>
 
     <string name="setting_tmdb_source">TMDB 数据配置</string>
-    <string name="setting_ai_recommendation">AI 推荐配置</string>
+    <string name="setting_ai_recommendation">AI 通用配置</string>
     <string name="setting_tmdb_model">TMDB 交互模型</string>
     <string name="setting_tmdb_model_native">原生增强</string>
     <string name="setting_tmdb_match_mode">TMDB 匹配模式</string>
@@ -1258,7 +1258,11 @@
     <string name="tmdb_personal_recommendations_tmdb_label">个性推荐 · TMDB</string>
     <string name="tmdb_personal_recommendations_douban_label">个性推荐 · 豆瓣</string>
     <string name="tmdb_personal_recommendations_ai_label">个性推荐 · 智能</string>
-    <string name="dialog_ai_enable">启用智能推荐</string>
+    <string name="dialog_ai_enable">启用 AI 服务</string>
+    <string name="dialog_ai_title_extraction">AI 真实剧名识别</string>
+    <string name="dialog_ai_section_service">服务</string>
+    <string name="dialog_ai_section_connection">连接参数</string>
+    <string name="dialog_ai_section_model">模型设置</string>
     <string name="dialog_ai_protocol_label">协议类型</string>
     <string-array name="dialog_ai_protocol_labels">
         <item>OpenAI Responses API</item>
@@ -1279,13 +1283,14 @@
     <string name="dialog_ai_fetch_models_failed">模型获取失败：%1$s</string>
     <string name="dialog_ai_user_agent_label">自定义 User-Agent</string>
     <string name="dialog_ai_user_agent_hint">可选，用于有 UA 限制的供应商</string>
-    <string name="dialog_ai_prompt_config">提示词设置</string>
+    <string name="dialog_ai_prompt_config">AI 提示词配置</string>
     <string name="dialog_ai_recommend_prompt_label">推荐提示词</string>
+    <string name="dialog_ai_title_extraction_prompt_label">名称提取提示词</string>
     <string name="dialog_ai_prompt_reset">重置默认</string>
     <string name="dialog_ai_test">测试配置</string>
     <string name="dialog_ai_test_running">正在测试 AI 配置...</string>
-    <string name="dialog_ai_test_success">AI 测试通过：解析到 %1$d 条，示例 %2$s</string>
-    <string name="dialog_ai_test_failed">AI 测试失败：%1$s</string>
+    <string name="dialog_ai_test_success">AI 测试通过：%1$s（耗时 %2$s）</string>
+    <string name="dialog_ai_test_failed">AI 测试失败：%1$s（耗时 %2$s）</string>
     <string name="ai_recommendation_info_title">智能推荐详情</string>
     <string name="ai_recommendation_reason_label">推荐理由</string>
     <string name="ai_recommendation_reason_preview">推荐理由：%1$s</string>

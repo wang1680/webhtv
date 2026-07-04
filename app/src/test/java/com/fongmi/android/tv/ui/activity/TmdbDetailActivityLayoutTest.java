@@ -11,6 +11,41 @@ import static org.junit.Assert.assertTrue;
 public class TmdbDetailActivityLayoutTest {
 
     @Test
+    public void automaticTmdbMatchUsesResolvedMediaTitleBeforeSearching() throws Exception {
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int load = source.indexOf("private TmdbLoadResult loadTmdbResult()");
+        int helper = source.indexOf("private AutoTmdbMatch searchResolvedTmdbMatch()");
+        int queryFilter = source.indexOf("private List<String> automaticTmdbQueries");
+        int exactTie = source.indexOf("private boolean shouldAcceptFirstExactTmdbCandidate");
+
+        assertTrue(sourcePath + " is missing loadTmdbResult", load >= 0);
+        assertTrue("automatic TMDB detail matching must use resolved title candidates before search",
+                source.indexOf("AutoTmdbMatch autoMatch = searchResolvedTmdbMatch();", load) > load);
+        assertTrue("automatic TMDB detail matching must run MediaTitleResolver for ai-title diagnostics",
+                helper > load && source.indexOf("MediaTitleResolver resolver = new MediaTitleResolver();", helper) > helper);
+        assertTrue("automatic TMDB detail matching must not fall back to obfuscated raw titles when parser cleaned them",
+                queryFilter > helper && source.indexOf("shouldSkipRawTmdbQuery(rawTitle, resolution)", queryFilter) > queryFilter);
+        assertTrue("automatic TMDB detail matching must accept exact same-title ties from TMDB search order",
+                exactTie > 0 && source.indexOf("shouldAcceptFirstExactTmdbCandidate(best, second, keyword, sourceVod)", load) > load);
+    }
+
+    @Test
+    public void automaticTmdbMatchSkipsStaleCacheWhenParsedTitleDiffers() throws Exception {
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int cached = source.indexOf("private TmdbItem getCachedTmdbMatch()");
+        int compatible = source.indexOf("private boolean isCachedTmdbMatchCompatible");
+
+        assertTrue(sourcePath + " is missing getCachedTmdbMatch", cached >= 0);
+        assertTrue("cached TMDB matches must be checked against the current parsed title",
+                compatible > cached && source.indexOf("if (!isCachedTmdbMatchCompatible(item)) return null;", cached) > cached);
+        assertTrue("stale cached title F must not override parsed title 凡人修仙传",
+                source.indexOf("new MediaTitleParser().cleanTitle(getTmdbRawTitle())", compatible) > compatible
+                        && source.indexOf("normalize(item.getTitle()).equals(normalize(parsedTitle))", compatible) > compatible);
+    }
+
+    @Test
     public void fusionDetailBackdropDrawsBehindSystemBars() throws Exception {
         Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);

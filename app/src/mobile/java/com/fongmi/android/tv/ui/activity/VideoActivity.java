@@ -97,6 +97,8 @@ import com.fongmi.android.tv.setting.PlayerButtonSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.setting.SiteHealthStore;
+import com.fongmi.android.tv.title.MediaTitleLearningExample;
+import com.fongmi.android.tv.title.MediaTitleRequest;
 import com.fongmi.android.tv.subtitle.SubtitlePlaybackSession;
 import com.fongmi.android.tv.ui.adapter.EpisodeAdapter;
 import com.fongmi.android.tv.ui.adapter.EpisodeGroupAdapter;
@@ -1432,7 +1434,15 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         List<Danmaku> siteDanmakus = result.getDanmaku();
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
         subtitlePlaybackSession.onPlaybackStarted(this, result);
-        if (DanmakuApi.canAutoSearch(siteDanmakus)) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), danmaku -> {
+        if (DanmakuApi.canAutoSearch(siteDanmakus)) DanmakuApi.search(MediaTitleRequest.builder()
+                .siteKey(getKey())
+                .vodId(getId())
+                .rawTitle(mHistory.getVodName())
+                .rawRemarks(mHistory.getVodRemarks())
+                .episodeName(getEpisode().getName())
+                .source(MediaTitleLearningExample.SOURCE_DANMAKU_AUTO)
+                .allowAi(true)
+                .build(), danmaku -> {
             if (DanmakuSetting.isSpiderFirst() && !siteDanmakus.isEmpty()) player().addDanmaku(danmaku);
             else player().setDanmaku(danmaku);
             refreshDanmakuControls();
@@ -1997,13 +2007,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void onDanmaku() {
-        DanmakuDialog.create().player(player()).show(this);
+        DanmakuDialog.create().player(player()).identity(getKey(), getId(), mHistory == null ? "" : mHistory.getVodName(), getEpisode().getName()).show(this);
         hideControl();
     }
 
     @Override
     public void onDanmakuPanel() {
-        DanmakuDialog.create().player(player()).show(this);
+        DanmakuDialog.create().player(player()).identity(getKey(), getId(), mHistory == null ? "" : mHistory.getVodName(), getEpisode().getName()).show(this);
     }
 
     private void onDanmakuShow() {
@@ -3895,6 +3905,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         hideTmdbHeader();
         if (mBinding.videoShadow != null) mBinding.videoShadow.setVisibility(View.GONE);
         mBinding.progressLayout.showProgress();
+        mTmdbUIAdapter.rememberManualMatch(mVod, item);
         mTmdbUIAdapter.load(item, mVod);
         Notify.show(R.string.detail_tmdb_match_saved);
     }
