@@ -7076,6 +7076,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         App.removeCallbacks(inlineKeySeekEnd);
         EpisodeTitlePopup.dismiss();
         saveInlineHistory();
+        // 确保内嵌播放退出时停止播放，避免声音继续（与 VideoActivity 保持一致）
+        if (inlineStarted && isOwner() && !isPlaybackExiting()) {
+            stopPlayback();
+        }
         if (inlineClock != null) inlineClock.release();
         DanmakuApi.cancel();
         super.onDestroy();
