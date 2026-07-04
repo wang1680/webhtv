@@ -29,6 +29,7 @@ import java.io.FileInputStream;
 import java.lang.ref.WeakReference;
 import java.security.MessageDigest;
 import java.util.Locale;
+import java.util.concurrent.Future;
 
 public class Updater implements Download.Callback, UpdateListener {
 
@@ -98,8 +99,10 @@ public class Updater implements Download.Callback, UpdateListener {
     }
 
     private void doInBackground(FragmentActivity activity, boolean forceCheck) {
-        stable = getUpdate(Update.CHANNEL_STABLE);
-        beta = getUpdate(Update.CHANNEL_BETA);
+        Future<Update> stableFuture = Task.executor().submit(() -> getUpdate(Update.CHANNEL_STABLE));
+        Future<Update> betaFuture = Task.executor().submit(() -> getUpdate(Update.CHANNEL_BETA));
+        stable = awaitUpdate(stableFuture, Update.CHANNEL_STABLE);
+        beta = awaitUpdate(betaFuture, Update.CHANNEL_BETA);
         if (!stable.hasUpdate() && !beta.hasUpdate()) {
             if (forceCheck && (stable.hasManifest() || beta.hasManifest())) {
                 selected = stable;
@@ -111,6 +114,17 @@ public class Updater implements Download.Callback, UpdateListener {
         }
         selected = stable;
         App.post(() -> show(activity));
+    }
+
+    private Update awaitUpdate(Future<Update> future, String channel) {
+        try {
+            return future.get();
+        } catch (Exception e) {
+            e.printStackTrace();
+            Update update = Update.empty(channel);
+            update.error = e.getMessage();
+            return update;
+        }
     }
 
     private Update getUpdate(String channel) {
@@ -170,7 +184,7 @@ public class Updater implements Download.Callback, UpdateListener {
             update.sha256 = object.optString("sha256");
             update.apkUrl = getApkUrl(update, source);
             if (isDefaultReleaseNotes(update.notes)) update.notes = "";
-            if (TextUtils.isEmpty(update.notes)) {
+            if (TextUtils.isEmpty(update.notes) && TextUtils.isEmpty(update.desc)) {
                 String notes = getReleaseNotes(update.name);
                 if (!TextUtils.isEmpty(notes)) update.notes = normalizeText(notes);
             }
