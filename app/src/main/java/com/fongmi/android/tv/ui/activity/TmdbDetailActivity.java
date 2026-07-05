@@ -718,12 +718,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerSpeed.setOnClickListener(view -> changeInlineSpeed());
         binding.playerSpeed.setOnLongClickListener(view -> resetInlineSpeed());
         binding.playerScale.setOnClickListener(view -> cycleInlineScale());
+        binding.playerLut.setOnClickListener(view -> onInlineLut());
         binding.playerRefresh.setOnClickListener(view -> refreshInlinePlayback());
         binding.playerChangeSource.setOnClickListener(view -> openGlobalSourceSearch());
         binding.playerChangeSource.setOnLongClickListener(view -> openGlobalSourceSearch());
         binding.playerRepeat.setOnClickListener(view -> toggleInlineRepeat());
         binding.playerDisplay.setOnClickListener(view -> showInlineDisplay());
         binding.playerDecode.setOnClickListener(view -> toggleInlineDecode());
+        binding.playerPlayParams.setOnClickListener(view -> toggleInlinePlayParams());
         binding.playerTextTrack.setOnClickListener(this::showInlineTrack);
         binding.playerTextTrack.setOnLongClickListener(view -> showInlineSubtitle());
         binding.playerAudioTrack.setOnClickListener(this::showInlineTrack);
@@ -849,8 +851,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerChangeSource.setNextFocusUpId(R.id.playerChangeSource);
         binding.playerExternal.setNextFocusUpId(R.id.playerExternal);
         binding.playerDecode.setNextFocusUpId(R.id.playerDecode);
+        binding.playerPlayParams.setNextFocusUpId(R.id.playerPlayParams);
         binding.playerSpeed.setNextFocusUpId(R.id.playerSpeed);
         binding.playerScale.setNextFocusUpId(R.id.playerScale);
+        binding.playerLut.setNextFocusUpId(R.id.playerLut);
         binding.playerQuality.setNextFocusUpId(R.id.playerQuality);
         binding.playerParse.setNextFocusUpId(R.id.playerParse);
         binding.playerTextTrack.setNextFocusUpId(R.id.playerTextTrack);
@@ -872,8 +876,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setupInlineControl(binding.playerNext);
         setupInlineControl(binding.playerExternal);
         setupInlineControl(binding.playerDecode);
+        setupInlineControl(binding.playerPlayParams);
         setupInlineControl(binding.playerSpeed);
         setupInlineControl(binding.playerScale);
+        setupInlineControl(binding.playerLut);
         setupInlineControl(binding.playerRefresh);
         setupInlineControl(binding.playerChangeSource);
         setupInlineControl(binding.playerRepeat);
@@ -5021,11 +5027,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerEnding.setText(inlineEndingLabel());
         inlineControlController.updateSize(binding.playerSize, inlineFullscreen);
         int episodeCount = selectedFlag == null || selectedFlag.getEpisodes() == null ? 0 : selectedFlag.getEpisodes().size();
-        boolean hasPrev = hasAdjacentEpisode(-1);
-        boolean hasNext = hasAdjacentEpisode(1);
         boolean hasTitle = hasPlayer && player().haveTitle();
-        setButtonEnabled(binding.playerPrev, hasPrev);
-        setButtonEnabled(binding.playerNext, hasNext);
+        // 上集/下集按钮始终可用，点击时如果没有相邻集数会显示提示（与影视原生模式保持一致）
+        setButtonEnabled(binding.playerPrev, hasPlayer && episodeCount > 0);
+        setButtonEnabled(binding.playerNext, hasPlayer && episodeCount > 0);
         boolean inlineQuality = canChangeInlineQuality();
         boolean inlineVideoTrackAsQuality = isInlineVideoTrackAsQuality();
         setButtonEnabled(binding.playerQuality, inlineQuality);
@@ -5037,6 +5042,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setButtonEnabled(binding.playerRepeat, hasPlayer);
         setButtonEnabled(binding.playerDisplay, hasPlayer);
         setButtonEnabled(binding.playerDecode, hasPlayer);
+        setButtonEnabled(binding.playerPlayParams, hasPlayer);
+        setButtonEnabled(binding.playerLut, hasPlayer);
         setButtonEnabled(binding.playerTextTrack, hasPlayer);
         setButtonEnabled(binding.playerAudioTrack, hasPlayer);
         setButtonEnabled(binding.playerVideoTrack, hasPlayer);
@@ -5062,8 +5069,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerDanmaku.setVisibility(hasPlayer && inlineControlController.hasDanmakuControl() ? View.VISIBLE : View.GONE);
         binding.playerChapter.setVisibility(hasTitle ? View.VISIBLE : View.GONE);
         binding.playerRepeat.setSelected(hasPlayer && player().isRepeatOne());
+        binding.playerPlayParams.setSelected(hasPlayer && inlineControlController.isDiagnosticsVisible());
         setInlineFullscreenIcon();
-        updateMobileInlineButtons(playing, hasPlayer, hasPrev, hasNext, hasTitle);
+        updateMobileInlineButtons(playing, hasPlayer, episodeCount, hasTitle);
         applyInlinePlayerButtonSettings();
         updateInlineDisplayPanel();
     }
@@ -5076,16 +5084,18 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private Map<String, View> inlinePlayerButtonMap() {
         Map<String, View> buttons = new LinkedHashMap<>();
-        buttons.put(PlayerButtonSetting.FULLSCREEN, binding.playerFullscreenAction);
         buttons.put(PlayerButtonSetting.NEXT, binding.playerNext);
         buttons.put(PlayerButtonSetting.PREV, binding.playerPrev);
         buttons.put(PlayerButtonSetting.EPISODES, binding.playerEpisodes);
         buttons.put(PlayerButtonSetting.RESET, binding.playerRefresh);
         buttons.put(PlayerButtonSetting.CHANGE, binding.playerChangeSource);
+        buttons.put(PlayerButtonSetting.FULLSCREEN, binding.playerFullscreenAction);
         buttons.put(PlayerButtonSetting.PLAYER, binding.playerExternal);
         buttons.put(PlayerButtonSetting.DECODE, binding.playerDecode);
+        buttons.put(PlayerButtonSetting.PLAY_PARAMS, binding.playerPlayParams);
         buttons.put(PlayerButtonSetting.SPEED, binding.playerSpeed);
         buttons.put(PlayerButtonSetting.SCALE, binding.playerScale);
+        buttons.put(PlayerButtonSetting.LUT, binding.playerLut);
         buttons.put(PlayerButtonSetting.TEXT, binding.playerTextTrack);
         buttons.put(PlayerButtonSetting.AUDIO, binding.playerAudioTrack);
         buttons.put(PlayerButtonSetting.VIDEO, binding.playerVideoTrack);
@@ -5116,7 +5126,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         return buttons;
     }
 
-    private void updateMobileInlineButtons(boolean playing, boolean hasPlayer, boolean hasPrev, boolean hasNext, boolean hasTitle) {
+    private void updateMobileInlineButtons(boolean playing, boolean hasPlayer, int episodeCount, boolean hasTitle) {
         if (!Util.isMobile()) return;
         updateMobileInlineSideControlMargins();
         boolean locked = isLock();
@@ -5137,8 +5147,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailActionView(R.id.actionQuality, TextView.class).setText(binding.playerQuality.getText());
         detailActionView(R.id.opening, TextView.class).setText(binding.playerOpening.getText());
         detailActionView(R.id.ending, TextView.class).setText(binding.playerEnding.getText());
-        setButtonEnabled(detailControlView(R.id.prev, View.class), hasPrev);
-        setButtonEnabled(detailControlView(R.id.next, View.class), hasNext);
+        // 上集/下集按钮始终可用，点击时如果没有相邻集数会显示提示（与影视原生模式保持一致）
+        setButtonEnabled(detailControlView(R.id.prev, View.class), hasPlayer && episodeCount > 0);
+        setButtonEnabled(detailControlView(R.id.next, View.class), hasPlayer && episodeCount > 0);
         setButtonEnabled(detailControlView(R.id.fullscreen, View.class), hasPlayer);
         setButtonEnabled(detailControlView(R.id.danmaku, View.class), hasPlayer && inlineControlController.hasDanmakuControl());
         setButtonEnabled(detailControlView(R.id.lock, View.class), hasPlayer);
@@ -5595,6 +5606,22 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         player().toggleDecode();
         setInlineDecodeText(inlineDecodeText(true));
     }
+
+    private void toggleInlinePlayParams() {
+        if (inlineControlController == null) return;
+        boolean visible = !inlineControlController.isDiagnosticsVisible();
+        PlayerSetting.putOsdDiagnostics(visible);
+        inlineControlController.setDiagnosticsVisible(visible);
+        binding.playerPlayParams.setSelected(visible);
+        hideInlineControl();
+    }
+
+    private void onInlineLut() {
+        if (service() == null || player().isEmpty()) return;
+        // LUT功能需要LutQuickPanel支持，这里暂时留空
+        // 如果需要完整实现，需要在布局中添加LutQuickPanel组件
+    }
+
 
     private boolean showInlinePlayerChoice() {
         if (service() == null || player().isEmpty()) return false;

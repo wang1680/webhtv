@@ -545,6 +545,12 @@
                                     android:text="@string/play_decode" />
 
                                 <TextView
+                                    android:id="@+id/playerPlayParams"
+                                    style="@style/Control"
+                                    android:layout_marginEnd="12dp"
+                                    android:text="@string/play_params" />
+
+                                <TextView
                                     android:id="@+id/playerSpeed"
                                     style="@style/Control"
                                     android:layout_marginEnd="12dp"
@@ -555,6 +561,12 @@
                                     style="@style/Control"
                                     android:layout_marginEnd="12dp"
                                     android:text="@string/play_scale" />
+
+                                <TextView
+                                    android:id="@+id/playerLut"
+                                    style="@style/Control"
+                                    android:layout_marginEnd="12dp"
+                                    android:text="@string/play_lut" />
 
                                 <TextView
                                     android:id="@+id/playerQuality"
