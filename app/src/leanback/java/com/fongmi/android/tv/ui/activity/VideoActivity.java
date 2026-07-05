@@ -276,7 +276,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     @Override
     protected boolean customWall() {
-        return false;
+        return true;
     }
 
     public static void file(FragmentActivity activity, String path) {
