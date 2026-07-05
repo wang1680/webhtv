@@ -189,10 +189,20 @@ public class Flag implements Parcelable, Diffable<Flag> {
 
     public void mergeEpisodes(List<Episode> items, boolean rev) {
         for (Episode item : items) {
-            if (getEpisodes().contains(item)) continue;
+            int index = getEpisodes().indexOf(item);
+            if (index != -1) {
+                mergeEpisode(getEpisodes().get(index), item);
+                continue;
+            }
             if (rev) getEpisodes().add(0, item);
             else getEpisodes().add(item);
         }
+    }
+
+    private void mergeEpisode(Episode target, Episode source) {
+        if (target == null || source == null) return;
+        if (source.getTmdbEpisode() != null) target.setTmdbEpisode(source.getTmdbEpisode());
+        if (!TextUtils.equals(source.getDisplayName(), source.getRawDisplayName())) target.setDisplayName(source.getDisplayName());
     }
 
     public Flag trans() {
