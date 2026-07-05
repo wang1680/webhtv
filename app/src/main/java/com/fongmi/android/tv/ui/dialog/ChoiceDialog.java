@@ -4,6 +4,8 @@ import android.app.Dialog;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.text.TextUtils;
+import android.util.TypedValue;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -17,6 +19,7 @@ import android.widget.ScrollView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.core.widget.TextViewCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
@@ -174,8 +177,9 @@ public final class ChoiceDialog extends DialogFragment {
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundResource(R.drawable.shape_shell_proxy_dialog);
-        int outer = dp(24);
-        root.setPadding(outer, outer, outer, outer);
+        int vertical = dp(24);
+        int horizontal = dp(actionCount() >= 3 ? 18 : 24);
+        root.setPadding(horizontal, vertical, horizontal, vertical);
 
         MaterialTextView titleView = new MaterialTextView(requireContext());
         titleView.setText(title);
@@ -295,27 +299,42 @@ public final class ChoiceDialog extends DialogFragment {
         LinearLayout actions = new LinearLayout(requireContext());
         actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         actions.setOrientation(LinearLayout.HORIZONTAL);
+        boolean compact = actionCount() >= 3;
+        int index = 0;
         if (neutral != null) actions.addView(actionButton(neutral, false, view -> {
             if (neutralAction == null || !(view instanceof MaterialButton button)) return;
             CharSequence next = neutralAction.onNeutral();
             if (next != null) button.setText(next);
-        }));
-        if (negative != null) actions.addView(actionButton(negative, false, view -> dismiss()));
+        }, compact, index++ == 0));
+        if (negative != null) actions.addView(actionButton(negative, false, view -> dismiss(), compact, index++ == 0));
         if (positive != null) actions.addView(actionButton(positive, true, view -> {
             if (multi && apply != null) apply.onApply(Arrays.copyOf(checked, checked.length));
             if (positiveAction != null) positiveAction.run();
             dismiss();
-        }));
+        }, compact, index == 0));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         params.topMargin = dp(18);
         root.addView(actions, params);
     }
 
-    private MaterialButton actionButton(String text, boolean primary, View.OnClickListener listener) {
+    private int actionCount() {
+        return (positive == null ? 0 : 1) + (negative == null ? 0 : 1) + (neutral == null ? 0 : 1);
+    }
+
+    private MaterialButton actionButton(String text, boolean primary, View.OnClickListener listener, boolean compact, boolean first) {
         MaterialButton button = new MaterialButton(requireContext());
         button.setAllCaps(false);
         button.setText(text);
-        button.setMinWidth(dp(88));
+        button.setSingleLine(true);
+        button.setMaxLines(1);
+        button.setEllipsize(TextUtils.TruncateAt.END);
+        button.setGravity(Gravity.CENTER);
+        button.setTextSize(compact ? 14 : 15);
+        button.setIncludeFontPadding(false);
+        button.setPadding(dp(compact ? 6 : 16), 0, dp(compact ? 6 : 16), 0);
+        if (compact) TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(button, 10, 14, 1, TypedValue.COMPLEX_UNIT_SP);
+        button.setMinWidth(compact ? 0 : dp(88));
+        button.setMinimumWidth(0);
         button.setMinHeight(dp(40));
         button.setInsetTop(0);
         button.setInsetBottom(0);
@@ -326,8 +345,8 @@ public final class ChoiceDialog extends DialogFragment {
         button.setStrokeColor(ContextCompat.getColorStateList(requireContext(), R.color.dialog_outlined_button_stroke));
         button.setStrokeWidth(primary ? 0 : dp(1));
         button.setOnClickListener(listener);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40));
-        params.leftMargin = dp(12);
+        LinearLayout.LayoutParams params = compact ? new LinearLayout.LayoutParams(0, dp(40), 1) : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40));
+        params.leftMargin = first ? 0 : dp(compact ? 6 : 12);
         button.setLayoutParams(params);
         return button;
     }
