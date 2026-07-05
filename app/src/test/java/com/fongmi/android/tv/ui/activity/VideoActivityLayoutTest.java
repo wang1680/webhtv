@@ -838,6 +838,23 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void leanbackPlaybackEpisodeKeyIgnoresMissingFocus() throws Exception {
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int method = source.indexOf("private boolean onEpisodeKey(KeyEvent event)");
+        int directCrashPath = source.indexOf("findContainingViewHolder(getCurrentFocus())", method);
+        int focus = source.indexOf("View focus = getCurrentFocus();", method);
+        int guard = source.indexOf("if (focus == null) return false;", focus);
+        int holder = source.indexOf("findContainingViewHolder(focus)", guard);
+
+        assertTrue(sourcePath + " is missing onEpisodeKey", method >= 0);
+        assertFalse("episode key handling must not pass a null current focus into RecyclerView", directCrashPath >= 0);
+        assertTrue("episode key handling must read current focus before resolving the RecyclerView holder", focus > method);
+        assertTrue("episode key handling must ignore key events when focus has already been cleared", guard > focus);
+        assertTrue("episode key handling must only resolve a holder after the focus null guard", holder > guard);
+    }
+
+    @Test
     public void leanbackEpisodeDialogLetsHeaderScrollWithEpisodes() throws Exception {
         Path layoutPath = findLeanbackResPath().resolve(Path.of("layout", "dialog_episode_list.xml"));
         String layout = new String(Files.readAllBytes(layoutPath), StandardCharsets.UTF_8);

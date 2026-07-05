@@ -1,7 +1,7 @@
 package com.fongmi.android.tv.title;
 
 import com.fongmi.android.tv.App;
-import com.github.catvod.utils.Prefers;
+import com.fongmi.android.tv.utils.AppCache;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -19,7 +19,7 @@ import java.util.Map;
 
 public final class MediaTitleLearningStore {
 
-    private static final String KEY = "media_title_learning";
+    private static final String KEY = AppCache.KEY_MEDIA_TITLE_LEARNING;
     private static final int MAX_ITEMS = 500;
     private static final Gson FALLBACK_GSON = new Gson();
     private static final Type ITEMS_TYPE = TypeToken.getParameterized(LinkedHashMap.class, String.class, MediaTitleLearningExample.class).getType();
@@ -27,7 +27,7 @@ public final class MediaTitleLearningStore {
     private LinkedHashMap<String, MediaTitleLearningExample> items;
 
     public static MediaTitleLearningStore load() {
-        return objectFrom(Prefers.getString(KEY));
+        return objectFrom(AppCache.get(KEY));
     }
 
     static MediaTitleLearningStore objectFrom(String json) {
@@ -91,7 +91,7 @@ public final class MediaTitleLearningStore {
     }
 
     public void save() {
-        Prefers.put(KEY, gson().toJson(this));
+        AppCache.put(KEY, gson().toJson(this));
     }
 
     public Map<String, MediaTitleLearningExample> getItems() {
