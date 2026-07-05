@@ -36,4 +36,10 @@ public class MediaTitleLearningStoreTest {
 
         assertEquals("庆余年", examples.get(0).getExpectedTitle());
     }
+    @Test
+    public void objectFrom_restoresObfuscatedReleaseCacheAsExamples() {
+        MediaTitleLearningStore store = MediaTitleLearningStore.objectFrom("{\"a\":{\"key\":{\"a\":\"raw\",\"b\":\"rule\",\"c\":\"expected\",\"d\":\"tv\",\"e\":\"site\",\"f\":\"vod\",\"i\":\"TMDB_MANUAL\",\"j\":1,\"k\":1,\"l\":true}}}");
+
+        assertEquals("expected", store.find(MediaTitleRequest.builder().siteKey("site").vodId("vod").rawTitle("raw").build(), 1).get(0).getExpectedTitle());
+    }
 }

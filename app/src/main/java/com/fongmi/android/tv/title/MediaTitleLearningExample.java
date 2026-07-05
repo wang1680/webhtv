@@ -1,5 +1,7 @@
 package com.fongmi.android.tv.title;
 
+import com.google.gson.annotations.SerializedName;
+
 public final class MediaTitleLearningExample {
 
     public static final String SOURCE_TMDB_MANUAL = "TMDB_MANUAL";
@@ -9,17 +11,29 @@ public final class MediaTitleLearningExample {
     public static final String SOURCE_SUBTITLE_AUTO = "SUBTITLE_AUTO";
     public static final String SOURCE_TMDB_AUTO = "TMDB_AUTO";
 
+    @SerializedName(value = "rawTitle", alternate = "a")
     private String rawTitle;
+    @SerializedName(value = "ruleTitle", alternate = "b")
     private String ruleTitle;
+    @SerializedName(value = "expectedTitle", alternate = "c")
     private String expectedTitle;
+    @SerializedName(value = "mediaType", alternate = "d")
     private String mediaType;
+    @SerializedName(value = "siteKey", alternate = "e")
     private String siteKey;
+    @SerializedName(value = "vodId", alternate = "f")
     private String vodId;
+    @SerializedName(value = "year", alternate = "g")
     private int year;
+    @SerializedName(value = "seasonNumber", alternate = "h")
     private int seasonNumber;
+    @SerializedName(value = "source", alternate = "i")
     private String source;
+    @SerializedName(value = "hitCount", alternate = "j")
     private int hitCount;
+    @SerializedName(value = "updatedAt", alternate = "k")
     private long updatedAt;
+    @SerializedName(value = "manual", alternate = "l")
     private boolean manual;
     private boolean superseded;
     private boolean conflict;

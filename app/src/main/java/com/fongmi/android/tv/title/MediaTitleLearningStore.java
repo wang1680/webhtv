@@ -2,7 +2,14 @@ package com.fongmi.android.tv.title;
 
 import com.fongmi.android.tv.App;
 import com.github.catvod.utils.Prefers;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.annotations.SerializedName;
+import com.google.gson.reflect.TypeToken;
 
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -14,12 +21,23 @@ public final class MediaTitleLearningStore {
 
     private static final String KEY = "media_title_learning";
     private static final int MAX_ITEMS = 500;
-    private Map<String, MediaTitleLearningExample> items;
+    private static final Gson FALLBACK_GSON = new Gson();
+    private static final Type ITEMS_TYPE = TypeToken.getParameterized(LinkedHashMap.class, String.class, MediaTitleLearningExample.class).getType();
+    @SerializedName(value = "items", alternate = "a")
+    private LinkedHashMap<String, MediaTitleLearningExample> items;
 
     public static MediaTitleLearningStore load() {
+        return objectFrom(Prefers.getString(KEY));
+    }
+
+    static MediaTitleLearningStore objectFrom(String json) {
         try {
-            MediaTitleLearningStore store = App.gson().fromJson(Prefers.getString(KEY), MediaTitleLearningStore.class);
-            return store == null ? new MediaTitleLearningStore() : store;
+            MediaTitleLearningStore store = new MediaTitleLearningStore();
+            JsonObject object = JsonParser.parseString(json).getAsJsonObject();
+            JsonElement element = object.has("items") ? object.get("items") : object.get("a");
+            LinkedHashMap<String, MediaTitleLearningExample> restored = gson().fromJson(element, ITEMS_TYPE);
+            if (restored != null) store.items.putAll(restored);
+            return store;
         } catch (Throwable e) {
             return new MediaTitleLearningStore();
         }
@@ -73,7 +91,7 @@ public final class MediaTitleLearningStore {
     }
 
     public void save() {
-        Prefers.put(KEY, App.gson().toJson(this));
+        Prefers.put(KEY, gson().toJson(this));
     }
 
     public Map<String, MediaTitleLearningExample> getItems() {
@@ -152,6 +170,10 @@ public final class MediaTitleLearningStore {
 
     private static boolean isBlank(String text) {
         return text == null || text.trim().isEmpty();
+    }
+
+    private static Gson gson() {
+        return App.get() == null ? FALLBACK_GSON : App.gson();
     }
 
     private static final class Scored {
