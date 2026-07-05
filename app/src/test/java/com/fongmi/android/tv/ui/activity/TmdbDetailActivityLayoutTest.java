@@ -550,7 +550,7 @@ public class TmdbDetailActivityLayoutTest {
         int focusDetailEpisode = activity.indexOf("private boolean focusDetailEpisode(int position)");
         int focusDetailEpisodeEnd = activity.indexOf("private int detailEpisodeSpanCount()", focusDetailEpisode);
         int align = activity.indexOf("private void alignDetailEpisodeFocusedRow");
-        int alignEnd = activity.indexOf("private boolean isDetailEpisodeRowFullyVisible", align);
+        int alignEnd = activity.indexOf("private void toggleEpisodeReverse", align);
         String focusBody = focusDetailEpisode >= 0 && focusDetailEpisodeEnd > focusDetailEpisode ? activity.substring(focusDetailEpisode, focusDetailEpisodeEnd) : "";
         String alignBody = align >= 0 && alignEnd > align ? activity.substring(align, alignEnd) : "";
 
@@ -572,9 +572,15 @@ public class TmdbDetailActivityLayoutTest {
                 focusBody.contains("RecyclerView.ViewHolder visibleHolder = binding.episodeContainer.findViewHolderForAdapterPosition(target);")
                         && focusBody.contains("if (visibleHolder != null)")
                         && focusBody.indexOf("findViewHolderForAdapterPosition(target)") < focusBody.indexOf("scrollEpisodeToPosition(rowStart, ResUtil.dp2px(8));"));
-        assertTrue("outer detail scroll alignment should skip fully visible episode rows to avoid visual flicker",
-                alignBody.contains("if (isDetailEpisodeRowFullyVisible(rowView)) return;")
-                        && activity.contains("private boolean isDetailEpisodeRowFullyVisible(View rowView)"));
+        assertTrue("outer detail scroll alignment should wait for stable focus before moving the page",
+                alignBody.contains("focusedView.post(() ->")
+                        && alignBody.contains("if (binding == null || getCurrentFocus() != focusedView) return;")
+                        && alignBody.contains("binding.episodeContainer.getChildAdapterPosition(focusedView) != position"));
+        assertTrue("focused episode cards should be minimally scrolled fully into view instead of top-aligning the whole row",
+                alignBody.contains("private void alignDetailEpisodeFocusedCardNow(View focusedView)")
+                        && alignBody.contains("if (rect.bottom > bottom) targetY += rect.bottom - bottom;")
+                        && alignBody.contains("else if (rect.top < top) targetY += rect.top - top;")
+                        && !alignBody.contains("isDetailEpisodeRowFullyVisible"));
     }
 
     @Test
@@ -654,10 +660,7 @@ public class TmdbDetailActivityLayoutTest {
                         && activity.contains("binding.episodeViewMode.setVisibility(View.VISIBLE);")
                         && activity.contains("Setting.putTmdbEpisodeGridMode(episodeGridMode);")
                         && !activity.contains("if (shouldForceAdaptiveEpisodeGrid()) episodeGridMode = true;")
-                        && !activity.contains("if (shouldForceAdaptiveEpisodeGrid()) return;")
-                        && activity.contains("private int nativeEnhancedEpisodeCardHeightDp()")
-                        && activity.contains("TmdbEpisodeGridPolicy.nativeGridCardHeightDp(getResources().getConfiguration().smallestScreenWidthDp < 600)")
-                        && activity.contains("TmdbEpisodeGridPolicy.NATIVE_GRID_CARD_BOTTOM_MARGIN_DP"));
+                        && !activity.contains("if (shouldForceAdaptiveEpisodeGrid()) return;"));
         assertTrue("native-enhanced card styling must not be disabled on mobile fusion overlays",
                 adapter.contains("private boolean isNativeEnhanced()")
                         && adapter.contains("return nativeEnhanced;")
@@ -671,20 +674,19 @@ public class TmdbDetailActivityLayoutTest {
                         && policy.contains("public static final int NATIVE_MOBILE_GRID_CARD_HEIGHT_DP = 190;")
                         && policy.contains("public static final int NATIVE_GRID_SCRIM_HEIGHT_DP = 148;")
                         && policy.contains("public static final int NATIVE_MOBILE_GRID_SCRIM_HEIGHT_DP = 104;"));
-        assertTrue("detail-page episode cards should align the focused grid row inside the outer scroll view",
+        assertTrue("detail-page episode cards should keep focused grid cards fully visible inside the outer scroll view",
                 activity.contains("episodeAdapter.setOnFocusChangeListener(this::onDetailEpisodeFocusChange);")
                         && activity.contains("episodeAdapter.setOnKeyListener(this::onDetailEpisodeKey);")
                         && activity.contains("button.setOnKeyListener((view, keyCode, event) -> onDetailFlagKey(keyCode, event));")
                         && activity.contains("button.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeRangeKey(view, keyCode, event));")
                         && activity.contains("private boolean onDetailEpisodeKey(View view, int keyCode, KeyEvent event)")
-                        && activity.contains("return focusDetailEpisode(position - span, true);")
-                        && activity.contains("int nextRowStart = rowStart + span;")
-                        && activity.contains("int target = Math.min(position + span, rowEnd - 1);")
+                        && activity.contains("TmdbEpisodeGridPolicy.verticalFocusTarget(position, span, episodeAdapter.getItemCount(), down)")
+                        && activity.contains("if (target == TmdbEpisodeGridPolicy.NO_FOCUS_TARGET)")
                         && activity.contains("private boolean focusDetailEpisodeRangeButton()")
                         && activity.contains("private boolean focusDetailEpisode(int position)")
                         && activity.contains("private void alignDetailEpisodeFocusedRow(View focusedView, int position)")
-                        && activity.contains("binding.episodeContainer.findViewHolderForAdapterPosition(rowStart)")
-                        && activity.contains("binding.scroll.scrollTo(0, Math.max(0, targetY));")
+                        && activity.contains("private void alignDetailEpisodeFocusedCardNow(View focusedView)")
+                        && activity.contains("binding.scroll.scrollTo(0, targetY);")
                         && adapter.contains("private View.OnFocusChangeListener focusChangeListener;")
                         && adapter.contains("public void setOnFocusChangeListener(View.OnFocusChangeListener focusChangeListener)")
                         && adapter.contains("holder.binding.getRoot().setOnFocusChangeListener((view, focused) -> {")
@@ -704,7 +706,8 @@ public class TmdbDetailActivityLayoutTest {
 
         assertTrue(activityPath + " is missing onDetailEpisodeKey", episodeKey >= 0);
         assertTrue("detail episode bottom row DPAD_DOWN must leave the episode grid instead of consuming the key",
-                episodeKeyBody.contains("if (nextRowStart >= episodeAdapter.getItemCount()) return focusFirstVisibleTmdbRow();"));
+                episodeKeyBody.contains("if (target == TmdbEpisodeGridPolicy.NO_FOCUS_TARGET)")
+                        && episodeKeyBody.contains("return focusFirstVisibleTmdbRow();"));
         assertTrue(activityPath + " is missing focusFirstVisibleTmdbRow", firstTmdb >= 0);
         assertTrue("TMDB photo row should be the first focus target below episodes",
                 firstTmdbBody.indexOf("binding.episodePhotoList") >= 0
@@ -714,37 +717,92 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
-    public void detailEpisodeGridDpadUpDownPreservesCardViewportUntilBoundary() throws Exception {
+    public void detailEpisodeGridDpadUpDownUsesFullHeightRecyclerViewUntilBoundary() throws Exception {
         Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int move = activity.indexOf("private boolean moveDetailEpisodeFocus");
+        int moveEnd = activity.indexOf("private boolean focusFirstVisibleTmdbRow()", move);
         int focus = activity.indexOf("private boolean focusDetailEpisode(int position)");
         int focusEnd = activity.indexOf("private int detailEpisodeSpanCount()", focus);
         int focusChange = activity.indexOf("private void onDetailEpisodeFocusChange");
         int flagKey = activity.indexOf("private boolean onDetailFlagKey", focusChange);
+        int viewport = activity.indexOf("private void updateEpisodeViewport");
+        int viewportEnd = activity.indexOf("private void updateEpisodeLayoutForCurrentItems", viewport);
 
-        assertTrue(activityPath + " is missing detail episode focus helpers", move >= 0 && focus > move && focusEnd > focus && focusChange >= 0 && flagKey > focusChange);
-        String moveBody = activity.substring(move, focus);
+        assertTrue(activityPath + " is missing detail episode focus helpers", move >= 0 && moveEnd > move && focus > moveEnd && focusEnd > focus && focusChange >= 0 && flagKey > focusChange && viewport >= 0 && viewportEnd > viewport);
+        String moveBody = activity.substring(move, moveEnd);
         String focusBody = activity.substring(focus, focusEnd);
         String focusChangeBody = activity.substring(focusChange, flagKey);
+        String viewportBody = activity.substring(viewport, viewportEnd);
 
-        assertTrue("card-to-card DPAD_UP should keep the outer detail scroll anchored in the episode cards",
-                moveBody.contains("return focusDetailEpisode(position - span, true);"));
-        assertTrue("card-to-card DPAD_DOWN should keep the outer detail scroll anchored in the episode cards",
-                moveBody.contains("return focusDetailEpisode(target, true);"));
-        assertTrue("partial next-row DPAD_DOWN should land on the nearest available episode card before leaving the grid",
-                moveBody.contains("int rowStart = position - position % span;")
-                        && moveBody.contains("int nextRowStart = rowStart + span;")
-                        && moveBody.contains("int rowEnd = Math.min(nextRowStart + span, episodeAdapter.getItemCount());")
-                        && moveBody.contains("int target = Math.min(position + span, rowEnd - 1);"));
+        assertTrue("card-to-card DPAD_UP should let RecyclerView keep its native focus and scroll behavior",
+                moveBody.contains("TmdbEpisodeGridPolicy.verticalFocusTarget(position, span, episodeAdapter.getItemCount(), down)")
+                        && moveBody.contains("return false;")
+                        && !moveBody.contains("return focusDetailEpisode(position - span"));
+        assertTrue("card-to-card DPAD_DOWN should let RecyclerView keep its native focus and scroll behavior",
+                moveBody.contains("if (target == TmdbEpisodeGridPolicy.NO_FOCUS_TARGET)")
+                        && moveBody.contains("return focusFirstVisibleTmdbRow();")
+                        && !moveBody.contains("return focusDetailEpisode(target"));
         assertTrue("boundary DPAD_DOWN should still leave the episode grid only when no next row exists",
-                moveBody.contains("if (nextRowStart >= episodeAdapter.getItemCount()) return focusFirstVisibleTmdbRow();"));
-        assertTrue("preserved card moves should suppress the next outer row alignment",
-                focusBody.contains("private boolean focusDetailEpisode(int position, boolean preserveOuterScroll)")
-                        && focusBody.contains("prepareDetailEpisodeViewportPreserve(preserveOuterScroll);")
-                        && focusBody.contains("if (!shouldPreserveDetailEpisodeViewport(preserveOuterScroll)) alignDetailEpisodeFocusedRow"));
-        assertTrue("focus-change alignment should skip the outer scroll jump after a preserved card move",
-                focusChangeBody.contains("if (consumeDetailEpisodeViewportPreserve()) return;"));
+                moveBody.contains("if (target == TmdbEpisodeGridPolicy.NO_FOCUS_TARGET)")
+                        && moveBody.contains("return focusFirstVisibleTmdbRow();"));
+        assertTrue("manual episode entry should still focus and align a concrete card",
+                focusBody.contains("RecyclerView.ViewHolder visibleHolder = binding.episodeContainer.findViewHolderForAdapterPosition(target);")
+                        && focusBody.contains("visibleHolder.itemView.requestFocus();")
+                        && focusBody.contains("alignDetailEpisodeFocusedRow(visibleHolder.itemView, target);"));
+        assertTrue("card-to-card moves must not use viewport-preserve state that can fight RecyclerView focus restoration",
+                !activity.contains("preserveDetailEpisodeViewportOnce")
+                        && !focusBody.contains("preserveOuterScroll")
+                        && !focusChangeBody.contains("consumeDetailEpisodeViewportPreserve"));
+        assertTrue("nested episode grids should keep outer detail scroll fixed while RecyclerView handles internal row focus",
+                focusChangeBody.contains("if (binding.episodeContainer.isNestedScrollingEnabled()) return;"));
+        assertTrue("detail episode grid should expand to all rows instead of creating a nested 3-row scroll window",
+                viewportBody.contains("params.height = ViewGroup.LayoutParams.WRAP_CONTENT;")
+                        && viewportBody.contains("binding.episodeContainer.setNestedScrollingEnabled(false);")
+                        && !viewportBody.contains("TmdbEpisodeGridPolicy.layout("));
+    }
+
+    @Test
+    public void detailEpisodeHorizontalFocusSkipsSameRowOuterAlignment() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int focusChange = activity.indexOf("private void onDetailEpisodeFocusChange");
+        int flagKey = activity.indexOf("private boolean onDetailFlagKey", focusChange);
+        int clearFocusRow = activity.indexOf("private void clearDetailEpisodeFocusRowIfNeeded", focusChange);
+        int rowStart = activity.indexOf("private int detailEpisodeRowStart", clearFocusRow);
+        String focusChangeBody = focusChange >= 0 && flagKey > focusChange ? activity.substring(focusChange, flagKey) : "";
+
+        assertTrue(activityPath + " is missing detail episode focus row tracking", focusChange >= 0 && flagKey > focusChange && clearFocusRow > focusChange && rowStart > clearFocusRow);
+        assertTrue("same-row DPAD_LEFT/RIGHT should keep the outer detail scroll anchored to avoid edge-row flicker",
+                activity.contains("private int lastDetailEpisodeFocusRowStart = RecyclerView.NO_POSITION;")
+                        && focusChangeBody.contains("int rowStart = detailEpisodeRowStart(position);")
+                        && focusChangeBody.contains("boolean sameFocusedRow = rowStart == lastDetailEpisodeFocusRowStart;")
+                        && focusChangeBody.contains("lastDetailEpisodeFocusRowStart = rowStart;")
+                        && focusChangeBody.contains("if (sameFocusedRow) return;"));
+        assertTrue("leaving the episode grid must reset row tracking so the next entry can align normally",
+                focusChangeBody.contains("if (!focused) {")
+                        && focusChangeBody.contains("clearDetailEpisodeFocusRowIfNeeded(view);")
+                        && activity.contains("lastDetailEpisodeFocusRowStart = RecyclerView.NO_POSITION;"));
+    }
+
+    @Test
+    public void detailEpisodeGridModeDpadLeftRightStaysInsideGridRow() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int move = activity.indexOf("private boolean moveDetailEpisodeFocus");
+        int firstTmdb = activity.indexOf("private boolean focusFirstVisibleTmdbRow()", move);
+        String moveBody = move >= 0 && firstTmdb > move ? activity.substring(move, firstTmdb) : "";
+
+        assertTrue(activityPath + " is missing moveDetailEpisodeFocus", move >= 0 && firstTmdb > move);
+        assertTrue("grid-mode DPAD_LEFT should move within the row and consume the row-start boundary",
+                moveBody.contains("if (KeyUtil.isLeftKey(event))")
+                        && moveBody.contains("if (position % span == 0) return true;")
+                        && moveBody.contains("return focusDetailEpisode(position - 1);"));
+        assertTrue("grid-mode DPAD_RIGHT should move within the row and consume row/end boundaries",
+                moveBody.contains("if (KeyUtil.isRightKey(event))")
+                        && moveBody.contains("position >= episodeAdapter.getItemCount() - 1 || position % span == span - 1")
+                        && moveBody.contains("return focusDetailEpisode(position + 1);")
+                        && !moveBody.contains("KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event)) return false;"));
     }
 
     @Test
@@ -790,13 +848,15 @@ public class TmdbDetailActivityLayoutTest {
         int rerender = activity.indexOf("private void rerenderEpisodeViewportOnly");
         int updateStates = activity.indexOf("private void updateEpisodeRangeButtonStates", rerender);
         int selectRange = activity.indexOf("private void selectEpisodeRange", updateStates);
+        int resolveRange = activity.indexOf("private int resolveEpisodeRangeIndex", selectRange);
         String focusBody = focusChange >= 0 && activate > focusChange ? activity.substring(focusChange, activate) : "";
         String activateBody = activate >= 0 && restore > activate ? activity.substring(activate, restore) : "";
         String rerenderBody = rerender >= 0 && updateStates > rerender ? activity.substring(rerender, updateStates) : "";
         String updateStatesBody = updateStates >= 0 && selectRange > updateStates ? activity.substring(updateStates, selectRange) : "";
+        String selectBody = selectRange >= 0 && resolveRange > selectRange ? activity.substring(selectRange, resolveRange) : "";
 
         assertTrue(activityPath + " is missing episode range focus activation helpers",
-                focusChange >= 0 && activate > focusChange && restore > activate && rerender >= 0 && updateStates > rerender && selectRange > updateStates);
+                focusChange >= 0 && activate > focusChange && restore > activate && rerender >= 0 && updateStates > rerender && selectRange > updateStates && resolveRange > selectRange);
         assertTrue("episode range focus should activate the focused page instead of waiting for click",
                 focusBody.contains("if (!focused) return;")
                         && focusBody.contains("activateFocusedEpisodeRange(index);")
@@ -804,10 +864,15 @@ public class TmdbDetailActivityLayoutTest {
         assertTrue("focused range activation should only skip work when both selected index and rendered page already match",
                 activateBody.contains("if (index == episodeRangeIndex && index == renderedEpisodeRangeIndex) return;")
                         && activateBody.contains("pendingEpisodeRangeFocus = index;")
+                        && activateBody.contains("binding.episodeRangeContainer.post(() ->")
+                        && activateBody.contains("if (binding == null || pendingEpisodeRangeFocus != index) return;")
                         && activateBody.contains("selectEpisodeRange(index, false);"));
         assertTrue("episode viewport rendering should remember which range page is actually displayed",
                 activity.contains("private int renderedEpisodeRangeIndex = -1;")
                         && rerenderBody.contains("renderedEpisodeRangeIndex = ranges.size() > 1 ? episodeRangeIndex : -1;"));
+        assertTrue("episode range selection must not notify the adapter while RecyclerView is laying out or scrolling",
+                selectBody.contains("binding.episodeContainer.isComputingLayout()")
+                        && selectBody.contains("binding.episodeContainer.post(() -> selectEpisodeRange(index, scrollToSelection));"));
         assertTrue("updating selected range state must restore the range focus listener that setChipState replaces",
                 updateStatesBody.contains("setChipState(button, i == episodeRangeIndex);")
                         && updateStatesBody.contains("setEpisodeRangeFocusChange(button, i);")
@@ -903,9 +968,11 @@ public class TmdbDetailActivityLayoutTest {
         int move = activity.indexOf("private boolean moveDetailEpisodeFocus");
         int firstTmdb = activity.indexOf("private boolean focusFirstVisibleTmdbRow()", move);
         String moveBody = move >= 0 && firstTmdb > move ? activity.substring(move, firstTmdb) : "";
-        int listBranch = moveBody.indexOf("if (!episodeGridMode)");
+        int listBranch = moveBody.indexOf("if (!episodeGridMode) return moveDetailEpisodeListFocus(position, event);");
         int gridBranch = moveBody.indexOf("int span = detailEpisodeSpanCount()");
-        String listBody = listBranch >= 0 && gridBranch > listBranch ? moveBody.substring(listBranch, gridBranch) : "";
+        int listHelper = activity.indexOf("private boolean moveDetailEpisodeListFocus");
+        int listHelperEnd = activity.indexOf("private boolean focusFirstVisibleTmdbRow()", listHelper);
+        String listBody = listHelper >= 0 && listHelperEnd > listHelper ? activity.substring(listHelper, listHelperEnd) : "";
 
         assertTrue(activityPath + " is missing moveDetailEpisodeFocus", move >= 0);
         assertTrue("detail list-mode episodes are a horizontal row, so DPAD handling must happen before grid span math",
@@ -916,6 +983,187 @@ public class TmdbDetailActivityLayoutTest {
                         && listBody.contains("return focusDetailFlagButton();"));
         assertTrue("list-mode DPAD_DOWN should leave the horizontal episode row toward the first visible TMDB row",
                 listBody.contains("return focusFirstVisibleTmdbRow();"));
+    }
+
+    @Test
+    public void detailEpisodeListModeDpadLeftRightStaysInsideHorizontalEpisodeRow() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int episodeKey = activity.indexOf("private boolean onDetailEpisodeKey");
+        int episodeKeyEnd = activity.indexOf("private boolean moveDetailEpisodeFocus", episodeKey);
+        int containerKey = activity.indexOf("private boolean onDetailEpisodeContainerKey");
+        int containerKeyEnd = activity.indexOf("private boolean isFocusInside", containerKey);
+        int listHelper = activity.indexOf("private boolean moveDetailEpisodeListFocus");
+        int listHelperEnd = activity.indexOf("private boolean focusFirstVisibleTmdbRow()", listHelper);
+        String episodeKeyBody = episodeKey >= 0 && episodeKeyEnd > episodeKey ? activity.substring(episodeKey, episodeKeyEnd) : "";
+        String containerKeyBody = containerKey >= 0 && containerKeyEnd > containerKey ? activity.substring(containerKey, containerKeyEnd) : "";
+        String listBody = listHelper >= 0 && listHelperEnd > listHelper ? activity.substring(listHelper, listHelperEnd) : "";
+
+        assertTrue(activityPath + " is missing detail episode list focus helpers",
+                episodeKey >= 0 && episodeKeyEnd > episodeKey && containerKey >= 0 && containerKeyEnd > containerKey && listHelper >= 0 && listHelperEnd > listHelper);
+        assertTrue("episode card key handling must capture DPAD_LEFT/RIGHT before Android focus search can leave the row",
+                episodeKeyBody.contains("KeyUtil.isLeftKey(event)")
+                        && episodeKeyBody.contains("KeyUtil.isRightKey(event)")
+                        && containerKeyBody.contains("KeyUtil.isLeftKey(event)")
+                        && containerKeyBody.contains("KeyUtil.isRightKey(event)"));
+        assertTrue("list-mode DPAD_LEFT should move to the previous episode and consume the first-card boundary",
+                listBody.contains("if (KeyUtil.isLeftKey(event))")
+                        && listBody.contains("if (position <= 0) return true;")
+                        && listBody.contains("return focusDetailEpisode(position - 1);"));
+        assertTrue("list-mode DPAD_RIGHT should move to the next episode and consume the last-card boundary",
+                listBody.contains("if (KeyUtil.isRightKey(event))")
+                        && listBody.contains("position >= episodeAdapter.getItemCount() - 1")
+                        && listBody.contains("return focusDetailEpisode(position + 1);"));
+    }
+
+    @Test
+    public void detailTmdbHorizontalRowsMoveWithinRowAndConsumeBoundaries() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int navigation = activity.indexOf("private boolean handleDetailEpisodeNavigationKey");
+        int detailRows = activity.indexOf("private RecyclerView detailTmdbRecyclerContainingFocus", navigation);
+        int rowKey = activity.indexOf("private boolean onDetailTmdbRowKey", detailRows);
+        int focusItem = activity.indexOf("private boolean focusTmdbRecyclerItem", rowKey);
+        int episodeKey = activity.indexOf("private boolean onDetailEpisodeContainerKey", rowKey);
+        String navigationBody = navigation >= 0 && detailRows > navigation ? activity.substring(navigation, detailRows) : "";
+        String detailRowsBody = detailRows >= 0 && rowKey > detailRows ? activity.substring(detailRows, rowKey) : "";
+        String rowKeyBody = rowKey >= 0 && episodeKey > rowKey ? activity.substring(rowKey, episodeKey) : "";
+
+        assertTrue(activityPath + " is missing TMDB horizontal row key helpers",
+                navigation >= 0 && detailRows > navigation && rowKey > detailRows && focusItem > rowKey && episodeKey > focusItem);
+        assertTrue("detail navigation should route TMDB horizontal card rows through the shared boundary guard",
+                navigationBody.contains("RecyclerView tmdbRow = detailTmdbRecyclerContainingFocus(focus);")
+                        && navigationBody.contains("if (tmdbRow != null) return onDetailTmdbRowKey(tmdbRow, focus, event);"));
+        assertTrue("TMDB horizontal rows should include stills, people, related, and personal recommendation rails",
+                detailRowsBody.contains("binding.episodePhotoList")
+                        && detailRowsBody.contains("binding.castList")
+                        && detailRowsBody.contains("binding.creatorList")
+                        && detailRowsBody.contains("binding.relatedList")
+                        && detailRowsBody.contains("binding.personalTmdbList")
+                        && detailRowsBody.contains("binding.personalDoubanList")
+                        && detailRowsBody.contains("binding.personalAiList"));
+        assertTrue("TMDB horizontal row DPAD_LEFT/RIGHT should explicitly move to adjacent cards and consume first/last boundaries",
+                rowKeyBody.contains("if (!KeyUtil.isLeftKey(event) && !KeyUtil.isRightKey(event)) return false;")
+                        && rowKeyBody.contains("if (!KeyUtil.isActionDown(event)) return true;")
+                        && rowKeyBody.contains("int target = KeyUtil.isLeftKey(event) ? position - 1 : position + 1;")
+                        && rowKeyBody.contains("if (target < 0 || target >= adapter.getItemCount()) return true;")
+                        && rowKeyBody.contains("focusTmdbRecyclerItem(recycler, target);")
+                        && rowKeyBody.contains("RecyclerView.ViewHolder visibleHolder = recycler.findViewHolderForAdapterPosition(target);")
+                        && rowKeyBody.contains("visibleHolder.itemView.requestFocus();")
+                        && rowKeyBody.contains("recycler.scrollToPosition(target);")
+                        && rowKeyBody.contains("holder.itemView.requestFocus();"));
+    }
+
+    @Test
+    public void detailFocusableButtonGroupsUseExplicitDpadNavigation() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int navigation = activity.indexOf("private boolean handleDetailEpisodeNavigationKey");
+        int detailRows = activity.indexOf("private RecyclerView detailTmdbRecyclerContainingFocus", navigation);
+        int flagKey = activity.indexOf("private boolean onDetailFlagKey");
+        int rangeKey = activity.indexOf("private boolean onDetailEpisodeRangeKey");
+        int toolKey = activity.indexOf("private boolean onDetailEpisodeToolKey");
+        int episodeKey = activity.indexOf("private boolean onDetailEpisodeKey");
+        int horizontal = activity.indexOf("private boolean onDetailHorizontalButtonGroupKey");
+        int vertical = activity.indexOf("private boolean onDetailExternalLinksKey");
+        int focusTarget = activity.indexOf("private View horizontalFocusTarget");
+        String navigationBody = navigation >= 0 && detailRows > navigation ? activity.substring(navigation, detailRows) : "";
+        String flagKeyBody = flagKey >= 0 && rangeKey > flagKey ? activity.substring(flagKey, rangeKey) : "";
+        String rangeKeyBody = rangeKey >= 0 && toolKey > rangeKey ? activity.substring(rangeKey, toolKey) : "";
+        String toolKeyBody = toolKey >= 0 && episodeKey > toolKey ? activity.substring(toolKey, episodeKey) : "";
+        String horizontalBody = horizontal >= 0 && vertical > horizontal ? activity.substring(horizontal, vertical) : "";
+        String verticalBody = vertical >= 0 && focusTarget > vertical ? activity.substring(vertical, focusTarget) : "";
+
+        assertTrue(activityPath + " is missing explicit detail button navigation helpers",
+                navigation >= 0 && detailRows > navigation && horizontal >= 0 && vertical > horizontal && focusTarget > vertical);
+        assertTrue("activity-level dispatch should guard every focusable detail button group before Android focus search runs",
+                navigationBody.contains("isFocusInside(focus, binding.headerBar)")
+                        && navigationBody.contains("onDetailHorizontalButtonGroupKey(binding.headerBar, null, focus, event)")
+                        && navigationBody.contains("isFocusInside(focus, binding.fusionActions)")
+                        && navigationBody.contains("onDetailHorizontalButtonGroupKey(binding.fusionActions, null, focus, event)")
+                        && navigationBody.contains("isFocusInside(focus, binding.detailActions)")
+                        && navigationBody.contains("onDetailHorizontalButtonGroupKey(binding.detailActions, null, focus, event)")
+                        && navigationBody.contains("isFocusInside(focus, binding.seasonContainer)")
+                        && navigationBody.contains("onDetailHorizontalButtonGroupKey(binding.seasonContainer, null, focus, event)")
+                        && navigationBody.contains("isFocusInside(focus, binding.externalLinksContainer)")
+                        && navigationBody.contains("onDetailExternalLinksKey(focus, event)"));
+        assertTrue("line, episode-page, and episode-tool buttons should handle DPAD_LEFT/RIGHT inside their own row",
+                flagKeyBody.contains("onDetailHorizontalButtonGroupKey(binding.flagContainer, binding.flagScroll, focus, event)")
+                        && rangeKeyBody.contains("onDetailHorizontalButtonGroupKey(binding.episodeRangeContainer, binding.episodeRangeScroll, view, event)")
+                        && toolKeyBody.contains("onDetailHorizontalButtonGroupKey(binding.episodeHeader, null, view, event)"));
+        assertTrue("horizontal button groups should move only to same-row neighbors and consume row boundaries",
+                horizontalBody.contains("if (!KeyUtil.isLeftKey(event) && !KeyUtil.isRightKey(event)) return false;")
+                        && horizontalBody.contains("if (!KeyUtil.isActionDown(event)) return true;")
+                        && horizontalBody.contains("View target = horizontalFocusTarget(group, focus, KeyUtil.isLeftKey(event));")
+                        && horizontalBody.contains("if (target == null) return true;")
+                        && horizontalBody.contains("target.requestFocus(KeyUtil.isLeftKey(event) ? View.FOCUS_LEFT : View.FOCUS_RIGHT);")
+                        && horizontalBody.contains("scrollHorizontalChildIntoView(scroll, target);"));
+        assertTrue("external link buttons should move vertically inside the list and consume horizontal keys",
+                verticalBody.contains("if (KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event)) return true;")
+                        && verticalBody.contains("return moveDetailFocusVertically(binding.externalLinksContainer, focus, KeyUtil.isUpKey(event));"));
+    }
+
+    @Test
+    public void detailExternalLinkFirstRowDpadUpReturnsToRecommendationCardRow() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int externalKey = activity.indexOf("private boolean onDetailExternalLinksKey");
+        int horizontalTarget = activity.indexOf("private View horizontalFocusTarget", externalKey);
+        int lastTmdb = activity.indexOf("private boolean focusLastVisibleTmdbRow");
+        int firstTmdb = activity.indexOf("private boolean focusFirstVisibleTmdbRow", lastTmdb);
+        String externalBody = externalKey >= 0 && horizontalTarget > externalKey ? activity.substring(externalKey, horizontalTarget) : "";
+        String lastTmdbBody = lastTmdb >= 0 && firstTmdb > lastTmdb ? activity.substring(lastTmdb, firstTmdb) : "";
+
+        assertTrue(activityPath + " is missing external-link upward focus helpers",
+                externalKey >= 0 && horizontalTarget > externalKey && lastTmdb >= 0 && firstTmdb > lastTmdb);
+        assertTrue("first external link DPAD_UP should leave the link list and focus the card row above it",
+                externalBody.contains("if (KeyUtil.isUpKey(event) && detailFocusableIndex(binding.externalLinksContainer, focus) == 0) {")
+                        && externalBody.contains("if (focusLastVisibleTmdbRow()) return true;")
+                        && externalBody.contains("return false;")
+                        && externalBody.contains("return moveDetailFocusVertically(binding.externalLinksContainer, focus, KeyUtil.isUpKey(event));"));
+        assertTrue("external-link upward fallback should prefer the last visible TMDB row before the external links",
+                lastTmdbBody.indexOf("focusTmdbRecycler(binding.personalAiList)") >= 0
+                        && lastTmdbBody.indexOf("focusTmdbRecycler(binding.personalAiList)") < lastTmdbBody.indexOf("focusTmdbRecycler(binding.personalDoubanList)")
+                        && lastTmdbBody.indexOf("focusTmdbRecycler(binding.personalDoubanList)") < lastTmdbBody.indexOf("focusTmdbRecycler(binding.personalTmdbList)")
+                        && lastTmdbBody.indexOf("focusTmdbRecycler(binding.personalTmdbList)") < lastTmdbBody.indexOf("focusTmdbRecycler(binding.relatedList)")
+                        && lastTmdbBody.indexOf("focusTmdbRecycler(binding.relatedList)") < lastTmdbBody.indexOf("focusTmdbRecycler(binding.creatorList)")
+                        && lastTmdbBody.indexOf("focusTmdbRecycler(binding.creatorList)") < lastTmdbBody.indexOf("focusTmdbRecycler(binding.castList)")
+                        && lastTmdbBody.indexOf("focusTmdbRecycler(binding.castList)") < lastTmdbBody.indexOf("focusTmdbRecycler(binding.episodePhotoList)"));
+    }
+
+    @Test
+    public void leanbackDetailOverviewRendersAsPlainFullText() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+        int init = activity.indexOf("protected void initView(Bundle savedInstanceState)");
+        int setup = activity.indexOf("private void setupOverviewInteraction()");
+        int setupEnd = activity.indexOf("private void setupInlineControlFocus()", setup);
+        int shouldFull = activity.indexOf("private boolean shouldShowFullOverview()");
+        int overflow = activity.indexOf("private boolean isOverviewOverflowing()", shouldFull);
+        String initBody = init >= 0 && setup > init ? activity.substring(init, setup) : "";
+        String setupBody = setup >= 0 && setupEnd > setup ? activity.substring(setup, setupEnd) : "";
+        String shouldFullBody = shouldFull >= 0 && overflow > shouldFull ? activity.substring(shouldFull, overflow) : "";
+
+        assertTrue(activityPath + " is missing overview interaction setup helpers",
+                init >= 0 && setup > init && setupEnd > setup && shouldFull >= 0 && overflow > shouldFull);
+        assertTrue("TMDB detail initialization should route overview click/focus setup through one helper",
+                initBody.contains("setupOverviewInteraction();")
+                        && !initBody.contains("binding.overview.setOnClickListener(view -> toggleOverview());")
+                        && !initBody.contains("binding.overviewToggle.setOnClickListener(view -> toggleOverview());"));
+        assertTrue("mobile can keep tap-to-expand, but leanback overview must stay plain non-focusable text",
+                setupBody.contains("if (Util.isMobile())")
+                        && setupBody.contains("binding.overview.setOnClickListener(view -> toggleOverview());")
+                        && setupBody.contains("binding.overviewToggle.setOnClickListener(view -> toggleOverview());")
+                        && setupBody.contains("binding.overview.setOnClickListener(null);")
+                        && setupBody.contains("binding.overview.setClickable(false);")
+                        && setupBody.contains("binding.overview.setFocusable(false);")
+                        && setupBody.contains("binding.overview.setFocusableInTouchMode(false);")
+                        && setupBody.contains("binding.overviewToggle.setOnClickListener(null);")
+                        && setupBody.contains("binding.overviewToggle.setClickable(false);")
+                        && setupBody.contains("binding.overviewToggle.setFocusable(false);")
+                        && setupBody.contains("binding.overviewToggle.setFocusableInTouchMode(false);"));
+        assertTrue("leanback detail overview should show all text instead of exposing a fold/unfold focus target",
+                shouldFullBody.contains("return !Util.isMobile();"));
     }
 
     @Test
@@ -1006,8 +1254,7 @@ public class TmdbDetailActivityLayoutTest {
         assertTrue("episode header tools should let remote users move back up or down",
                 activity.contains("binding.episodeReverse.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));")
                         && activity.contains("binding.episodeViewMode.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));")
-                        && activity.contains("if (KeyUtil.isRightKey(event) && view == binding.episodeReverse) return focusDetailButton(binding.episodeViewMode, View.FOCUS_RIGHT);")
-                        && activity.contains("if (KeyUtil.isLeftKey(event) && view == binding.episodeViewMode) return focusDetailButton(binding.episodeReverse, View.FOCUS_LEFT);"));
+                        && activity.contains("if (KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event)) return onDetailHorizontalButtonGroupKey(binding.episodeHeader, null, view, event);"));
         assertTrue("activity-level key dispatch should guard the detail episode focus chain when child listeners are bypassed",
                 dispatchBody.contains("if (handleDetailEpisodeNavigationKey(event)) return true;")
                         && dispatchBody.contains("isFocusInside(focus, binding.flagScroll)") && dispatchBody.contains("onDetailFlagKey(event.getKeyCode(), event)")
