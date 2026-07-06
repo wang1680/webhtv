@@ -28,6 +28,7 @@ import com.fongmi.android.tv.impl.ConfigListener;
 import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.ui.custom.CustomTextListener;
 import com.fongmi.android.tv.utils.FileChooser;
+import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.QRCode;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.github.catvod.utils.Path;
@@ -78,7 +79,7 @@ public class ConfigDialog extends BaseAlertDialog {
     @Override
     @NonNull
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        Dialog dialog = LightDialog.create(requireContext(), null, getBinding().getRoot());
+        Dialog dialog = LightDialog.create(requireContext(), getDialogTitle(), getBinding().getRoot());
         initView();
         initEvent();
         return dialog;
@@ -140,6 +141,29 @@ public class ConfigDialog extends BaseAlertDialog {
         };
     }
 
+    private Config getStoredConfig() {
+        return switch (type) {
+            case 0 -> Config.vod();
+            case 1 -> Config.live();
+            case 2 -> Config.wall();
+            default -> Config.create(type);
+        };
+    }
+
+    private int getTypeName() {
+        return switch (type) {
+            case 0 -> R.string.setting_vod;
+            case 1 -> R.string.setting_live;
+            case 2 -> R.string.setting_wall;
+            default -> R.string.remote_trust_config_type;
+        };
+    }
+
+    private String getDialogTitle() {
+        int action = edit ? R.string.remote_trust_config_edit : R.string.remote_trust_config_add;
+        return getString(R.string.setting_config_dialog_title, getString(action), getString(getTypeName()));
+    }
+
     private void onChoose(View view) {
         FileChooser.from(launcher).show();
     }
@@ -164,14 +188,21 @@ public class ConfigDialog extends BaseAlertDialog {
     private void onPositive(View view) {
         String name = binding.name.getText().toString().trim();
         String text = binding.text.getText().toString().trim();
-        ((ConfigListener) requireActivity()).setConfig(saveConfig(text, name));
+        Config config = saveConfig(text, name);
+        if (config == null) {
+            Notify.show(R.string.remote_trust_config_url_required);
+            binding.text.requestFocus();
+            return;
+        }
+        ((ConfigListener) requireActivity()).setConfig(config);
         dismiss();
     }
 
     private Config saveConfig(String text, String name) {
         if (text.isEmpty()) {
-            if (edit) Config.delete(url, type);
-            return Config.create(type);
+            if (!edit) return null;
+            if (!TextUtils.isEmpty(url)) Config.delete(url, type);
+            return getStoredConfig();
         } else if (edit) {
             return Config.find(url, type).url(text).name(name).update();
         } else {
