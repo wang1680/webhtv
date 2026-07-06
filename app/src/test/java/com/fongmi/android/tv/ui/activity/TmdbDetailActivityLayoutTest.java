@@ -110,6 +110,14 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
+    public void tvDetailActionButtonsUseUnifiedSourceKeepTmdbThemeOrder() throws Exception {
+        String layout = readLayout("activity_tmdb_detail.xml");
+
+        assertAndroidIdOrder("fusion detail action order", layout, List.of("changeSource", "keepFusion", "rematchFusion", "themeMode"));
+        assertAndroidIdOrder("panel detail action order", layout, List.of("changeSourceDetail", "keep", "rematch", "themeModeDetail"));
+    }
+
+    @Test
     public void fusionInlineFullscreenConsoleMatchesNativeLeanbackStructure() throws Exception {
         String layout = readLayout("activity_tmdb_detail.xml");
         int bottom = layout.indexOf("android:id=\"@+id/playerBottom\"");

@@ -730,6 +730,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         });
         mBinding.video.setOnClickListener(view -> onVideo());
         mBinding.change1.setOnClickListener(view -> onChange());
+        mBinding.change1.setOnLongClickListener(view -> {
+            onGlobalSearch();
+            return true;
+        });
         mBinding.tmdbRematch.setOnClickListener(view -> showManualTmdbMatchDialog());
         mBinding.content.setOnClickListener(view -> onContent());
         mBinding.control.action.text.setOnClickListener(this::onTrack);
@@ -1158,15 +1162,17 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void setOriginalEnhancedActionVisibility(boolean hide) {
         mBinding.shortDisplay.setVisibility(hide ? View.GONE : View.VISIBLE);
-        // 详情页模式：隐藏换源按钮，搜索按钮永远显示
-        mBinding.change1.setVisibility(View.GONE);
-        mBinding.searchDetail.setVisibility(View.VISIBLE);
+        mBinding.change1.setVisibility(hide ? View.VISIBLE : View.GONE);
+        mBinding.searchDetail.setVisibility(hide ? View.GONE : View.VISIBLE);
+        mBinding.keep.setNextFocusLeftId(hide ? R.id.change1 : R.id.searchDetail);
     }
 
     private void setTmdbRematchVisible(boolean visible) {
         mBinding.tmdbRematch.setVisibility(visible ? View.VISIBLE : View.GONE);
-        // 详情直放模式：使用搜索按钮替代换源按钮
-        mBinding.searchDetail.setNextFocusRightId(visible ? R.id.tmdbRematch : R.id.keep);
+        mBinding.searchDetail.setNextFocusRightId(R.id.keep);
+        mBinding.change1.setNextFocusRightId(R.id.keep);
+        mBinding.keep.setNextFocusRightId(visible ? R.id.tmdbRematch : View.NO_ID);
+        mBinding.tmdbRematch.setNextFocusLeftId(R.id.keep);
     }
 
     private void showTmdbDetailLoading() {
@@ -2115,7 +2121,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void onGlobalSearch() {
-        SearchActivity.start(this);
+        String keyword = mBinding.name.getText().toString().trim();
+        if (TextUtils.isEmpty(keyword)) keyword = getName();
+        if (TextUtils.isEmpty(keyword)) return;
+        SearchActivity.start(this, keyword);
     }
 
     private void onShortDisplay() {
@@ -3561,6 +3570,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             mBinding.content.setNextFocusDownId(R.id.flag);
             mBinding.keep.setNextFocusDownId(R.id.flag);
             mBinding.searchDetail.setNextFocusDownId(R.id.flag);
+            mBinding.change1.setNextFocusDownId(R.id.flag);
+            mBinding.tmdbRematch.setNextFocusDownId(R.id.flag);
         }
 
         SpiderDebug.log("tmdb-tv", "绑定完成: 演员=%d 剧照=%d 主创=%d 推荐=%d 个性TMDB=%d 个性豆瓣=%d 个性智能=%d", cast.size(), photos.size(), creators.size(), recommendations.size(), personalTmdbRecommendations.size(), personalDoubanRecommendations.size(), personalAiRecommendations.size());

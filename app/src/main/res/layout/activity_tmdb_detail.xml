@@ -707,13 +707,14 @@
                     app:strokeColor="@android:color/transparent" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/themeMode"
+                    android:id="@+id/keepFusion"
                     style="?attr/materialButtonOutlinedStyle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:minHeight="42dp"
                     android:minWidth="76dp"
+                    android:text="@string/keep"
                     android:textColor="@android:color/white"
                     android:textSize="12sp"
                     android:textStyle="bold"
@@ -736,14 +737,13 @@
                     app:strokeColor="@android:color/transparent" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/keepFusion"
+                    android:id="@+id/themeMode"
                     style="?attr/materialButtonOutlinedStyle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:minHeight="42dp"
                     android:minWidth="76dp"
-                    android:text="@string/keep"
                     android:textColor="@android:color/white"
                     android:textSize="12sp"
                     android:textStyle="bold"
@@ -925,26 +925,6 @@
                                 app:strokeColor="@android:color/transparent" />
 
                             <com.google.android.material.button.MaterialButton
-                                android:id="@+id/themeModeDetail"
-                                style="?attr/materialButtonOutlinedStyle"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:layout_weight="1"
-                                android:ellipsize="end"
-                                android:includeFontPadding="false"
-                                android:maxLines="1"
-                                android:minHeight="42dp"
-                                android:minWidth="0dp"
-                                android:paddingStart="0dp"
-                                android:paddingEnd="0dp"
-                                android:singleLine="true"
-                                android:textColor="@android:color/white"
-                                android:textSize="13sp"
-                                app:backgroundTint="#2B3743"
-                                app:strokeColor="@android:color/transparent" />
-
-                            <com.google.android.material.button.MaterialButton
                                 android:id="@+id/rematch"
                                 style="?attr/materialButtonOutlinedStyle"
                                 android:layout_width="0dp"
@@ -960,6 +940,26 @@
                                 android:paddingEnd="0dp"
                                 android:singleLine="true"
                                 android:text="@string/detail_tmdb_rematch"
+                                android:textColor="@android:color/white"
+                                android:textSize="13sp"
+                                app:backgroundTint="#2B3743"
+                                app:strokeColor="@android:color/transparent" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/themeModeDetail"
+                                style="?attr/materialButtonOutlinedStyle"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1"
+                                android:ellipsize="end"
+                                android:includeFontPadding="false"
+                                android:maxLines="1"
+                                android:minHeight="42dp"
+                                android:minWidth="0dp"
+                                android:paddingStart="0dp"
+                                android:paddingEnd="0dp"
+                                android:singleLine="true"
                                 android:textColor="@android:color/white"
                                 android:textSize="13sp"
                                 app:backgroundTint="#2B3743"

@@ -299,6 +299,27 @@
                 app:drawableStartCompat="@drawable/ic_action_search" />
 
             <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/change1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp"
+                android:background="@drawable/selector_video_item"
+                android:drawablePadding="6dp"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:gravity="center"
+                android:minWidth="96dp"
+                android:nextFocusRight="@id/keep"
+                android:nextFocusUp="@id/actor"
+                android:nextFocusDown="@id/tmdbCast"
+                android:singleLine="true"
+                android:text="@string/play_change"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:visibility="gone"
+                app:drawableStartCompat="@drawable/ic_detail_change" />
+
+            <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/keep"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -318,27 +339,6 @@
                 android:textColor="@color/white"
                 android:textSize="16sp"
                 app:drawableStartCompat="@drawable/ic_detail_keep_off" />
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/change1"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="16dp"
-                android:background="@drawable/selector_video_item"
-                android:drawablePadding="6dp"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:gravity="center"
-                android:minWidth="96dp"
-                android:nextFocusRight="@id/tmdbRematch"
-                android:nextFocusUp="@id/actor"
-                android:nextFocusDown="@id/tmdbCast"
-                android:singleLine="true"
-                android:text="@string/play_change"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:visibility="gone"
-                app:drawableStartCompat="@drawable/ic_detail_change" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/tmdbRematch"

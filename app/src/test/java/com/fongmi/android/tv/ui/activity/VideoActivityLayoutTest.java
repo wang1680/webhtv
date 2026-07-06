@@ -572,16 +572,50 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
-    public void leanbackOriginalEnhancedHidesShortDisplayAndSourceActions() throws Exception {
+    public void leanbackTmdbDetailUsesChangeSourceActionOutsideDirectNative() throws Exception {
         Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void setOriginalEnhancedActionVisibility(boolean hide)");
+        int event = source.indexOf("protected void initEvent()");
 
         assertTrue(sourcePath + " is missing setOriginalEnhancedActionVisibility", method >= 0);
         assertTrue("native enhanced mode must hide the short display button",
                 source.indexOf("mBinding.shortDisplay.setVisibility(hide ? View.GONE : View.VISIBLE)", method) > method);
-        assertTrue("native enhanced mode must hide the source change button",
-                source.indexOf("mBinding.change1.setVisibility(View.GONE)", method) > method);
+        assertTrue("TMDB detail modes must show the source change button instead of the search button",
+                source.indexOf("mBinding.change1.setVisibility(hide ? View.VISIBLE : View.GONE)", method) > method
+                        && source.indexOf("mBinding.searchDetail.setVisibility(hide ? View.GONE : View.VISIBLE)", method) > method);
+        assertTrue("source change action must keep long-press global search",
+                event >= 0 && source.indexOf("mBinding.change1.setOnLongClickListener(view -> {", event) > event
+                        && source.indexOf("onGlobalSearch();", source.indexOf("mBinding.change1.setOnLongClickListener(view -> {", event)) > event);
+    }
+
+    @Test
+    public void leanbackDetailActionOrderPutsChangeBeforeKeepAndTmdb() throws Exception {
+        String layout = new String(Files.readAllBytes(findLeanbackResPath().resolve(Path.of("layout", "activity_video.xml"))), StandardCharsets.UTF_8);
+        int search = layout.indexOf("android:id=\"@+id/searchDetail\"");
+        int change = layout.indexOf("android:id=\"@+id/change1\"");
+        int keep = layout.indexOf("android:id=\"@+id/keep\"");
+        int tmdb = layout.indexOf("android:id=\"@+id/tmdbRematch\"");
+
+        assertTrue("direct native search action must stay in the row", search >= 0);
+        assertTrue("TMDB detail action order must be change source, favorite, TMDB", change >= 0 && change < keep && keep < tmdb);
+    }
+
+    @Test
+    public void leanbackGlobalSearchLongPressCarriesCurrentTitle() throws Exception {
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int method = source.indexOf("private void onGlobalSearch()");
+        int methodEnd = source.indexOf("\n    }", method);
+        String body = method >= 0 && methodEnd > method ? source.substring(method, methodEnd) : "";
+
+        assertTrue(sourcePath + " is missing onGlobalSearch", method >= 0);
+        assertTrue("global search must use the current detail title as keyword",
+                body.contains("String keyword = mBinding.name.getText().toString().trim();")
+                        && body.contains("if (TextUtils.isEmpty(keyword)) keyword = getName();"));
+        assertTrue("global search must open SearchActivity with the title instead of a blank search page",
+                body.contains("SearchActivity.start(this, keyword);")
+                        && !body.contains("SearchActivity.start(this);"));
     }
 
     @Test
@@ -617,6 +651,14 @@ public class VideoActivityLayoutTest {
                         && body.contains("mBinding.keep.setNextFocusDownId(target);")
                         && body.contains("mBinding.change1.setNextFocusDownId(target);")
                         && body.contains("mBinding.tmdbRematch.setNextFocusDownId(target);"));
+
+        int bindTmdbData = source.indexOf("private void bindTmdbData()");
+        int empty = source.indexOf("if (!hasTmdbContent)", bindTmdbData);
+        int emptyEnd = source.indexOf("SpiderDebug.log(\"tmdb-tv\"", empty);
+        String emptyBody = empty >= 0 && emptyEnd > empty ? source.substring(empty, emptyEnd) : "";
+        assertTrue("empty TMDB detail rows must keep change and TMDB actions in the down-focus chain",
+                emptyBody.contains("mBinding.change1.setNextFocusDownId(R.id.flag);")
+                        && emptyBody.contains("mBinding.tmdbRematch.setNextFocusDownId(R.id.flag);"));
     }
 
     @Test
@@ -943,14 +985,14 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
-    public void tmdbHeaderHidesChangeSourceInOriginalEnhancedMode() throws Exception {
+    public void tmdbHeaderKeepsChangeSourceVisibleForEnhancedModes() throws Exception {
         Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "TmdbHeaderView.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void updateOriginalEnhancedActionVisibility()");
 
         assertTrue(sourcePath + " is missing updateOriginalEnhancedActionVisibility", method >= 0);
-        assertTrue("TMDB header must hide source change in original enhanced mode",
-                source.indexOf("changeSource.setVisibility(Setting.isOriginalEnhancedDetailPage() ? View.GONE : View.VISIBLE)", method) > method);
+        assertTrue("TMDB header must keep source change available in enhanced modes",
+                source.indexOf("changeSource.setVisibility(View.VISIBLE)", method) > method);
     }
 
     @Test
