@@ -589,7 +589,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
             @Override
             public void onItemLongClick(View anchor, Episode episode, int episodeNumber) {
-                if (isFusionMode() && EpisodeTitlePopup.show(anchor, inlineEpisodeTitle(episode))) return;
                 showTmdbEpisodeDetail(episode, episodeNumber);
             }
         });
@@ -6484,7 +6483,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
             @Override
             public void onItemLongClick(View anchor, Episode episode, int episodeNumber) {
-                if (EpisodeTitlePopup.show(anchor, inlineEpisodeTitle(episode))) return;
                 showTmdbEpisodeDetail(episode, episodeNumber);
             }
         });

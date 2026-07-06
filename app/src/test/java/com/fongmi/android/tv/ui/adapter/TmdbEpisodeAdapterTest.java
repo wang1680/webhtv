@@ -18,6 +18,13 @@ public class TmdbEpisodeAdapterTest {
     }
 
     @Test
+    public void nativeEnhancedFileSizeUsesBadgeWithoutDuplicatingTitle() {
+        assertEquals("2. 觉醒", TmdbEpisodeAdapter.nativeEnhancedIndexTitle("[5.37G] 2. 觉醒", "2. 觉醒", "[5.37G]", false, TmdbEpisodeAdapter.Mode.LIST));
+        assertEquals("[5.37G]", TmdbEpisodeAdapter.nativeEnhancedFileSizeBadge("[5.37G]", "2. 觉醒"));
+        assertEquals("", TmdbEpisodeAdapter.nativeEnhancedFileSizeBadge("[5.37G]", "[5.37G] 2. 觉醒"));
+    }
+
+    @Test
     public void nativeEnhancedLargePagesKeepSharedFallbackArtwork() throws Exception {
         String source = tmdbEpisodeAdapterSource();
         int method = source.indexOf("private boolean shouldSuppressSharedFallbackVisuals()");
@@ -26,6 +33,19 @@ public class TmdbEpisodeAdapterTest {
                 method >= 0
                         && source.indexOf("return false;", method) > method
                         && source.contains("allowFallback && !suppressSharedFallback ? fallbackStillUrl : \"\""));
+    }
+
+    @Test
+    public void nativeEnhancedEpisodeCardsBindFileSizeBadge() throws Exception {
+        String source = tmdbEpisodeAdapterSource();
+        int nativeBranch = source.indexOf("if (isNativeEnhanced())");
+        int nextBranch = source.indexOf("} else if (mode == Mode.GRID)", nativeBranch);
+        String nativeBody = nativeBranch >= 0 && nextBranch > nativeBranch ? source.substring(nativeBranch, nextBranch) : "";
+
+        assertTrue("native-enhanced TMDB episode cards should bind the file-size badge instead of always hiding it",
+                nativeBody.contains("boolean showDate = !TextUtils.isEmpty(holder.binding.date.getText()) && mode == Mode.GRID;")
+                        && nativeBody.contains("bindFileSize(holder, nativeEnhancedFileSizeBadge(fileSize, cleanTitle), showDate);")
+                        && !nativeBody.contains("holder.binding.fileSize.setVisibility(View.GONE);"));
     }
 
     @Test
@@ -56,7 +76,7 @@ public class TmdbEpisodeAdapterTest {
         int notify = source.indexOf("notifyDataSetChanged();", clear);
 
         assertTrue("TMDB episode adapter must skip full rebinds when the page data is unchanged",
-                source.indexOf("if (sameItems(episodes, tmdbEpisodes, numbers))", method) > method
+                source.indexOf("if (!forceRefresh && sameItems(episodes, tmdbEpisodes, numbers))", method) > method
                         && source.indexOf("setSelected(selected);", method) > method
                         && source.indexOf("private boolean sameItems(", notify) > notify);
     }
