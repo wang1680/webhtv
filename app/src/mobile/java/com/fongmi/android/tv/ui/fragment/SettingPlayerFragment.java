@@ -93,6 +93,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.renderText.setText((render = ResUtil.getStringArray(R.array.select_render))[PlayerSetting.getRender()]);
         mBinding.captionText.setText((caption = ResUtil.getStringArray(R.array.select_caption))[PlayerSetting.isCaption() ? 1 : 0]);
         mBinding.backgroundText.setText((background = ResUtil.getStringArray(R.array.select_background))[PlayerSetting.getBackground()]);
+        hidePerformanceRows();
     }
 
     @Override
@@ -385,10 +386,28 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.videoDecodeText.setText(getSwitch(PlayerSetting.isVideoPrefer()));
         setPreloadText();
         setPerformanceText();
+        hidePerformanceRows();
     }
 
     private void setPerformanceText() {
         mBinding.exo4kCompatText.setText(PlaybackPerformanceSetting.getSummary());
+    }
+
+    private void hidePerformanceRows() {
+        mBinding.render.setVisibility(View.GONE);
+        mBinding.buffer.setVisibility(View.GONE);
+        mBinding.bufferBytes.setVisibility(View.GONE);
+        mBinding.backBuffer.setVisibility(View.GONE);
+        mBinding.playCache.setVisibility(View.GONE);
+        mBinding.preload.setVisibility(View.GONE);
+        mBinding.preloadThread.setVisibility(View.GONE);
+        mBinding.preloadSize.setVisibility(View.GONE);
+        mBinding.preloadTime.setVisibility(View.GONE);
+        mBinding.tunnel.setVisibility(View.GONE);
+        mBinding.audioDecode.setVisibility(View.GONE);
+        mBinding.audioPassThrough.setVisibility(View.GONE);
+        mBinding.videoDecode.setVisibility(View.GONE);
+        mBinding.aac.setVisibility(View.GONE);
     }
 
     private void setCaption(View view) {

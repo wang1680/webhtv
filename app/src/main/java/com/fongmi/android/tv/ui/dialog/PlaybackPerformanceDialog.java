@@ -21,6 +21,8 @@ import androidx.fragment.app.FragmentActivity;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.setting.PlaybackPerformanceSetting;
+import com.fongmi.android.tv.setting.PlayerSetting;
+import com.fongmi.android.tv.setting.PreloadSetting;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
 import com.google.android.material.button.MaterialButton;
@@ -30,7 +32,7 @@ import com.google.android.material.textview.MaterialTextView;
 public final class PlaybackPerformanceDialog extends DialogFragment {
 
     private Runnable callback;
-    private MaterialTextView detail;
+    private LinearLayout list;
 
     public static void show(Fragment fragment, Runnable callback) {
         PlaybackPerformanceDialog dialog = new PlaybackPerformanceDialog();
@@ -89,19 +91,16 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
         actionLayout.topMargin = dp(14);
         root.addView(actions, actionLayout);
 
-        detail = new MaterialTextView(requireContext());
-        detail.setTextColor(Color.parseColor("#3C4043"));
-        detail.setTextSize(14);
-        detail.setLineSpacing(dp(2), 1f);
-        detail.setText(PlaybackPerformanceSetting.getDetail());
-
         ScrollView scroll = new ScrollView(requireContext());
         scroll.setFillViewport(false);
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        scroll.addView(detail, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        list = new LinearLayout(requireContext());
+        list.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(list, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.min(dp(460), Math.max(dp(300), ResUtil.getScreenHeight(requireContext()) * 2 / 3)));
         scrollParams.topMargin = dp(16);
         root.addView(scroll, scrollParams);
+        refreshRows();
         return root;
     }
 
@@ -132,8 +131,233 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
     private void apply(boolean recommended) {
         if (recommended) PlaybackPerformanceSetting.applyRecommended();
         else PlaybackPerformanceSetting.applyCompatible();
-        detail.setText(PlaybackPerformanceSetting.getDetail());
+        refresh();
+    }
+
+    private void refresh() {
+        refreshRows();
         if (callback != null) callback.run();
+    }
+
+    private void refreshRows() {
+        if (list == null) return;
+        list.removeAllViews();
+        addHeader("基础性能");
+        addRow("性能配置", PlaybackPerformanceSetting.getProfileName(), null);
+        addRow("渲染方式", renderText(), this::toggleRender);
+        addRow("视频轨道限制", onOff(PlaybackPerformanceSetting.isTrackLimitEnabled()), () -> {
+            PlaybackPerformanceSetting.putTrackLimitEnabled(!PlaybackPerformanceSetting.isTrackLimitEnabled());
+            refresh();
+        });
+        addRow("自适应降级", onOff(PlaybackPerformanceSetting.isAdaptiveDowngradeEnabled()), () -> {
+            PlaybackPerformanceSetting.putAdaptiveDowngradeEnabled(!PlaybackPerformanceSetting.isAdaptiveDowngradeEnabled());
+            refresh();
+        });
+        addRow("带宽估算", onOff(PlaybackPerformanceSetting.isBandwidthMeterEnabled()), () -> {
+            PlaybackPerformanceSetting.putBandwidthMeterEnabled(!PlaybackPerformanceSetting.isBandwidthMeterEnabled());
+            refresh();
+        });
+        addRow("隧道模式", onOff(PlayerSetting.isTunnel()), () -> {
+            PlayerSetting.putTunnel(!PlayerSetting.isTunnel());
+            PlaybackPerformanceSetting.markCustom();
+            refresh();
+        });
+
+        addHeader("缓冲与缓存");
+        addRow("缓冲时间", PlayerSetting.getBuffer() + "/10", this::cycleBuffer);
+        addRow("缓冲容量", bufferBytesText(), this::cycleBufferBytes);
+        addRow("回退缓冲", backBufferText(), this::cycleBackBuffer);
+        addRow("播放缓存", playCacheText(), this::cyclePlayCache);
+        addRow("只加载选中轨道", onOff(PlaybackPerformanceSetting.isLoadOnlySelectedTracksEnabled()), () -> {
+            PlaybackPerformanceSetting.putLoadOnlySelectedTracksEnabled(!PlaybackPerformanceSetting.isLoadOnlySelectedTracksEnabled());
+            refresh();
+        });
+
+        addHeader("预载");
+        addRow("预载", onOff(PreloadSetting.isPreload()), () -> {
+            PreloadSetting.putPreload(!PreloadSetting.isPreload());
+            PlaybackPerformanceSetting.markCustom();
+            refresh();
+        });
+        addRow("预载线程", PreloadSetting.getPreloadThreads() + " 条", this::cyclePreloadThreads);
+        addRow("预载容量", PreloadSetting.getPreloadSizeMb() + "MB", this::cyclePreloadSize);
+        addRow("预载时间", PreloadSetting.getPreloadTimeSeconds() + " 秒", this::cyclePreloadTime);
+
+        addHeader("解码与渲染");
+        addRow("MediaCodec 异步队列", onOff(PlaybackPerformanceSetting.isCodecAsyncQueueingEnabled()), () -> {
+            PlaybackPerformanceSetting.putCodecAsyncQueueingEnabled(!PlaybackPerformanceSetting.isCodecAsyncQueueingEnabled());
+            refresh();
+        });
+        addRow("Media3 动态调度", onOff(PlaybackPerformanceSetting.isDynamicSchedulingEnabled()), () -> {
+            PlaybackPerformanceSetting.putDynamicSchedulingEnabled(!PlaybackPerformanceSetting.isDynamicSchedulingEnabled());
+            refresh();
+        });
+        addRow("解码耗时推进", onOff(PlaybackPerformanceSetting.isVideoDurationProgressEnabled()), () -> {
+            PlaybackPerformanceSetting.putVideoDurationProgressEnabled(!PlaybackPerformanceSetting.isVideoDurationProgressEnabled());
+            refresh();
+        });
+        addRow("输入丢帧阈值", onOff(PlaybackPerformanceSetting.isLateDropInputEnabled()), () -> {
+            PlaybackPerformanceSetting.putLateDropInputEnabled(!PlaybackPerformanceSetting.isLateDropInputEnabled());
+            refresh();
+        });
+        addRow("Surface 固定尺寸", onOff(PlaybackPerformanceSetting.isSurfaceFixedSizeEnabled()), () -> {
+            PlaybackPerformanceSetting.putSurfaceFixedSizeEnabled(!PlaybackPerformanceSetting.isSurfaceFixedSizeEnabled());
+            refresh();
+        });
+        addRow("解码器兜底", onOff(PlaybackPerformanceSetting.isDecoderFallbackEnabled()), () -> {
+            PlaybackPerformanceSetting.putDecoderFallbackEnabled(!PlaybackPerformanceSetting.isDecoderFallbackEnabled());
+            refresh();
+        });
+        addRow("软解降负载", onOff(PlaybackPerformanceSetting.isSoftVideoTuneEnabled()), () -> {
+            PlaybackPerformanceSetting.putSoftVideoTuneEnabled(!PlaybackPerformanceSetting.isSoftVideoTuneEnabled());
+            refresh();
+        });
+
+        addHeader("音频");
+        addRow("音频直通", onOff(PlayerSetting.isAudioPassThrough()), () -> {
+            PlayerSetting.putAudioPassThrough(!PlayerSetting.isAudioPassThrough());
+            PlaybackPerformanceSetting.markCustom();
+            refresh();
+        });
+        addRow("AAC 优先", onOff(PlayerSetting.isPreferAAC()), () -> {
+            PlayerSetting.putPreferAAC(!PlayerSetting.isPreferAAC());
+            PlaybackPerformanceSetting.markCustom();
+            refresh();
+        });
+        addRow("音频软解优先", onOff(PlayerSetting.isAudioPrefer()), () -> {
+            PlayerSetting.putAudioPrefer(!PlayerSetting.isAudioPrefer());
+            PlaybackPerformanceSetting.markCustom();
+            refresh();
+        });
+        addRow("视频软解优先", onOff(PlayerSetting.isVideoPrefer()), () -> {
+            PlayerSetting.putVideoPrefer(!PlayerSetting.isVideoPrefer());
+            PlaybackPerformanceSetting.markCustom();
+            refresh();
+        });
+    }
+
+    private void addHeader(String text) {
+        MaterialTextView header = new MaterialTextView(requireContext());
+        header.setText(text);
+        header.setTextColor(Color.parseColor("#5F6368"));
+        header.setTextSize(13);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(28));
+        params.topMargin = list.getChildCount() == 0 ? 0 : dp(8);
+        list.addView(header, params);
+    }
+
+    private void addRow(String label, String value, Runnable action) {
+        MaterialButton button = new MaterialButton(requireContext());
+        button.setAllCaps(false);
+        button.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+        button.setSingleLine(false);
+        button.setMinHeight(dp(46));
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        button.setText(label + "    " + value);
+        button.setTextSize(14);
+        button.setTextColor(Color.parseColor("#202124"));
+        button.setBackgroundColor(Color.WHITE);
+        button.setStrokeColorResource(R.color.dialog_outlined_button_stroke);
+        button.setStrokeWidth(dp(1));
+        button.setFocusable(true);
+        button.setFocusableInTouchMode(Util.isLeanback());
+        button.setEnabled(action != null);
+        if (action != null) button.setOnClickListener(view -> action.run());
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        params.bottomMargin = dp(7);
+        list.addView(button, params);
+    }
+
+    private void toggleRender() {
+        PlayerSetting.putRender(PlayerSetting.getRender() == PlayerSetting.RENDER_SURFACE ? PlayerSetting.RENDER_TEXTURE : PlayerSetting.RENDER_SURFACE);
+        PlaybackPerformanceSetting.markCustom();
+        refresh();
+    }
+
+    private void cycleBuffer() {
+        PlayerSetting.putBuffer(PlayerSetting.getBuffer() >= 10 ? 1 : PlayerSetting.getBuffer() + 1);
+        PlaybackPerformanceSetting.markCustom();
+        refresh();
+    }
+
+    private void cycleBufferBytes() {
+        PlayerSetting.putBufferBytesOption((PlayerSetting.getBufferBytesOption() + 1) % 4);
+        PlaybackPerformanceSetting.markCustom();
+        refresh();
+    }
+
+    private void cycleBackBuffer() {
+        PlayerSetting.putBackBufferOption((PlayerSetting.getBackBufferOption() + 1) % 4);
+        PlaybackPerformanceSetting.markCustom();
+        refresh();
+    }
+
+    private void cyclePlayCache() {
+        PlayerSetting.putPlayCacheOption((PlayerSetting.getPlayCacheOption() + 1) % 5);
+        PlaybackPerformanceSetting.markCustom();
+        refresh();
+    }
+
+    private void cyclePreloadThreads() {
+        int value = PreloadSetting.getPreloadThreads() + 1;
+        if (value > PreloadSetting.MAX_THREADS) value = PreloadSetting.MIN_THREADS;
+        PreloadSetting.putPreloadThreads(value);
+        PlaybackPerformanceSetting.markCustom();
+        refresh();
+    }
+
+    private void cyclePreloadSize() {
+        int value = PreloadSetting.getPreloadSizeMb() + PreloadSetting.STEP_SIZE_MB;
+        if (value > PreloadSetting.MAX_SIZE_MB) value = PreloadSetting.MIN_SIZE_MB;
+        PreloadSetting.putPreloadSizeMb(value);
+        PlaybackPerformanceSetting.markCustom();
+        refresh();
+    }
+
+    private void cyclePreloadTime() {
+        int value = PreloadSetting.getPreloadTimeSeconds() + PreloadSetting.STEP_TIME_SECONDS;
+        if (value > PreloadSetting.MAX_TIME_SECONDS) value = PreloadSetting.MIN_TIME_SECONDS;
+        PreloadSetting.putPreloadTimeSeconds(value);
+        PlaybackPerformanceSetting.markCustom();
+        refresh();
+    }
+
+    private String renderText() {
+        return PlayerSetting.getRender() == PlayerSetting.RENDER_SURFACE ? "SurfaceView" : "TextureView";
+    }
+
+    private String bufferBytesText() {
+        return switch (PlayerSetting.getBufferBytesOption()) {
+            case 1 -> "64MB";
+            case 2 -> "128MB";
+            case 3 -> "256MB";
+            default -> "自动";
+        };
+    }
+
+    private String backBufferText() {
+        return switch (PlayerSetting.getBackBufferOption()) {
+            case 1 -> "15秒";
+            case 2 -> "30秒";
+            case 3 -> "60秒";
+            default -> "关闭";
+        };
+    }
+
+    private String playCacheText() {
+        return switch (PlayerSetting.getPlayCacheOption()) {
+            case 1 -> "256MB";
+            case 2 -> "512MB";
+            case 3 -> "1GB";
+            case 4 -> "2GB";
+            default -> "128MB";
+        };
+    }
+
+    private String onOff(boolean value) {
+        return value ? "开" : "关";
     }
 
     private int dp(int value) {

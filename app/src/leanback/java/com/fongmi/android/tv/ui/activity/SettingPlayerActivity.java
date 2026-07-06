@@ -63,7 +63,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         setVisible();
         format = new DecimalFormat("0.#");
         PlaybackPerformanceSetting.ensureInitialized();
-        mBinding.render.requestFocus();
+        mBinding.exo4kCompat.requestFocus();
         mBinding.uaText.setText(Setting.getUa());
         mBinding.aacText.setText(getSwitch(PlayerSetting.isPreferAAC()));
         mBinding.tunnelText.setText(getSwitch(PlayerSetting.isTunnel()));
@@ -88,6 +88,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         mBinding.lutText.setText(LutSetting.getSummary());
         mBinding.renderText.setText((render = ResUtil.getStringArray(R.array.select_render))[PlayerSetting.getRender()]);
         mBinding.captionText.setText((caption = ResUtil.getStringArray(R.array.select_caption))[PlayerSetting.isCaption() ? 1 : 0]);
+        hidePerformanceRows();
     }
 
     @Override
@@ -331,10 +332,28 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         mBinding.videoDecodeText.setText(getSwitch(PlayerSetting.isVideoPrefer()));
         setPreloadText();
         setPerformanceText();
+        hidePerformanceRows();
     }
 
     private void setPerformanceText() {
         mBinding.exo4kCompatText.setText(PlaybackPerformanceSetting.getSummary());
+    }
+
+    private void hidePerformanceRows() {
+        mBinding.render.setVisibility(View.GONE);
+        mBinding.buffer.setVisibility(View.GONE);
+        mBinding.bufferBytes.setVisibility(View.GONE);
+        mBinding.backBuffer.setVisibility(View.GONE);
+        mBinding.playCache.setVisibility(View.GONE);
+        mBinding.preload.setVisibility(View.GONE);
+        mBinding.preloadThread.setVisibility(View.GONE);
+        mBinding.preloadSize.setVisibility(View.GONE);
+        mBinding.preloadTime.setVisibility(View.GONE);
+        mBinding.tunnel.setVisibility(View.GONE);
+        mBinding.audioDecode.setVisibility(View.GONE);
+        mBinding.audioPassThrough.setVisibility(View.GONE);
+        mBinding.videoDecode.setVisibility(View.GONE);
+        mBinding.aac.setVisibility(View.GONE);
     }
 
     private void setCaption(View view) {

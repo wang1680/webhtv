@@ -111,9 +111,17 @@ public class PlaybackPerformanceSetting {
         return Prefers.getBoolean(KEY_HIGH_BUFFER, true);
     }
 
+    public static void putHighBufferEnabled(boolean value) {
+        putCustom(KEY_HIGH_BUFFER, value);
+    }
+
     public static boolean isBandwidthMeterEnabled() {
         ensureInitialized();
         return Prefers.getBoolean(KEY_BANDWIDTH_METER, true);
+    }
+
+    public static void putBandwidthMeterEnabled(boolean value) {
+        putCustom(KEY_BANDWIDTH_METER, value);
     }
 
     public static boolean isDynamicSchedulingEnabled() {
@@ -121,9 +129,17 @@ public class PlaybackPerformanceSetting {
         return Prefers.getBoolean(KEY_DYNAMIC_SCHEDULING, true);
     }
 
+    public static void putDynamicSchedulingEnabled(boolean value) {
+        putCustom(KEY_DYNAMIC_SCHEDULING, value);
+    }
+
     public static boolean isCodecAsyncQueueingEnabled() {
         ensureInitialized();
         return Prefers.getBoolean(KEY_CODEC_ASYNC_QUEUEING, true);
+    }
+
+    public static void putCodecAsyncQueueingEnabled(boolean value) {
+        putCustom(KEY_CODEC_ASYNC_QUEUEING, value);
     }
 
     public static boolean isVideoDurationProgressEnabled() {
@@ -131,9 +147,17 @@ public class PlaybackPerformanceSetting {
         return Prefers.getBoolean(KEY_VIDEO_DURATION_PROGRESS, true);
     }
 
+    public static void putVideoDurationProgressEnabled(boolean value) {
+        putCustom(KEY_VIDEO_DURATION_PROGRESS, value);
+    }
+
     public static boolean isLateDropInputEnabled() {
         ensureInitialized();
         return Prefers.getBoolean(KEY_LATE_DROP_INPUT, true);
+    }
+
+    public static void putLateDropInputEnabled(boolean value) {
+        putCustom(KEY_LATE_DROP_INPUT, value);
     }
 
     public static boolean isTrackLimitEnabled() {
@@ -141,9 +165,17 @@ public class PlaybackPerformanceSetting {
         return Prefers.getBoolean(KEY_TRACK_LIMIT, true);
     }
 
+    public static void putTrackLimitEnabled(boolean value) {
+        putCustom(KEY_TRACK_LIMIT, value);
+    }
+
     public static boolean isAdaptiveDowngradeEnabled() {
         ensureInitialized();
         return Prefers.getBoolean(KEY_ADAPTIVE_DOWNGRADE, true);
+    }
+
+    public static void putAdaptiveDowngradeEnabled(boolean value) {
+        putCustom(KEY_ADAPTIVE_DOWNGRADE, value);
     }
 
     public static boolean isLoadOnlySelectedTracksEnabled() {
@@ -151,9 +183,17 @@ public class PlaybackPerformanceSetting {
         return Prefers.getBoolean(KEY_LOAD_ONLY_SELECTED_TRACKS, true);
     }
 
+    public static void putLoadOnlySelectedTracksEnabled(boolean value) {
+        putCustom(KEY_LOAD_ONLY_SELECTED_TRACKS, value);
+    }
+
     public static boolean isSurfaceFixedSizeEnabled() {
         ensureInitialized();
         return Prefers.getBoolean(KEY_SURFACE_FIXED_SIZE, true);
+    }
+
+    public static void putSurfaceFixedSizeEnabled(boolean value) {
+        putCustom(KEY_SURFACE_FIXED_SIZE, value);
     }
 
     public static boolean isDecoderFallbackEnabled() {
@@ -161,9 +201,17 @@ public class PlaybackPerformanceSetting {
         return Prefers.getBoolean(KEY_DECODER_FALLBACK, true);
     }
 
+    public static void putDecoderFallbackEnabled(boolean value) {
+        putCustom(KEY_DECODER_FALLBACK, value);
+    }
+
     public static boolean isSoftVideoTuneEnabled() {
         ensureInitialized();
         return Prefers.getBoolean(KEY_SOFT_VIDEO_TUNE, true);
+    }
+
+    public static void putSoftVideoTuneEnabled(boolean value) {
+        putCustom(KEY_SOFT_VIDEO_TUNE, value);
     }
 
     public static String getSummary() {
@@ -212,6 +260,12 @@ public class PlaybackPerformanceSetting {
 
     private static void put(String key, boolean value) {
         Prefers.put(key, value);
+    }
+
+    private static void putCustom(String key, boolean value) {
+        ensureInitialized();
+        Prefers.put(key, value);
+        markCustom();
     }
 
     private static String onOff(boolean value) {
