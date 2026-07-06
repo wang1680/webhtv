@@ -344,6 +344,16 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
         getExoView().setPlayer(null);
     }
 
+    private void resetVideoSurfaceForDecoderSwitch() {
+        int targetRender = getRender();
+        int temporaryRender = targetRender == PlayerSetting.RENDER_TEXTURE ? PlayerSetting.RENDER_SURFACE : PlayerSetting.RENDER_TEXTURE;
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-flow", "reset video surface for decoder switch temp=%d target=%d", temporaryRender, targetRender);
+        getExoView().setPlayer(null);
+        getExoView().setRender(temporaryRender);
+        getExoView().setRender(targetRender);
+        render = -1;
+    }
+
     protected void setRender() {
         render = -1;
         detachSurface();
@@ -441,8 +451,9 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
         }
 
         @Override
-        public void onPlayerRebuild(Player player) {
+        public void onPlayerRebuild(Player player, boolean resetVideoSurface) {
             if (isOwner()) {
+                if (resetVideoSurface) resetVideoSurfaceForDecoderSwitch();
                 setRender();
                 PlaybackActivity.this.onPlayerRebuilt();
             }

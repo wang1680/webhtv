@@ -61,7 +61,7 @@ public class PlayerManager implements ParseCallback {
 
     private static final long LOCAL_PROXY_READY_TIMEOUT_MS = 5000;
     private static final long LOCAL_PROXY_RETRY_DELAY_MS = 1000;
-    private static final long HARD_DECODE_SWITCH_RETRY_DELAY_MS = 700;
+    private static final long HARD_DECODE_SWITCH_RETRY_DELAY_MS = 1200;
     private static final int LOCAL_PROXY_MAX_RETRY = 2;
     private static final int LUT_WARMUP_RECOVERED_ERROR_REFRESH_THRESHOLD = 3;
     private static final long DANMAKU_FORCE_RELOAD_DEBOUNCE_MS = 10000;
@@ -512,9 +512,10 @@ public class PlayerManager implements ParseCallback {
 
     public void toggleDecode() {
         int next = engine.isHard() ? PlayerEngine.SOFT : PlayerEngine.HARD;
+        boolean resetVideoSurface = playerType == PlayerSetting.EXO && next == PlayerEngine.HARD;
         hardDecodeSwitchRetryArmed = next == PlayerEngine.HARD;
         engine.setDecode(next);
-        rebuildPlayer();
+        rebuildPlayer(resetVideoSurface);
         setMediaItem();
     }
 
@@ -546,7 +547,7 @@ public class PlayerManager implements ParseCallback {
         if (SpiderDebug.isEnabled()) SpiderDebug.log("player", "switch player type=%d persist=%s position=%d spec=%s", type, persist, position, debugSpec());
         engine = buildEngine(playerType, decode);
         player = engine.getPlayer();
-        callback.onPlayerRebuild(player);
+        callback.onPlayerRebuild(player, false);
         if (spec == null || spec.getUrl() == null) return;
         this.playWhenReady = wasPlayWhenReady;
         setMediaItem(Constant.TIMEOUT_PLAY);
@@ -556,6 +557,10 @@ public class PlayerManager implements ParseCallback {
     }
 
     private void rebuildPlayer() {
+        rebuildPlayer(false);
+    }
+
+    private void rebuildPlayer(boolean resetVideoSurface) {
         player = engine.rebuild(listener);
         videoEffectsActive = false;
         videoEffectsDirty = false;
@@ -565,7 +570,7 @@ public class PlayerManager implements ParseCallback {
         lutPipelinePrepareInProgress = false;
         pendingLutPreview = false;
         waitingLutBeforePlay = false;
-        callback.onPlayerRebuild(player);
+        callback.onPlayerRebuild(player, resetVideoSurface);
     }
 
     private PlayerEngine buildEngine(int type, int decode) {
@@ -1179,7 +1184,7 @@ public class PlayerManager implements ParseCallback {
 
         void onReload(String msg);
 
-        void onPlayerRebuild(Player newPlayer);
+        void onPlayerRebuild(Player newPlayer, boolean resetVideoSurface);
     }
 
     private final Player.Listener listener = new Player.Listener() {
@@ -1259,7 +1264,7 @@ public class PlayerManager implements ParseCallback {
         engine.release();
         engine = buildEngine(playerType, PlayerEngine.HARD);
         player = engine.getPlayer();
-        callback.onPlayerRebuild(player);
+        callback.onPlayerRebuild(player, true);
         this.playWhenReady = wasPlayWhenReady;
         initTrack = false;
         if (SpiderDebug.isEnabled()) SpiderDebug.log("player", "hard decode switch retry delay=%d position=%d spec=%s cause=%s", HARD_DECODE_SWITCH_RETRY_DELAY_MS, position, debugSpec(), causeChain(e));
