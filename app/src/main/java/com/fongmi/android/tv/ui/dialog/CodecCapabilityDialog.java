@@ -242,7 +242,7 @@ public final class CodecCapabilityDialog {
             String block = blocks[i].trim();
             if (TextUtils.isEmpty(block)) continue;
             if (i == 0 && blocks.length > 1 && !block.contains("\n")) addHeader(block);
-            else addItem(block, isSelectedBlock(block), isMatchedBlock(block));
+            else addItem(block, isSelectedBlock(block), isRelatedBlock(block));
         }
     }
 
@@ -308,18 +308,18 @@ public final class CodecCapabilityDialog {
         return block.contains("已选中") || block.contains("可解当前选中");
     }
 
-    private boolean isMatchedBlock(String block) {
-        return block.contains("可解当前媒体");
+    private boolean isRelatedBlock(String block) {
+        return block.contains(" / 未选中") || block.contains("可解当前媒体");
     }
 
-    private void styleItem(MaterialButton item, boolean selected, boolean matched, boolean focused) {
-        int textColor = focused || selected ? Color.parseColor("#174EA6") : matched ? Color.parseColor("#5F4211") : Color.parseColor("#202124");
-        int bgColor = focused ? Color.parseColor("#E8F0FE") : selected ? Color.parseColor("#D2E3FC") : matched ? Color.parseColor("#FFF7D6") : Color.WHITE;
-        int strokeColor = focused || selected ? Color.parseColor("#1A73E8") : matched ? Color.parseColor("#E0B429") : Color.parseColor("#DADCE0");
+    private void styleItem(MaterialButton item, boolean selected, boolean related, boolean focused) {
+        int textColor = selected ? Color.parseColor("#174EA6") : related ? Color.parseColor("#137333") : Color.parseColor("#202124");
+        int bgColor = selected ? Color.parseColor("#D2E3FC") : related ? Color.parseColor("#E6F4EA") : focused ? Color.parseColor("#F8F9FA") : Color.WHITE;
+        int strokeColor = focused ? Color.parseColor("#202124") : selected ? Color.parseColor("#1A73E8") : related ? Color.parseColor("#34A853") : Color.parseColor("#DADCE0");
         item.setTextColor(ColorStateList.valueOf(textColor));
         item.setBackgroundTintList(ColorStateList.valueOf(bgColor));
         item.setStrokeColor(ColorStateList.valueOf(strokeColor));
-        item.setStrokeWidth(ResUtil.dp2px(focused || selected ? 2 : 1));
+        item.setStrokeWidth(ResUtil.dp2px(focused ? 3 : selected ? 2 : 1));
     }
 
     private boolean onScrollKey(int keyCode, KeyEvent event) {
