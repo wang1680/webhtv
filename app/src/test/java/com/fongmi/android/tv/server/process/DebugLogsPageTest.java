@@ -17,6 +17,8 @@ public class DebugLogsPageTest {
 
         assertTrue("debug logs page must render a back-to-top button",
                 source.contains("id=\\\"topBtn\\\"") && source.contains("class=\\\"backtop\\\""));
+        assertTrue("debug logs page must expose AI diagnosis",
+                source.contains("/debug/diagnose") && source.contains("AI诊断"));
         assertTrue("back-to-top button must stay fixed near the lower-right corner",
                 source.contains(".backtop{") && source.contains("position:fixed") && source.contains("right:"));
         assertTrue("back-to-top button must scroll the page to the top",

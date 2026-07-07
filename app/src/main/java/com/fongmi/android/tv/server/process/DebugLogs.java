@@ -2,8 +2,10 @@ package com.fongmi.android.tv.server.process;
 
 import android.text.TextUtils;
 
+import com.fongmi.android.tv.bean.AiConfig;
 import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.server.impl.Process;
+import com.fongmi.android.tv.service.AiLogDiagnosisService;
 import com.fongmi.android.tv.setting.Setting;
 import com.github.catvod.crawler.DebugLogStore;
 
@@ -19,7 +21,7 @@ public class DebugLogs implements Process {
 
     @Override
     public boolean isRequest(IHTTPSession session, String url) {
-        return url.startsWith("/debug/logs") || url.startsWith("/debug/stream") || url.startsWith("/debug/clear") || url.startsWith("/debug/enable") || url.startsWith("/debug/disable");
+        return url.startsWith("/debug/logs") || url.startsWith("/debug/diagnose") || url.startsWith("/debug/stream") || url.startsWith("/debug/clear") || url.startsWith("/debug/enable") || url.startsWith("/debug/disable");
     }
 
     @Override
@@ -36,6 +38,7 @@ public class DebugLogs implements Process {
             DebugLogStore.clear();
             return noCache(NanoHTTPD.newFixedLengthResponse(Response.Status.REDIRECT, NanoHTTPD.MIME_HTML, ""), "/debug/logs");
         }
+        if (url.startsWith("/debug/diagnose")) return diagnose();
         if (url.startsWith("/debug/stream")) return stream(session);
         if (url.startsWith("/debug/logs.txt")) return download();
         return page();
@@ -53,6 +56,14 @@ public class DebugLogs implements Process {
         response.addHeader("Content-Disposition", "attachment; filename=webhtv-debug-log.txt");
         response.addHeader("X-Content-Type-Options", "nosniff");
         return noCache(response, null);
+    }
+
+    private Response diagnose() {
+        String result = new AiLogDiagnosisService(AiConfig.objectFrom(Setting.getAiConfig())).diagnose(DebugLogStore.text());
+        String html = "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\"><title>AI诊断</title><style>" + css() + "</style></head><body>"
+                + "<main><section class=\"topbar\"><h1>AI诊断</h1><a href=\"/debug/logs\">返回日志</a><a href=\"/debug/logs.txt\" download=\"webhtv-debug-log.txt\">下载日志</a></section>"
+                + "<pre class=\"fallback\">" + escape(result) + "</pre></main></body></html>";
+        return noCache(NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", html), null);
     }
 
     private Response stream(IHTTPSession session) {
@@ -88,7 +99,7 @@ public class DebugLogs implements Process {
                 + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">"
                 + "<title>调试日志</title>"
                 + "<style>" + css() + "</style></head><body>"
-                + "<main><section class=\"topbar\"><h1>调试日志</h1><a href=\"/debug/logs\">刷新</a><a id=\"download\" href=\"/debug/logs.txt\" download=\"webhtv-debug-log.txt\">下载</a><a href=\"/debug/clear\">清空</a><a href=\"" + (enabled ? "/debug/disable" : "/debug/enable") + "\">" + (enabled ? "关闭" : "开启") + "</a><span id=\"meta\" class=\"meta\" data-version=\"" + DebugLogStore.version() + "\">" + (enabled ? "开启" : "关闭") + " · " + DebugLogStore.size() + " 行 · " + DebugLogStore.bytes() / 1024 + " KB</span></section>"
+                + "<main><section class=\"topbar\"><h1>调试日志</h1><a href=\"/debug/logs\">刷新</a><a id=\"download\" href=\"/debug/logs.txt\" download=\"webhtv-debug-log.txt\">下载</a><a href=\"/debug/diagnose\">AI诊断</a><a href=\"/debug/clear\">清空</a><a href=\"" + (enabled ? "/debug/disable" : "/debug/enable") + "\">" + (enabled ? "关闭" : "开启") + "</a><span id=\"meta\" class=\"meta\" data-version=\"" + DebugLogStore.version() + "\">" + (enabled ? "开启" : "关闭") + " · " + DebugLogStore.size() + " 行 · " + DebugLogStore.bytes() / 1024 + " KB</span></section>"
                 + "<details class=\"info\"><summary>地址和说明</summary><p class=\"hint\">本页显示 App 当前进程内调试日志。开启后记录安卓系统版本、设备型号、WebView 版本、WebHome、SDK、HTTP 服务、爬虫请求和播放链路；关闭会自动清空。</p>"
                 + "<div class=\"addr\"><a href=\"" + escape(localUrl) + "\">本机地址：" + escape(localUrl) + "</a><a href=\"" + escape(lanUrl) + "\">局域网地址：" + escape(lanUrl) + "</a></div></details>"
                 + "<section class=\"tools\"><div class=\"chips\"><button class=\"chip on\" data-mode=\"all\">全部</button><button class=\"chip\" data-mode=\"ai\">AI</button><button class=\"chip\" data-mode=\"proxy\">代理</button><button class=\"chip\" data-mode=\"player\">播放</button><button class=\"chip\" data-mode=\"webhome\">WebHome</button><button class=\"chip\" data-mode=\"console\">Console</button><button class=\"chip\" data-mode=\"webview\">WebView</button><button class=\"chip\" data-mode=\"api\">站源</button><button class=\"chip\" data-mode=\"pan\">网盘</button><button class=\"chip\" data-mode=\"server\">服务</button><button class=\"chip\" data-mode=\"sync\">同步</button><button class=\"chip\" data-mode=\"startup\">启动</button><button class=\"chip\" data-mode=\"error\">错误</button></div>"
