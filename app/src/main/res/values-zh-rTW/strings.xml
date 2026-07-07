@@ -56,6 +56,14 @@
     <string name="play_reset">刷新</string>
     <string name="play_decode">硬解</string>
     <string name="play_params">播放參數</string>
+    <string name="codec_capability_short">硬解能力</string>
+    <string name="codec_capability_title">硬解能力</string>
+    <string name="codec_capability_search">搜尋 codec、mime、decoder、解析度、音訊...</string>
+    <string name="codec_capability_current">目前媒體</string>
+    <string name="codec_capability_all">全部</string>
+    <string name="codec_capability_video">影片</string>
+    <string name="codec_capability_audio">音訊</string>
+    <string name="codec_capability_copy">複製</string>
     <string name="play_timer">定時</string>
     <string name="play_title">章節</string>
     <string name="play_scale">原始</string>
@@ -817,7 +825,10 @@
     <string name="player_button_up">上移</string>
     <string name="player_button_down">下移</string>
     <string name="play_episodes">選集</string>
-    <string name="player_exo_4k_compat">EXO增強模式</string>
+    <string name="player_exo_4k_compat">播放效能</string>
+    <string name="player_performance">播放效能</string>
+    <string name="player_performance_recommended">推薦</string>
+    <string name="player_performance_compatible">相容</string>
     <string name="player_kernel">播放器內核</string>
     <string name="player_scale">縮放比例</string>
     <string name="player_lut">LUT 調色</string>

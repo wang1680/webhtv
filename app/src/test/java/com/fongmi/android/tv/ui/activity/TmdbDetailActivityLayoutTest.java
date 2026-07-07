@@ -1733,6 +1733,40 @@ public class TmdbDetailActivityLayoutTest {
                         && selector.contains("android:color=\"#2CC56F\""));
     }
 
+    @Test
+    public void currentInlineEpisodeCardEntersFullscreenWithoutReloading() throws Exception {
+        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        int onPlay = source.indexOf("private void onPlay()");
+        int playDetailFullscreen = source.indexOf("private void playDetailFullscreen()");
+        int playInline = source.indexOf("private void playInline()");
+        int stop = source.indexOf("private void stopInlinePlayerForReload()");
+        int start = source.indexOf("private void startInlinePlayer(Result result)");
+        String onPlayBody = source.substring(onPlay, playDetailFullscreen);
+        String detailBody = source.substring(playDetailFullscreen, playInline);
+        String stopBody = source.substring(stop, start);
+        String startBody = source.substring(start, source.indexOf("private void searchInlineDanmaku", start));
+
+        assertTrue("current inline episode clicks must reuse playback before fusion reloads",
+                onPlayBody.indexOf("enterInlineFullscreenIfCurrentInlinePlayback(selectedEpisode)") < onPlayBody.indexOf("if (isFusionMode()) playInline();"));
+        assertTrue("detail-player fullscreen entry must not reload the already playing episode",
+                detailBody.contains("boolean current = isCurrentInlinePlayback(selectedEpisode);")
+                        && detailBody.contains("if (!current) playInline();"));
+        assertTrue("current inline playback identity must include episode, site key, and line flag",
+                source.contains("private Episode inlinePlaybackEpisode;")
+                        && source.contains("private String inlinePlaybackKey = \"\";")
+                        && source.contains("private String inlinePlaybackFlag = \"\";")
+                        && source.contains("TextUtils.equals(getKeyText(), inlinePlaybackKey)")
+                        && source.contains("TextUtils.equals(selectedFlag.getFlag(), inlinePlaybackFlag)"));
+        assertTrue("current inline playback identity must be cleared before a real reload",
+                stopBody.contains("inlinePlaybackEpisode = null;")
+                        && stopBody.contains("inlinePlaybackKey = \"\";")
+                        && stopBody.contains("inlinePlaybackFlag = \"\";"));
+        assertTrue("current inline playback identity must be recorded when playback starts",
+                startBody.contains("inlinePlaybackEpisode = selectedEpisode;")
+                        && startBody.contains("inlinePlaybackKey = getKeyText();")
+                        && startBody.contains("inlinePlaybackFlag = selectedFlag == null ? \"\" : selectedFlag.getFlag();"));
+    }
+
     private static Path findMainJavaPath() {
         Path moduleRelative = Path.of("src", "main", "java");
         if (Files.exists(moduleRelative)) return moduleRelative;

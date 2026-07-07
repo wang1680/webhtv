@@ -251,6 +251,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private JsonObject matchedTmdbDetail;
     private Flag selectedFlag;
     private Episode selectedEpisode;
+    private Episode inlinePlaybackEpisode;
+    private String inlinePlaybackKey = "";
+    private String inlinePlaybackFlag = "";
     private TmdbEpisodeAdapter episodeAdapter;
     private TmdbPersonAdapter castAdapter;
     private TmdbPersonAdapter creatorAdapter;
@@ -4259,6 +4262,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void onPlay() {
         if (vod == null) return;
+        if (enterInlineFullscreenIfCurrentInlinePlayback(selectedEpisode)) return;
         saveInlineHistory();
         updateInlineHistory(selectedEpisode);
         if (isFusionMode()) playInline();
@@ -4920,6 +4924,22 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         return isFusionMode() || detailPlayerActive;
     }
 
+    private boolean isCurrentInlinePlayback(Episode episode) {
+        return inlineStarted
+                && currentInlineResult != null
+                && selectedFlag != null
+                && episode != null
+                && episode.equals(inlinePlaybackEpisode)
+                && TextUtils.equals(getKeyText(), inlinePlaybackKey)
+                && TextUtils.equals(selectedFlag.getFlag(), inlinePlaybackFlag);
+    }
+
+    private boolean enterInlineFullscreenIfCurrentInlinePlayback(Episode episode) {
+        if (!isCurrentInlinePlayback(episode)) return false;
+        if (!inlineFullscreen) enterInlineFullscreen();
+        return true;
+    }
+
     private void maybeAutoPlayInline() {
         if ((!isFusionMode() && !isAutoPlayMode()) || autoPlayed) return;
         autoPlayed = true;
@@ -4928,6 +4948,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void playDetailFullscreen() {
         if (selectedFlag == null || selectedEpisode == null) return;
+        boolean current = isCurrentInlinePlayback(selectedEpisode);
         detailPlayerActive = true;
         binding.playerError.setTextColor(0xFFFFFFFF);
         binding.playerTitle.setTextColor(0xFFFFFFFF);
@@ -4936,7 +4957,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         ensureInlineDanmakuController();
         binding.playerPanel.setVisibility(View.VISIBLE);
         enterInlineFullscreen();
-        playInline();
+        if (!current) playInline();
     }
 
     private void playInline() {
@@ -4973,6 +4994,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlineStartPositionApplied = false;
         pendingInlineResult = null;
         currentInlineResult = null;
+        inlinePlaybackEpisode = null;
+        inlinePlaybackKey = "";
+        inlinePlaybackFlag = "";
         introSkipPlayback.reset();
         if (service() == null || player() == null || player().isEmpty()) {
             updateInlineButtons(false);
@@ -4997,6 +5021,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
         inlinePlaybackLoading = false;
         inlineStarted = true;
+        inlinePlaybackEpisode = selectedEpisode;
+        inlinePlaybackKey = getKeyText();
+        inlinePlaybackFlag = selectedFlag == null ? "" : selectedFlag.getFlag();
         pendingInlineResult = null;
         hideInlineControls();
         resetInlineShortDramaMode();
@@ -7369,6 +7396,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailPlayerActive = false;
         pendingInlineResult = null;
         currentInlineResult = null;
+        inlinePlaybackEpisode = null;
+        inlinePlaybackKey = "";
+        inlinePlaybackFlag = "";
         useParse = false;
         updateInlineButtons(false);
         DanmakuApi.cancel();

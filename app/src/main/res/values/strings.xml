@@ -57,6 +57,14 @@
     <string name="play_reset">Reset</string>
     <string name="play_decode">Hard</string>
     <string name="play_params">Playback params</string>
+    <string name="codec_capability_short">Codec caps</string>
+    <string name="codec_capability_title">Hardware codec capabilities</string>
+    <string name="codec_capability_search">Search codec, mime, decoder, resolution, audio...</string>
+    <string name="codec_capability_current">Current</string>
+    <string name="codec_capability_all">All</string>
+    <string name="codec_capability_video">Video</string>
+    <string name="codec_capability_audio">Audio</string>
+    <string name="codec_capability_copy">Copy</string>
     <string name="play_timer">Timer</string>
     <string name="play_title">Chapter</string>
     <string name="play_scale">Default</string>
@@ -840,7 +848,10 @@
     <string name="player_button_up">Up</string>
     <string name="player_button_down">Down</string>
     <string name="play_episodes">Episodes</string>
-    <string name="player_exo_4k_compat">EXO enhanced mode</string>
+    <string name="player_exo_4k_compat">Playback performance</string>
+    <string name="player_performance">Playback performance</string>
+    <string name="player_performance_recommended">Recommended</string>
+    <string name="player_performance_compatible">Compatible</string>
     <string name="player_kernel">Player engine</string>
     <string name="player_scale">Scale</string>
     <string name="player_lut">LUT color</string>
