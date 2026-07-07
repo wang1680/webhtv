@@ -94,6 +94,8 @@
 
     <!-- Danmaku Setting -->
     <string name="danmaku">彈幕</string>
+    <string name="danmaku_show_on">彈幕已開啟</string>
+    <string name="danmaku_show_off">彈幕已關閉</string>
     <string name="danmaku_select">選擇彈幕</string>
     <string name="danmaku_setting">彈幕設定</string>
     <string name="danmaku_text_size">字體縮放</string>

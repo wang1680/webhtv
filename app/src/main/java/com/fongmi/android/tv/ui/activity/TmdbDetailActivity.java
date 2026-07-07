@@ -813,6 +813,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerEnding.setOnLongClickListener(view -> resetInlineEnding());
         binding.playerDanmakuToggle.setOnClickListener(view -> toggleInlineDanmaku());
         binding.playerDanmaku.setOnClickListener(view -> showInlineDanmaku());
+        binding.playerDanmaku.setOnLongClickListener(view -> onPlayerDanmakuLongClick());
         binding.playerChapter.setOnClickListener(view -> showInlineTitle());
         binding.playerExternal.setOnClickListener(view -> showInlinePlayerChoice());
         binding.playerExternal.setOnLongClickListener(view -> showInlinePlayerChoice());
@@ -5340,6 +5341,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         boolean playParamsSelected = binding.playerPlayParams.isSelected();
         binding.playerPlayParams.setTextColor(playParamsSelected ? yellow : white);
 
+        // 弹幕按钮：根据弹幕启用状态设置颜色
+        boolean danmakuShow = DanmakuSetting.isShow();
+        binding.playerDanmaku.setTextColor(danmakuShow ? yellow : white);
+
         // 其他所有按钮：白色
         binding.playerNext.setTextColor(white);
         binding.playerPrev.setTextColor(white);
@@ -5361,7 +5366,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerVideoTrack.setTextColor(white);
         binding.playerOpening.setTextColor(white);
         binding.playerEnding.setTextColor(white);
-        // playerDanmakuToggle和playerDanmaku是ImageView，不设置textColor
+        // playerDanmakuToggle 是 ImageView，不设置 textColor
     }
 
     private void applyInlinePlayerButtonSettings() {
@@ -6214,6 +6219,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void toggleInlineDanmaku() {
         if (inlineControlController == null) return;
         inlineControlController.onDanmakuButton();
+    }
+
+    private boolean onPlayerDanmakuLongClick() {
+        if (service() == null || player().isEmpty() || !inlineControlController.hasDanmakuControl()) return false;
+        DanmakuSetting.putShow(!DanmakuSetting.isShow());
+        inlineControlController.applyDanmakuSetting();
+        updateInlineButtonColors();
+        Notify.show(DanmakuSetting.isShow() ? R.string.danmaku_show_on : R.string.danmaku_show_off);
+        return true;
     }
 
     private void toggleInlineRepeat() {
@@ -7845,8 +7859,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void ensureInlineDanmakuController() {
         if (service() == null || inlineControlController == null) return;
         player().setDanmakuController(binding.exo.getDanmakuController());
-        if (!Util.isMobile()) player().setDanmakuEnabled(true);
-        else inlineControlController.applyDanmakuSetting();
+        inlineControlController.applyDanmakuSetting();
     }
 
     @Override
