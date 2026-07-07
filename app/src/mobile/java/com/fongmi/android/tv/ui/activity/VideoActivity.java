@@ -1283,7 +1283,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         int minPlayerWidth = ResUtil.dp2px(TMDB_TABLET_PLAYER_MIN_WIDTH_DP);
         int maxPlayerWidth = ResUtil.dp2px(TMDB_TABLET_PLAYER_MAX_WIDTH_DP);
         int minSummaryWidth = ResUtil.dp2px(TMDB_TABLET_SUMMARY_MIN_WIDTH_DP);
-        int screenWidth = ResUtil.getScreenWidth(this);
+        int screenWidth = ResUtil.getScreenWidth(App.get());  // 使用 App.get() 获取实时屏幕宽度
         int available = screenWidth - side * 2 - gutter;
         if (available < minPlayerWidth + minSummaryWidth) {
             restoreDefaultVideoLayout();
@@ -1732,7 +1732,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         for (Episode item : items) maxLen = Math.max(maxLen, item.getDisplayName().length());
         if (maxLen >= 12) return PlayerSetting.getEpisodeColumn();
         int ideal = maxLen >= 10 ? 130 : maxLen >= 7 ? 104 : 80;
-        int width = mBinding.episode.getWidth() > 0 ? mBinding.episode.getWidth() : ResUtil.getScreenWidth(this) - ResUtil.dp2px(32);
+        int width = mBinding.episode.getWidth() > 0 ? mBinding.episode.getWidth() : ResUtil.getScreenWidth(App.get()) - ResUtil.dp2px(32);  // 使用 App.get() 获取实时屏幕宽度
         int span = width / ResUtil.dp2px(ideal);
         return Math.max(2, Math.min(getEpisodeSpanCount(), span));
     }
