@@ -208,6 +208,14 @@ public class PlayerManager implements ParseCallback {
         return spec != null ? spec.getDanmakus() : null;
     }
 
+    public Sub getSelectedSubtitleSub() {
+        return spec == null ? null : findSelectedSubtitleSub(spec.getSubs(), getCurrentTracks());
+    }
+
+    public List<Sub> getSubtitleSubs() {
+        return spec == null || spec.getSubs() == null ? Collections.emptyList() : spec.getSubs();
+    }
+
     public MediaMetadata getMetadata() {
         return spec != null ? spec.getMetadata() : null;
     }
@@ -371,7 +379,10 @@ public class PlayerManager implements ParseCallback {
     }
 
     private Format getSelectedFormat(int type) {
-        Tracks tracks = getCurrentTracks();
+        return getSelectedFormat(getCurrentTracks(), type);
+    }
+
+    static Format getSelectedFormat(Tracks tracks, int type) {
         if (tracks == null || tracks.isEmpty()) return null;
         for (Tracks.Group group : tracks.getGroups()) {
             if (group.getType() != type) continue;
@@ -380,6 +391,46 @@ public class PlayerManager implements ParseCallback {
             }
         }
         return null;
+    }
+
+    static Sub findSelectedSubtitleSub(List<Sub> subs, Tracks tracks) {
+        Sub selected = findSubtitleSub(subs, getSelectedFormat(tracks, C.TRACK_TYPE_TEXT));
+        if (selected != null || hasTrack(tracks, C.TRACK_TYPE_TEXT)) return selected;
+        return firstSubtitleSub(subs);
+    }
+
+    static Sub findSubtitleSub(List<Sub> subs, Format format) {
+        if (subs == null || format == null) return null;
+        Sub mimeLanguageMatch = null;
+        for (Sub sub : subs) {
+            if (sub == null) continue;
+            if (!TextUtils.isEmpty(format.label) && TextUtils.equals(format.label, sub.getName()) && mimeMatches(sub, format)) return sub;
+            if (TextUtils.isEmpty(format.label) && mimeMatches(sub, format) && languageMatches(sub, format)) {
+                if (mimeLanguageMatch != null) return null;
+                mimeLanguageMatch = sub;
+            }
+        }
+        return mimeLanguageMatch;
+    }
+
+    private static boolean hasTrack(Tracks tracks, int type) {
+        if (tracks == null || tracks.isEmpty()) return false;
+        for (Tracks.Group group : tracks.getGroups()) if (group.getType() == type && group.length > 0) return true;
+        return false;
+    }
+
+    private static Sub firstSubtitleSub(List<Sub> subs) {
+        if (subs == null) return null;
+        for (Sub sub : subs) if (sub != null && !TextUtils.isEmpty(sub.getUrl())) return sub;
+        return null;
+    }
+
+    private static boolean mimeMatches(Sub sub, Format format) {
+        return TextUtils.isEmpty(format.sampleMimeType) || TextUtils.isEmpty(sub.getFormat()) || TextUtils.equals(format.sampleMimeType, sub.getFormat());
+    }
+
+    private static boolean languageMatches(Sub sub, Format format) {
+        return TextUtils.isEmpty(format.language) || TextUtils.isEmpty(sub.getLang()) || TextUtils.equals(format.language, sub.getLang());
     }
 
     private static void append(StringBuilder builder, String name, String value) {
