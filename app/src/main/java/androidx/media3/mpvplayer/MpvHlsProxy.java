@@ -3,9 +3,11 @@ package androidx.media3.mpvplayer;
 import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
+import androidx.media3.exoplayer.hls.playlist.HlsAdsParser;
 
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.PreloadSetting;
+import com.fongmi.android.tv.setting.Setting;
 import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Path;
@@ -168,6 +170,7 @@ public final class MpvHlsProxy extends NanoHTTPD {
                 SpiderDebug.log(TAG, "invalid playlist session=%d code=%d bytes=%d url=%s", id, response.code(), text.length(), shortUrl(session.url));
                 return error(Status.BAD_REQUEST, "invalid playlist");
             }
+            text = applyAdblock(text, id, session.url);
             String rewritten = rewritePlaylist(response.request().url().toString(), text, id);
             byte[] data = rewritten.getBytes(StandardCharsets.UTF_8);
             SpiderDebug.log(TAG, "playlist session=%d code=%d bytes=%d rewritten=%d url=%s", id, response.code(), text.length(), data.length, shortUrl(session.url));
@@ -212,6 +215,7 @@ public final class MpvHlsProxy extends NanoHTTPD {
                     SpiderDebug.log(TAG, "invalid nested playlist id=%s code=%d bytes=%d url=%s", id, response.code(), text.length(), shortUrl(target.url));
                     return error(Status.BAD_REQUEST, "invalid playlist");
                 }
+                text = applyAdblock(text, target.sessionId, target.url);
                 String rewritten = rewritePlaylist(finalUrl, text, target.sessionId);
                 byte[] data = rewritten.getBytes(StandardCharsets.UTF_8);
                 SpiderDebug.log(TAG, "nested playlist id=%s code=%d bytes=%d url=%s", id, response.code(), data.length, shortUrl(target.url));
@@ -248,6 +252,20 @@ public final class MpvHlsProxy extends NanoHTTPD {
         if (identityEncoding) builder.header("Accept-Encoding", "identity");
         if (!TextUtils.isEmpty(range)) builder.header("Range", range);
         return client.newCall(builder.build()).execute();
+    }
+
+    private String applyAdblock(String text, int session, String url) {
+        if (!Setting.isAdblock() || !isVodPlaylist(text)) return text;
+        try {
+            String filtered = HlsAdsParser.process(text);
+            if (!TextUtils.equals(filtered, text)) {
+                SpiderDebug.log(TAG, "adblock filtered session=%d bytes=%d->%d url=%s", session, text.length(), filtered.length(), shortUrl(url));
+            }
+            return filtered;
+        } catch (Throwable e) {
+            SpiderDebug.log(TAG, "adblock ignored session=%d url=%s error=%s", session, shortUrl(url), e.getMessage());
+            return text;
+        }
     }
 
     private String rewritePlaylist(String playlistUrl, String text, int session) {
