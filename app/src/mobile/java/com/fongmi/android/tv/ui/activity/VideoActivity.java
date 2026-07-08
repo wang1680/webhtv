@@ -516,6 +516,26 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return Objects.toString(getIntent().getStringExtra("tmdb_vod_pic"), "");
     }
 
+    private String getTmdbVodYear() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_year"), "");
+    }
+
+    private String getTmdbVodArea() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_area"), "");
+    }
+
+    private String getTmdbVodType() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_type"), "");
+    }
+
+    private String getTmdbVodDirector() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_director"), "");
+    }
+
+    private String getTmdbVodActor() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_actor"), "");
+    }
+
     private String getWallPic() {
         return Objects.toString(getIntent().getStringExtra("wallPic"), "");
     }
@@ -2719,9 +2739,24 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.speed.setText(player().setSpeed(speed));
         mHistory.setSpeed(player().getSpeed());
         mHistory.setVodName(item.getName());
+        enrichHistoryMeta(item);
         PlaybackEventCollector.get().updateHistory(mHistory);
         setArtwork(getInitialArtwork(item));
         setScale(getScale());
+    }
+
+    /**
+     * 补齐历史记录的富集元数据（题材/地区/演员/主创/年份）。
+     * 炫彩详情模式优先用 TMDB extra，否则用源站 Vod。仅补空字段，新老记录统一走此路径。
+     */
+    private void enrichHistoryMeta(Vod item) {
+        if (mHistory == null || item == null) return;
+        String year = TextUtils.isEmpty(getTmdbVodYear()) ? item.getYear() : getTmdbVodYear();
+        String area = TextUtils.isEmpty(getTmdbVodArea()) ? item.getArea() : getTmdbVodArea();
+        String type = TextUtils.isEmpty(getTmdbVodType()) ? item.getTypeName() : getTmdbVodType();
+        String director = TextUtils.isEmpty(getTmdbVodDirector()) ? item.getDirector() : getTmdbVodDirector();
+        String actor = TextUtils.isEmpty(getTmdbVodActor()) ? item.getActor() : getTmdbVodActor();
+        mHistory.enrichMeta(type, area, actor, director, year);
     }
 
     private boolean shouldKeepPushArtwork() {
@@ -2956,6 +2991,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (id) mHistory.replace(getHistoryKey());
         if (name) mHistory.setVodName(item.getName());
         if (name) mBinding.name.setText(item.getName());
+        // 原生增强：TMDB 富集完成后回写题材/地区/演员/主创到 History（enrichVod 已填充 item，仅补空字段）
+        if (mHistory != null) {
+            mHistory.enrichMeta(item.getTypeName(), item.getArea(), item.getActor(), item.getDirector(), item.getYear());
+        }
         updateFlag(getFlag(), item.getFlags());
         mBinding.control.title.setText(getPlaybackControlTitle());
         if (pic) setArtwork(item.getPic());

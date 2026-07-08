@@ -1342,6 +1342,7 @@
     <string name="dialog_ai_prompt_config">AI prompt configuration</string>
     <string name="dialog_ai_recommend_prompt_label">Recommendation prompt</string>
     <string name="dialog_ai_title_extraction_prompt_label">Title extraction prompt</string>
+    <string name="dialog_ai_viewing_report_prompt_label">Viewing report prompt</string>
     <string name="dialog_ai_prompt_reset">Reset default</string>
     <string name="dialog_ai_test">Test configuration</string>
     <string name="dialog_ai_test_running">Testing AI configuration...</string>
@@ -1417,5 +1418,37 @@
     <string name="detail_image_previous">Previous</string>
     <string name="detail_image_next">Next</string>
     <string name="detail_image_close">Close</string>
+
+    <!-- Viewing Report -->
+    <string name="menu_viewing_report">Viewing Report</string>
+    <string name="viewing_report_title">🎬 Your Viewing Report</string>
+    <string name="viewing_report_select_range">Select Report Range</string>
+    <string name="viewing_report_generate">Generate Report</string>
+    <string name="viewing_report_refresh">Refresh</string>
+    <string name="viewing_report_refreshing">Refreshing report...</string>
+    <string name="viewing_report_loading_local">Loading cached report...</string>
+    <string name="viewing_report_generating">Generating report...</string>
+    <string name="viewing_report_ai_analyzing">AI analyzing...</string>
+    <string name="viewing_report_empty">No viewing records in this time range</string>
+    <string name="viewing_report_unit_hours">hours</string>
+    <string name="viewing_report_unit_vods">titles</string>
+    <string name="viewing_report_unit_episodes">episodes</string>
+    <string name="viewing_report_unit_minutes">minutes</string>
+    <string name="viewing_report_unit_times">times</string>
+    <string name="viewing_report_watched">Watched</string>
+    <string name="viewing_report_completion_rate">Completion Rate</string>
+    <string name="viewing_report_overview_watch">Total Watch Time</string>
+    <string name="viewing_report_time_pattern">⏰ Time Pattern</string>
+    <string name="viewing_report_top_time_slot">Favorite Time</string>
+    <string name="viewing_report_weekend_ratio">Weekend Ratio</string>
+    <string name="viewing_report_avg_watch">Avg. Session</string>
+    <string name="viewing_report_late_night">Late Night</string>
+    <string name="viewing_report_content_preference">🎭 Content Preference</string>
+    <string name="viewing_report_tv_movie_ratio">TV / Movie</string>
+    <string name="viewing_report_people_preference">👤 People Preference</string>
+    <string name="viewing_report_top_actors">Top Actors</string>
+    <string name="viewing_report_top_directors">Top Directors</string>
+    <string name="viewing_report_ai_persona">✨ Your Viewing Persona</string>
+    <string name="viewing_report_badges">🏆 Achievements</string>
 
 </resources>

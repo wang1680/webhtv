@@ -1325,6 +1325,7 @@
     <string name="dialog_ai_prompt_config">AI 提示词配置</string>
     <string name="dialog_ai_recommend_prompt_label">推荐提示词</string>
     <string name="dialog_ai_title_extraction_prompt_label">名称提取提示词</string>
+    <string name="dialog_ai_viewing_report_prompt_label">观影报告提示词</string>
     <string name="dialog_ai_prompt_reset">重置默认</string>
     <string name="dialog_ai_test">测试配置</string>
     <string name="dialog_ai_test_running">正在测试 AI 配置...</string>
@@ -1400,5 +1401,35 @@
     <string name="detail_image_previous">上一张</string>
     <string name="detail_image_next">下一张</string>
     <string name="detail_image_close">关闭</string>
+
+    <string name="menu_viewing_report">观影报告</string>
+    <string name="viewing_report_title">观影报告</string>
+    <string name="viewing_report_select_range">选择报告时间范围</string>
+    <string name="viewing_report_generate">生成报告</string>
+    <string name="viewing_report_refresh">刷新</string>
+    <string name="viewing_report_loading_local">正在读取观看记录…</string>
+    <string name="viewing_report_generating">正在生成报告…</string>
+    <string name="viewing_report_ai_analyzing">AI 正在分析你的观影画像…</string>
+    <string name="viewing_report_empty">该时间段暂无观看记录</string>
+    <string name="viewing_report_overview_watch">累计观影</string>
+    <string name="viewing_report_ai_persona">AI 观影画像</string>
+    <string name="viewing_report_time_pattern">观影时间分布</string>
+    <string name="viewing_report_content_preference">内容偏好</string>
+    <string name="viewing_report_people_preference">人物偏好</string>
+    <string name="viewing_report_badges">成就徽章</string>
+    <string name="viewing_report_watched">观看了</string>
+    <string name="viewing_report_completion_rate">完播率</string>
+    <string name="viewing_report_top_time_slot">最常观影时段</string>
+    <string name="viewing_report_weekend_ratio">周末观影占比</string>
+    <string name="viewing_report_avg_watch">平均单次观看</string>
+    <string name="viewing_report_late_night">深夜观影次数</string>
+    <string name="viewing_report_tv_movie_ratio">剧集 / 电影占比</string>
+    <string name="viewing_report_top_actors">最爱演员</string>
+    <string name="viewing_report_top_directors">最爱导演</string>
+    <string name="viewing_report_unit_hours">小时</string>
+    <string name="viewing_report_unit_vods">部</string>
+    <string name="viewing_report_unit_episodes">集</string>
+    <string name="viewing_report_unit_minutes">分钟</string>
+    <string name="viewing_report_unit_times">次</string>
 
 </resources>

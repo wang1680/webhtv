@@ -8371,6 +8371,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         history.setEpisodeUrl(item.getUrl());
         history.setVodPic(playbackHistoryPic());
         history.setSpeed(normalizeInlineSpeed(history.getSpeed()));
+        // 富集字段：TMDB 优先，回退源站 Vod。仅补空字段，避免匹配失败时用空值覆盖已有数据（老记录也可补齐）
+        history.enrichMeta(
+                coalesce(firstGenre(), vod == null ? "" : vod.getTypeName()),
+                coalesce(firstCountry(), vod == null ? "" : vod.getArea()),
+                coalesce(castNames(), vod == null ? "" : vod.getActor()),
+                coalesce(firstCrew("Director"), vod == null ? "" : vod.getDirector()),
+                yearLabel());
         syncDanmakuCompatHistory();
     }
 
