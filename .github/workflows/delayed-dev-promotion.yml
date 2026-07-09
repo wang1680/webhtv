@@ -1,0 +1,153 @@
+name: Delayed Dev Promotion
+
+# Git does not retain per-commit remote push timestamps. This workflow promotes
+# the newest first-parent dev commit whose commit timestamp is older than the delay.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      delay_hours:
+        description: "Hours a dev commit must age before it is promoted"
+        required: false
+        default: "24"
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: delayed-dev-promotion
+  cancel-in-progress: false
+
+env:
+  TZ: Asia/Shanghai
+  SOURCE_BRANCH: dev
+  TARGET_BRANCH: main
+  PROMOTION_BRANCH: promote/dev-delayed
+  DEFAULT_DELAY_HOURS: "24"
+
+jobs:
+  promote:
+    name: Open delayed promotion PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare promotion branch
+        id: promote
+        env:
+          DELAY_HOURS_INPUT: ${{ github.event.inputs.delay_hours }}
+        run: |
+          set -euo pipefail
+
+          delay_hours="${DELAY_HOURS_INPUT:-$DEFAULT_DELAY_HOURS}"
+          if ! printf '%s' "$delay_hours" | grep -Eq '^[0-9]+$'; then
+            echo "::error title=Invalid delay_hours::Expected a positive integer, got: $delay_hours"
+            exit 1
+          fi
+          if [ "$delay_hours" -lt 1 ]; then
+            echo "::error title=Invalid delay_hours::Expected delay_hours to be at least 1."
+            exit 1
+          fi
+
+          git fetch origin \
+            "+refs/heads/${SOURCE_BRANCH}:refs/remotes/origin/${SOURCE_BRANCH}" \
+            "+refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"
+          git fetch origin "+refs/heads/${PROMOTION_BRANCH}:refs/remotes/origin/${PROMOTION_BRANCH}" || true
+
+          cutoff="$(date -u -d "${delay_hours} hours ago" +'%Y-%m-%dT%H:%M:%SZ')"
+          eligible="$(git rev-list --first-parent -n 1 --before="$cutoff" "origin/${SOURCE_BRANCH}" || true)"
+
+          if [ -z "$eligible" ]; then
+            echo "No ${SOURCE_BRANCH} commit is older than ${delay_hours} hours."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          short="$(git rev-parse --short=12 "$eligible")"
+          subject="$(git log -1 --format=%s "$eligible")"
+          echo "Eligible ${SOURCE_BRANCH} commit: ${short} ${subject}"
+          echo "Cutoff (UTC): ${cutoff}"
+
+          if git merge-base --is-ancestor "$eligible" "origin/${TARGET_BRANCH}"; then
+            echo "${short} is already reachable from ${TARGET_BRANCH}."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$PROMOTION_BRANCH" "origin/${TARGET_BRANCH}"
+
+          if ! git merge --no-ff --no-edit "$eligible"; then
+            echo "::error title=Promotion merge conflict::${SOURCE_BRANCH}@${short} cannot be merged into ${TARGET_BRANCH} cleanly."
+            exit 1
+          fi
+
+          if git diff --quiet "origin/${TARGET_BRANCH}" "$PROMOTION_BRANCH"; then
+            echo "${short} has no file changes relative to ${TARGET_BRANCH}."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git push --force-with-lease origin "HEAD:refs/heads/${PROMOTION_BRANCH}"
+
+          {
+            echo "has_changes=true"
+            echo "delay_hours=$delay_hours"
+            echo "cutoff=$cutoff"
+            echo "eligible=$eligible"
+            echo "short=$short"
+            echo "subject=$subject"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update pull request
+        if: steps.promote.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DELAY_HOURS: ${{ steps.promote.outputs.delay_hours }}
+          CUTOFF: ${{ steps.promote.outputs.cutoff }}
+          ELIGIBLE: ${{ steps.promote.outputs.eligible }}
+          ELIGIBLE_SHORT: ${{ steps.promote.outputs.short }}
+          ELIGIBLE_SUBJECT: ${{ steps.promote.outputs.subject }}
+        run: |
+          set -euo pipefail
+
+          title="Promote ${SOURCE_BRANCH} to ${TARGET_BRANCH} after ${DELAY_HOURS}h delay"
+          body_file="$RUNNER_TEMP/delayed-dev-promotion.md"
+          cat > "$body_file" <<EOF
+          Automated delayed promotion from \`${SOURCE_BRANCH}\` to \`${TARGET_BRANCH}\`.
+
+          - Delay: ${DELAY_HOURS} hours
+          - Cutoff (UTC): ${CUTOFF}
+          - Eligible commit: \`${ELIGIBLE_SHORT}\` ${ELIGIBLE_SUBJECT}
+          - Full SHA: \`${ELIGIBLE}\`
+
+          This PR contains the ${SOURCE_BRANCH} history reachable from the eligible commit. Newer ${SOURCE_BRANCH} commits stay out until they age past the delay.
+          EOF
+
+          pr_number="$(gh pr list \
+            --base "$TARGET_BRANCH" \
+            --head "$PROMOTION_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // ""')"
+
+          if [ -n "$pr_number" ]; then
+            gh pr edit "$pr_number" --title "$title" --body-file "$body_file"
+            echo "Updated PR #${pr_number}."
+          else
+            gh pr create \
+              --base "$TARGET_BRANCH" \
+              --head "$PROMOTION_BRANCH" \
+              --title "$title" \
+              --body-file "$body_file"
+          fi
