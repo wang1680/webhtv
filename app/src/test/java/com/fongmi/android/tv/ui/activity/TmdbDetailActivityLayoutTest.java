@@ -648,7 +648,8 @@ public class TmdbDetailActivityLayoutTest {
         assertTrue("compact immersive/cinema title area must share the row with the poster instead of occupying full width",
                 body.contains("new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)")
                         && body.contains("infoParams.setMarginStart(compact ? ResUtil.dp2px(14) : 0);")
-                        && body.contains("if (compact) TmdbDetailLayoutUtils.setWidthMatch(binding.detailActions);"));
+                        && body.contains("if (compact)")
+                        && containsMethodCallIgnoringReceiver(body, "setWidthMatch(binding.detailActions)"));
     }
 
     @Test
@@ -1890,5 +1891,35 @@ public class TmdbDetailActivityLayoutTest {
         int tagEnd = layout.indexOf("/>", idIndex);
         if (tagEnd < 0) tagEnd = layout.indexOf(">", idIndex);
         return tagEnd > idIndex && layout.substring(idIndex, tagEnd).contains(attribute);
+    }
+
+    /**
+     * 检查源码中是否包含方法调用,忽略接收者前缀(this. / TmdbDetailLayoutUtils. / 等)
+     *
+     * 让文本断言只关心"做了什么"(结果),不关心"怎么调用的"(实现细节)。
+     * 例如: containsMethodCallIgnoringReceiver(body, "setWidthMatch(binding.detailActions)")
+     * 会匹配:
+     *   - setWidthMatch(binding.detailActions)
+     *   - this.setWidthMatch(binding.detailActions)
+     *   - TmdbDetailLayoutUtils.setWidthMatch(binding.detailActions)
+     *
+     * 方案 1 核心:让重构搬方法时,只要行为不变,测试就不误伤。
+     */
+    private static boolean containsMethodCallIgnoringReceiver(String source, String methodCallWithArgs) {
+        // 从输入里剥掉接收者前缀,只保留 "方法名(参数...)"。
+        // 例如输入 "TmdbDetailLayoutUtils.setWidthMatch(binding.detailActions)"
+        // 或 "this.setWidthMatch(binding.detailActions)" 都归一化成
+        // "setWidthMatch(binding.detailActions)"。
+        int openParen = methodCallWithArgs.indexOf('(');
+        if (openParen < 0) return false;
+
+        String receiverAndName = methodCallWithArgs.substring(0, openParen);
+        String argsAndRest = methodCallWithArgs.substring(openParen);
+        int lastDot = receiverAndName.lastIndexOf('.');
+        String methodName = lastDot < 0 ? receiverAndName : receiverAndName.substring(lastDot + 1);
+
+        // 源码侧的接收者(this. / ClassName.)只是方法名前面的前缀,
+        // 子串匹配 "methodName(args)" 天然忽略它 —— 无需正则、无需截断。
+        return source.contains(methodName + argsAndRest);
     }
 }
