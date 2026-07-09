@@ -40,6 +40,7 @@ import com.fongmi.android.tv.player.lut.LutPreset;
 import com.fongmi.android.tv.player.lut.LutSetting;
 import com.fongmi.android.tv.player.lut.LutStore;
 import com.fongmi.android.tv.setting.DanmakuSetting;
+import com.fongmi.android.tv.setting.SiteHealthStore;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.utils.LocalProxyDebug;
 import com.fongmi.android.tv.utils.Notify;
@@ -92,6 +93,7 @@ public class PlayerManager implements ParseCallback {
     private boolean realtimeFallbackTried;
     private boolean videoEffectsActive;
     private boolean videoEffectsDirty;
+    private boolean parseHealthRecorded;
     private boolean lutAppliedForItem;
     private boolean lutApplyInProgress;
     private boolean lutPipelineReadyForItem;
@@ -110,6 +112,7 @@ public class PlayerManager implements ParseCallback {
     private int localProxyRetry;
     private int prepareSeq;
     private int lutApplySeq;
+    private long parseHealthStartedAt;
     private boolean[] playerFallbackTried;
     private int lutWarmupRecoveredErrors;
 
@@ -618,6 +621,8 @@ public class PlayerManager implements ParseCallback {
         lutApplyInProgress = false;
         lutPipelineReadyForItem = false;
         lutPipelinePrepareInProgress = false;
+        parseHealthRecorded = false;
+        parseHealthStartedAt = 0;
         pendingLutPreview = false;
         waitingLutBeforePlay = false;
         clearLutWarmupRecovery();
@@ -760,6 +765,8 @@ public class PlayerManager implements ParseCallback {
         realtimeFallbackTried = false;
         manualPlayerSwitchPending = false;
         localProxyRetry = 0;
+        parseHealthStartedAt = System.currentTimeMillis();
+        parseHealthRecorded = false;
         resetPlayerFallback();
         hardDecodeSwitchRetryArmed = false;
         clearDanmakuState();
@@ -1282,6 +1289,7 @@ public class PlayerManager implements ParseCallback {
     public void onParseSuccess(Map<String, String> headers, String url, String from) {
         if (!TextUtils.isEmpty(from)) Notify.show(ResUtil.getString(R.string.parse_from, from));
         if (SpiderDebug.isEnabled()) SpiderDebug.log("player", "parseSuccess from=%s url=%s headers=%s", from, summarizeUrl(url), headers == null ? 0 : headers.size());
+        recordParseHealth(true, "");
         if (headers != null) headers.remove(HttpHeaders.RANGE);
         if (spec != null) spec.setHeaders(headers);
         if (spec != null) spec.setUrl(url);
@@ -1290,7 +1298,15 @@ public class PlayerManager implements ParseCallback {
 
     @Override
     public void onParseError() {
+        recordParseHealth(false, ResUtil.getString(R.string.error_play_parse));
         callback.onError(ResUtil.getString(R.string.error_play_parse));
+    }
+
+    private void recordParseHealth(boolean success, String error) {
+        if (parseHealthRecorded || spec == null) return;
+        parseHealthRecorded = true;
+        long cost = parseHealthStartedAt <= 0 ? 0 : System.currentTimeMillis() - parseHealthStartedAt;
+        SiteHealthStore.recordParse(spec.getKey(), success, cost, error);
     }
 
     private String debugSpec() {
