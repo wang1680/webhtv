@@ -22,7 +22,7 @@ WebHomeTV 是基于 [FongMi](https://github.com/FongMi/TV) / CatVod 生态二次
 
 ## 效果演示
 
-https://github.com/user-attachments/assets/7249b787-a720-406c-8365-acaa0995cb6a
+https://github.com/user-attachments/assets/984c274f-8a9b-4857-b641-d251e061f5cc
 
 演示视频对应的站点配置(Nostr/TMDB 推荐首页):
 
@@ -261,12 +261,13 @@ PanSou 搜索结果可能是异步补充的,示例页会轮询合并新增结果
 
 ## 构建
 
-本节按“新机器 clone 后直接复制命令打包”为目标维护。当前分支使用较新的 Android/Gradle/Media3 组合，环境不满足时最常见的失败点是 JDK、Android SDK 37 和依赖下载网络。
+本节按“新机器 clone 后直接复制命令打包”为目标维护。当前分支使用较新的 Android/Gradle/Media3/MPV native 组合，环境不满足时最常见的失败点是 JDK、Android SDK 37、NDK 和依赖下载网络。
 
 ### 环境要求
 
 - JDK 21。不要使用 JDK 17；当前 `sourceCompatibility` / `targetCompatibility` 均为 Java 21。
 - Android SDK Platform 37 和 Build Tools 37.0.0。当前 `compileSdk=37`、`minSdk=24`、`targetSdk=28`。
+- Android NDK 28.2.13676358。普通 Gradle 打包会直接使用仓库内置 `libplayer.so`，不需要每次重编 MPV JNI；修改 `third_party/mpv-player-jni` 或 MPV native 头文件后必须安装该 NDK 并运行重建脚本。
 - 使用仓库内置 Gradle Wrapper：Gradle 9.5.1，Android Gradle Plugin 9.2.1。
 - 能访问 Maven Central、Google Maven、Gradle Plugin Portal 和 JitPack。仓库内已带定制 Media3、nextlib 和本地 AAR，但普通 Android 依赖仍需要联网下载。
 
@@ -287,36 +288,48 @@ export all_proxy=socks5://127.0.0.1:7897
 
 ### 从零 clone 到打包
 
-安装或确认 Android SDK 后，确保根目录有 `local.properties`。Android Studio 打开项目时通常会自动生成；命令行构建可手动创建。macOS 默认路径示例：
+先安装或确认 Android SDK。Android Studio 打开项目时通常会自动生成 `local.properties`；命令行构建需要进入仓库根目录后手动创建。macOS 默认 SDK 路径示例：
 
 ```bash
 export ANDROID_HOME="$HOME/Library/Android/sdk"
-printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
 ```
 
 Linux 常见路径是 `$HOME/Android/Sdk`，Windows 使用 Android Studio 打开项目或创建 `local.properties`，内容类似 `sdk.dir=C\:\\Users\\你的用户名\\AppData\\Local\\Android\\Sdk`。
 
-如 SDK 未安装 API 37，可用 Android Studio SDK Manager 安装，或使用命令行工具：
+如 SDK 未安装 API 37/Build Tools/NDK，可用 Android Studio SDK Manager 安装，或使用命令行工具：
 
 ```bash
-"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
+"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+  "platform-tools" \
+  "platforms;android-37" \
+  "build-tools;37.0.0" \
+  "ndk;28.2.13676358"
+yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
 ```
 
-clone 当前要构建的分支后直接打 debug 包：
+clone 仓库后直接打 debug 包：
 
 ```bash
-git clone -b upgrade/media3-1.11-fongmi-20260705 https://github.com/fish2018/webhtv.git
+git clone https://github.com/fish2018/webhtv.git
 cd webhtv
+printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
 bash gradlew :app:assembleMobileArm64_v8aDebug :app:assembleLeanbackArmeabi_v7aDebug :app:assembleLeanbackArm64_v8aDebug
 ```
 
-如果构建主线发布分支，把 `-b upgrade/media3-1.11-fongmi-20260705` 换成对应分支，例如 `webhtv-latest-target28` 或 `webhtv-latest-target37`。
-
-已 clone 仓库切换分支：
+如果构建指定开发分支，在 clone 后切换到对应分支再打包：
 
 ```bash
 git fetch origin
-git switch upgrade/media3-1.11-fongmi-20260705
+git switch feature/android-mpv-player
+bash gradlew clean
+bash gradlew :app:assembleMobileArm64_v8aDebug
+```
+
+已 clone 仓库更新当前分支：
+
+```bash
+git fetch origin
+git pull --ff-only
 bash gradlew clean
 ```
 
@@ -344,6 +357,32 @@ bash gradlew :app:assembleLeanbackArmeabi_v7aRelease
 
 ```bash
 bash gradlew :app:assembleMobileArm64_v8aDebug :app:assembleLeanbackArmeabi_v7aDebug :app:assembleLeanbackArm64_v8aDebug
+```
+
+### MPV native/JNI 重建
+
+普通打包不需要执行本节命令，Gradle 会把仓库内已提交的 MPV assets 和 `libplayer.so` 打进 APK。只有修改以下内容时才需要先重建 MPV JNI：
+
+- `third_party/mpv-player-jni/src/**`
+- `third_party/mpv-player-jni/include/mpv/client.h`
+- `app/src/arm64_v8a/assets/mpv-libs/arm64-v8a/` 或 `app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a/` 里的 MPV 相关 `.so`
+
+当前 `libmpv.so`/FFmpeg assets 已使用启用 Vulkan 的 Android 构建；`libplayer.so` 仍由本仓库 `third_party/mpv-player-jni` 构建，用于保留 END_FILE reason/error 等本地桥接能力。替换外部 MPV native 包时，必须继续把 FFmpeg 依赖名从 `libav*`/`libsw*` 等长改为 `libmv*`/`libmw*`，否则会和 `nextlib-media3ext` 内置 FFmpeg 发生 Android linker 复用冲突。
+
+重建命令：
+
+```bash
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
+scripts/build_mpv_player_jni.sh
+bash gradlew :app:assembleMobileArm64_v8aDebug
+```
+
+脚本会替换：
+
+```text
+app/src/arm64_v8a/assets/mpv-libs/arm64-v8a/libplayer.so
+app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a/libplayer.so
 ```
 
 ### APK 输出路径
@@ -412,6 +451,8 @@ keyPassword=your_key_password
 - `app/libs/*.aar`:内置 Hook、TVBus、Thunder、ForceTech、JianPian 播放能力依赖。
 - `third_party/maven`:已生成的 `androidx.media3:*:1.11.0-alpha01-fongmi` 本地 Maven 产物，以及定制 `nextlib-media3ext`。
 - `third_party/media-lock.json`:记录 Media3 锁定版本,升级 Media3 时使用(配套脚本 `scripts/build_media_deps.sh`)。
+- `third_party/mpv-player-jni`:MPV `libplayer.so` JNI 桥接源码，修改后用 `scripts/build_mpv_player_jni.sh` 重建。
+- `app/src/*/assets/mpv-libs/*`:随 APK 打包的 MPV native 库和 JNI 桥接库。
 - `nextlib-media3ext`:`io.github.anilbeesetti:nextlib-media3ext:1.10.0-0.12.1-fongmi-softload`,提供 FFmpeg renderer。
 
 `settings.gradle` 中的依赖顺序是仓库本地 `third_party/maven`、Maven Central、Google Maven、`app/libs` 和 JitPack。`app/build.gradle` 会强制所有 `androidx.media3` 依赖使用 `1.11.0-alpha01-fongmi`，避免传递依赖拉回官方版本。
@@ -421,6 +462,9 @@ keyPassword=your_key_password
 - `Unsupported class file major version`、`invalid source release: 21`：当前终端没有使用 JDK 21。
 - `SDK location not found`：缺少 `local.properties`，或 `sdk.dir` 指向错误。
 - `failed to find target with hash string 'android-37'`：未安装 Android SDK Platform 37。
+- `NDK clang++ not found under .../ndk/28.2.13676358`：未安装 NDK 28.2.13676358，或 `ANDROID_NDK_HOME` 指向错误。
+- `Missing MPV asset directory`：MPV assets 缺失或 ABI 目录名不匹配，确认 `app/src/arm64_v8a/assets/mpv-libs/arm64-v8a` 和 `app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a` 存在。
+- 运行后提示 `dlopen failed`、`libplayer.so` 或 `libmpv.so` 相关错误：先确认 MPV `.so` 是否随对应 ABI 打包；如果改过 JNI 或 MPV native 库，重新执行 `scripts/build_mpv_player_jni.sh` 后再打包。
 - `Could not resolve ...`：依赖下载失败，检查网络或设置代理后重新执行 Gradle。
 - `Permission denied: ./gradlew`：本仓库文档统一使用 `bash gradlew`，不依赖可执行位。
 
@@ -432,8 +476,8 @@ catvod/       CatVod 抽象层、Spider 接口、网络和代理工具
 quickjs/      JavaScript Spider 运行时
 chaquo/       Python Spider 运行时
 webhome-devkit/ WebHome 开发套件(文档、主页/扩展示例、模板、AI skills)
-scripts/      Media3 本地依赖构建脚本
-third_party/  Media3 本地 Maven 产物和版本锁定文件
+scripts/      Media3 和 MPV JNI 本地依赖构建脚本
+third_party/  Media3 本地 Maven、nextlib 源码、MPV JNI 源码和版本锁定文件
 Release/      release 构建的 APK 输出
 other/        Logo 图片和辅助工具
 ```
