@@ -317,6 +317,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected boolean customWall() {
+        return true;
+    }
+
+    @Override
+    protected boolean customWallMotion() {
         return false;
     }
 
