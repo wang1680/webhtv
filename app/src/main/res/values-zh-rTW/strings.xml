@@ -1322,6 +1322,7 @@
     <string name="dialog_ai_recommend_prompt_label">推薦提示詞</string>
     <string name="dialog_ai_title_extraction_prompt_label">名稱提取提示詞</string>
     <string name="dialog_ai_viewing_report_prompt_label">觀影報告提示詞</string>
+    <string name="dialog_ai_ad_detection_prompt_label">廣告偵測提示詞</string>
     <string name="dialog_ai_prompt_reset">重置預設</string>
     <string name="dialog_ai_test">測試配置</string>
     <string name="dialog_ai_test_running">正在測試 AI 配置...</string>

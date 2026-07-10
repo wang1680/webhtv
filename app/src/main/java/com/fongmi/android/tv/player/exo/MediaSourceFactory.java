@@ -199,7 +199,7 @@ public class MediaSourceFactory implements MediaSource.Factory {
         return isHlsUrl(url);
     }
 
-    static boolean isHlsUrl(String url) {
+    public static boolean isHlsUrl(String url) {
         String lower = url == null ? "" : url.toLowerCase(Locale.ROOT);
         if (lower.contains("m3u8") || lower.contains("type=hls") || lower.contains("format=hls")) return true;
         String path = getUrlPath(lower);

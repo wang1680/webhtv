@@ -45,7 +45,11 @@ import com.fongmi.android.tv.Constant;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.DanmakuApi;
 import com.fongmi.android.tv.api.SiteApi;
+import com.fongmi.android.tv.api.config.AdBlockStatsStore;
 import com.fongmi.android.tv.api.config.VodConfig;
+import com.fongmi.android.tv.bean.AdDetectionRequest;
+import com.fongmi.android.tv.bean.AdDetectionResult;
+import com.fongmi.android.tv.bean.AiConfig;
 import com.fongmi.android.tv.bean.Danmaku;
 import com.fongmi.android.tv.bean.Episode;
 import com.fongmi.android.tv.bean.EpisodePositionCache;
@@ -59,6 +63,7 @@ import com.fongmi.android.tv.bean.Sub;
 import com.fongmi.android.tv.bean.TmdbItem;
 import com.fongmi.android.tv.bean.TmdbEpisode;
 import com.fongmi.android.tv.bean.Track;
+import com.fongmi.android.tv.bean.UserAdRule;
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.databinding.ActivityVideoBinding;
 import com.fongmi.android.tv.db.AppDatabase;
@@ -73,6 +78,7 @@ import com.fongmi.android.tv.player.PlayerHelper;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.player.lut.LutPreset;
 import com.fongmi.android.tv.player.lut.LutStore;
+import com.fongmi.android.tv.service.AiAdDetectionService;
 import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.service.IntroSkipService;
 import com.fongmi.android.tv.service.PersonalRecommendationService;
@@ -100,6 +106,7 @@ import com.fongmi.android.tv.ui.custom.PlayerOsdController;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.ui.dialog.CodecCapabilityDialog;
 import com.fongmi.android.tv.ui.dialog.ContentDialog;
+import com.fongmi.android.tv.ui.dialog.AdRuleEditDialog;
 import com.fongmi.android.tv.ui.dialog.DanmakuDialog;
 import com.fongmi.android.tv.ui.dialog.EpisodeListDialog;
 import com.fongmi.android.tv.ui.dialog.QuickSearchDialog;
@@ -204,6 +211,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private boolean mTmdbDetailRevealed;
     private boolean mTmdbDetailFieldsApplied;
     private int mPersonalRecommendationGeneration;
+    private int mAdFeedbackGeneration;
 
     // TMDB 模式相关字段
     private com.fongmi.android.tv.ui.helper.TmdbUIAdapter mTmdbUIAdapter;
@@ -819,6 +827,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.control.action.fullscreen.setOnClickListener(view -> onFullscreen());
         mBinding.control.action.danmaku.setOnClickListener(view -> onDanmaku());
         mBinding.control.action.danmaku.setOnLongClickListener(view -> onDanmakuToggle());
+        mBinding.control.action.adFeedback.setOnClickListener(view -> onAdFeedback());
         mBinding.control.action.opening.setOnClickListener(view -> onOpening());
         mBinding.shortDisplay.setOnClickListener(view -> onShortDisplay());
         mBinding.control.action.speed.setOnLongClickListener(view -> onSpeedLong());
@@ -934,6 +943,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void setVideoView() {
         mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
+        mBinding.control.action.adFeedback.setVisibility(isAdFeedbackEnabled() ? View.VISIBLE : View.GONE);
         applyDanmakuState();
         mBinding.control.action.reset.setText(ResUtil.getStringArray(R.array.select_reset)[Setting.getReset()]);
         setupActionButtons();
@@ -2595,6 +2605,105 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         hideControl();
     }
 
+    private void onAdFeedback() {
+        if (player() == null || TextUtils.isEmpty(player().getUrl())) {
+            Notify.show(R.string.ad_feedback_no_url);
+            return;
+        }
+        if (!isAdFeedbackEnabled()) {
+            Notify.show(R.string.ad_feedback_ai_disabled);
+            return;
+        }
+        hideControl();
+        submitAdFeedback();
+    }
+
+    private boolean isAdFeedbackEnabled() {
+        // 功能开关 + 仅支持解析的格式(HLS/m3u8)才可反馈,因为去广分析依赖切片列表
+        return Setting.isAiConfigReady() && Setting.isAdblock() && Setting.isAiAdDetection() && isAdFeedbackSupportedFormat();
+    }
+
+    private boolean isAdFeedbackSupportedFormat() {
+        if (player() == null) return false;
+        String url = player().getUrl();
+        if (TextUtils.isEmpty(url)) return false;
+        return com.fongmi.android.tv.player.exo.MediaSourceFactory.isHlsUrl(url);
+    }
+
+    private void setAdFeedbackVisible() {
+        mBinding.control.action.adFeedback.setVisibility(isAdFeedbackEnabled() ? View.VISIBLE : View.GONE);
+    }
+
+    private void submitAdFeedback() {
+        AdDetectionRequest request = buildAdDetectionRequest();
+        if (request == null) {
+            Notify.show(R.string.ad_feedback_no_url);
+            return;
+        }
+        // 记录 AI 反馈统计
+        AdBlockStatsStore.recordFeedback(request.getSiteKey());
+
+        Notify.show(R.string.ad_feedback_analyzing);
+        int generation = ++mAdFeedbackGeneration;
+        AiConfig config = AiConfig.objectFrom(Setting.getAiConfig());
+        Task.execute(() -> {
+            enrichRequestWithM3u8Evidence(request);
+            AdDetectionResult result = new AiAdDetectionService(config).analyze(request);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed() || generation != mAdFeedbackGeneration) return;
+                onAdDetectionResult(request, result);
+            });
+        });
+    }
+
+    private AdDetectionRequest buildAdDetectionRequest() {
+        if (player() == null || TextUtils.isEmpty(player().getUrl())) return null;
+        String url = player().getUrl();
+        Uri uri = Uri.parse(url);
+        AdDetectionRequest request = new AdDetectionRequest();
+        Site site = getSite();
+        request.setSiteKey(site == null ? getKey() : site.getKey());
+        request.setSiteName(site == null ? "" : site.getName());
+        request.setVodName(mHistory == null ? getName() : mHistory.getVodName());
+        request.setFlagName(getFlag() == null ? "" : getFlag().getFlag());
+        request.setEpisodeName(getEpisode() == null ? "" : getEpisode().getName());
+        request.setUrlHost(uri.getHost());
+        request.setUrlPath(uri.getPath());
+        return request;
+    }
+
+    private void enrichRequestWithM3u8Evidence(AdDetectionRequest request) {
+        if (player() == null || TextUtils.isEmpty(player().getUrl())) return;
+        String url = player().getUrl();
+        if (!url.contains(".m3u8")) return;
+        try {
+            java.util.Map<String, String> headers = player().getHeaders();
+            com.fongmi.android.tv.bean.M3u8Evidence evidence = com.fongmi.android.tv.utils.M3u8Parser.parse(url, headers);
+            request.setEvidence(evidence);
+        } catch (Exception e) {
+            // Ignore parsing failures
+        }
+    }
+
+    private void onAdDetectionResult(AdDetectionRequest request, AdDetectionResult result) {
+        // 记录 AI 分析结果统计
+        AdBlockStatsStore.recordAiAnalysis(result != null && !result.isError());
+
+        if (result == null || result.isError()) {
+            Notify.show(result == null ? getString(R.string.ad_feedback_failed) : result.getErrorMessage());
+            return;
+        }
+        if (result.isEmpty()) {
+            Notify.show(R.string.ad_feedback_no_ad);
+            return;
+        }
+        com.fongmi.android.tv.ui.dialog.AdRulePreviewDialog.create(result).show(this, confirmedResult -> {
+            UserAdRule rule = UserAdRule.fromAiResult(confirmedResult, request.getSiteKey());
+            com.fongmi.android.tv.api.config.UserAdRuleStore.add(rule);
+            Notify.show(R.string.ad_feedback_saved);
+        });
+    }
+
     private boolean onDanmakuToggle() {
         DanmakuSetting.putShow(!DanmakuSetting.isShow());
         applyDanmakuState();
@@ -3180,6 +3289,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                 applyShortDramaMode();
                 requestIntroSkipPlan();
                 applyAutoIntroSkip();
+                setAdFeedbackVisible(); // 播放地址确定后按格式刷新"有广告"按钮
                 break;
             case Player.STATE_ENDED:
                 checkEnded(true);

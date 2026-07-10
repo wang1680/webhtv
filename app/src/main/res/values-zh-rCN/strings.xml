@@ -1400,6 +1400,7 @@
     <string name="dialog_ai_recommend_prompt_label">推荐提示词</string>
     <string name="dialog_ai_title_extraction_prompt_label">名称提取提示词</string>
     <string name="dialog_ai_viewing_report_prompt_label">观影报告提示词</string>
+    <string name="dialog_ai_ad_detection_prompt_label">广告检测提示词</string>
     <string name="dialog_ai_prompt_reset">重置默认</string>
     <string name="dialog_ai_test">测试配置</string>
     <string name="dialog_ai_test_running">正在测试 AI 配置...</string>

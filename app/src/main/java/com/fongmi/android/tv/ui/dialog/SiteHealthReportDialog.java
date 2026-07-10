@@ -16,6 +16,7 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.api.config.AdBlockStatsStore;
 import com.fongmi.android.tv.databinding.DialogSiteHealthReportBinding;
 import com.fongmi.android.tv.setting.SiteHealthStore;
 import com.fongmi.android.tv.utils.ResUtil;
@@ -213,6 +214,7 @@ public class SiteHealthReportDialog extends BaseAlertDialog {
         addStage(root, R.string.site_health_stage_detail, row.detail);
         addStage(root, R.string.site_health_stage_parse, row.parse);
         addStage(root, R.string.site_health_stage_play, row.play);
+        addAdBlockStats(root, row.siteKey);
 
         String reason = row.topFailureReason();
         if (!TextUtils.isEmpty(reason)) root.addView(metaText(getString(R.string.site_health_report_reason, reasonLabel(reason), row.topFailureCount())));
@@ -249,6 +251,17 @@ public class SiteHealthReportDialog extends BaseAlertDialog {
         LinearLayoutCompat.LayoutParams progressParams = new LinearLayoutCompat.LayoutParams(LinearLayoutCompat.LayoutParams.MATCH_PARENT, dp(4));
         progressParams.setMargins(0, dp(4), 0, 0);
         block.addView(progress, progressParams);
+    }
+
+    private void addAdBlockStats(LinearLayoutCompat root, String siteKey) {
+        long blocked = AdBlockStatsStore.getSiteBlockedCount(siteKey);
+        // 始终显示广告拦截统计（即使为 0，让用户知道该功能在工作）
+        int colorRes = blocked > 0 ? R.color.site_health_warn : R.color.black_80;
+        MaterialTextView view = text(getString(R.string.site_health_report_ad_blocked, blocked), 13, colorRes, Typeface.NORMAL);
+        LinearLayoutCompat.LayoutParams params = new LinearLayoutCompat.LayoutParams(LinearLayoutCompat.LayoutParams.MATCH_PARENT, LinearLayoutCompat.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, dp(8), 0, 0);
+        view.setLayoutParams(params);
+        root.addView(view);
     }
 
     private String stageText(int labelRes, SiteHealthStore.Stage stage) {
