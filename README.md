@@ -301,7 +301,7 @@ Linux 常见路径是 `$HOME/Android/Sdk`，Windows 使用 Android Studio 打开
 ```bash
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
   "platform-tools" \
-  "platforms;android-37" \
+  "platforms;android-37.0" \
   "build-tools;37.0.0" \
   "ndk;28.2.13676358"
 yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
