@@ -207,7 +207,6 @@ jobs:
       - name: Generate update manifests
         env:
           RELEASE_NOTES: ${{ steps.release_notes.outputs.notes }}
-          CNB_RELEASE_DOWNLOAD_BASE: ${{ env.CNB_WEB_ENDPOINT }}/${{ env.CNB_REPO_SLUG }}/-/releases/download/${{ steps.meta.outputs.tag }}
         run: |
           python3 - <<'PY'
           import glob
@@ -217,7 +216,6 @@ jobs:
 
           tag = "${{ steps.meta.outputs.tag }}"
           notes = os.environ.get("RELEASE_NOTES", "").strip()
-          cnb_release_download_base = os.environ["CNB_RELEASE_DOWNLOAD_BASE"]
           for apk in glob.glob("dist/*.apk"):
               base = os.path.splitext(os.path.basename(apk))[0]
               with open(apk, "rb") as fh:
@@ -227,7 +225,7 @@ jobs:
                   "desc": f"{tag} - ${{ steps.meta.outputs.short_sha }}",
                   "channel": "${{ steps.meta.outputs.channel }}",
                   "code": int("${{ steps.meta.outputs.version_code }}"),
-                  "apk": f"{cnb_release_download_base}/{base}.apk",
+                  "apk": f"{base}.apk",
                   "size": len(content),
                   "sha256": hashlib.sha256(content).hexdigest(),
               }
