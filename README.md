@@ -36,20 +36,6 @@ https://github.com/user-attachments/assets/984c274f-8a9b-4857-b641-d251e061f5cc
 }
 ```
 
-## 免费声明与社区分享
-
-WebHomeTV 是基于开源生态二次开发的技术学习与研究项目,软件本体完全免费,不提供任何付费服务、影视内容、直播源、接口源、资源存储或内容分发能力。
-
-本软件仅供技术学习、研究和个人测试使用,请在下载、安装或试用后 24 小时内自行卸载。继续使用本软件所产生的一切行为及后果,由使用者自行承担。
-
-本软件不内置、不售卖、不传播任何影视资源,不对用户自行添加的接口、站源、插件、脚本、链接、网盘资源或第三方服务内容负责。使用者应遵守所在地法律法规,尊重版权方和内容提供方的合法权益,不得将本软件用于任何侵权、盗版、传播非法内容或其他违法违规用途。
-
-严禁任何个人或组织以本软件名义进行售卖、引流、收费维护、会员服务、广告变现、盒子预装、电视盒子捆绑销售或其他任何形式的获益行为。对于将本软件内置于电视盒子、机顶盒、付费套餐或商业服务中进行销售、推广的行为,项目方明确反对并予以谴责。
-
-社区内容:
-
-- [网友自制分享](https://github.com/fish2018/webhtv/issues/13)
-
 ## 文档
 
 完整开发说明见 [**应用完整开发文档.md**](webhome-devkit/docs/应用完整开发文档.md),包含:
@@ -78,186 +64,11 @@ WebHome 主页、扩展、模板、示例和 AI skills 统一放在 [webhome-dev
 - 模板见 [webhome-devkit/templates/](webhome-devkit/templates/)。
 - AI 编程客户端如何接入和复用 Skills,见 [webhome-devkit/skills/](webhome-devkit/skills/)。
 
-
-## 二开重点
-
-### 1. CSP 站点支持自定义 WebHome 首页
-
-站点配置新增首页字段,切换到该 CSP 站点时直接显示自定义网页:
-
-```json
-{
-  "key": "webhome",
-  "name": "WebHome",
-  "type": 3,
-  "api": "csp_Xxx",
-  "homePage": "./nostr.html"
-}
-```
-
-兼容字段:`homePage`、`home_page`、`webHome`、`web_home`。
-
-如果配置文件来自在线地址,`./nostr.html` 会按配置文件 URL 做相对路径解析,方便把配置和首页 HTML 放在同一目录。
-
-### 2. WebHome Native SDK
-
-WebHome 页面会注入 `window.fongmi` 和简写 `window.fm`,网页可以直接调用 App 能力:
-
-| 能力 | 说明 |
-| --- | --- |
-| `fm.req(url, options)` | 使用 App 内置 OkHttp 请求接口,绕过浏览器 CORS 限制 |
-| `fm.res(url, options)` | 生成本地资源网关地址(`/webResource`),给图片、视频、字幕等 DOM 资源使用 |
-| `fm.play(url, title, options)` | 播放直链或 `push://` 地址,`options` 可带 `pic` 和 `wallPic` |
-| `fm.vod(siteKey, vodId, title, pic, options)` | 打开 App 原生 CSP 详情/播放链路,`options.wallPic` 可指定播放页背景图 |
-| `fm.vodInline(payload)` | 从 WebHome 传入临时 VOD,支持多集直链或按集即时解析,打开 App 原生播放页 |
-| `fm.preloadArtwork(pic, wallPic)` | 后台预热播放页海报和背景图,不阻塞后续播放跳转 |
-| `fm.search(keyword, { direct, pic, wallPic })` | 调用 App 搜索,支持直接进入搜索结果,可把详情页图片带入后续播放 |
-| `fm.openLive()` / `fm.openKeep()` / `fm.openSetting()` | 打开 App 原生直播、收藏和设置入口 |
-| `fm.history()` | 读取最近观看记录 |
-| `fm.stat()` | 获取当前播放状态、进度、时长等信息 |
-| `fm.ctrl(action)` | 控制播放、暂停、停止、上一集、下一集等 |
-| `fm.pan.check(items)` | 调用内置网盘链接有效性检测,`fm.check(items)` 是短别名 |
-| `fm.pan.play({ type, url, password, title, pic, wallPic })` | 播放网盘分享、磁力、电驴、thunder 等需要进入 push 链路的地址,可带播放页图片 |
-| `fm.config()` | 获取当前配置和网盘检测开关状态 |
-| `fm.site()` | 获取当前站点信息 |
-| `fm.device()` | 获取设备信息 |
-| `fm.cache` | WebHome 可用的本地缓存(get/set/del) |
-| `fm.ext` | 扩展脚本辅助能力(info/log/toast) |
-| `fm.ui.setToolbar(visible)` | 控制 App 工具栏显示 |
-| `fm.back()` / `fm.reload()` | 处理网页返回和刷新 |
-
-播放页图片语义:`pic` 是海报/播放器默认图,`wallPic` 是播放页背景图。App 不会自动判断横竖屏,WebHome 应把竖版海报放在 `pic`,把横屏剧照/背景图放在 `wallPic`;播放背景只使用 `wallPic`,没有 `wallPic` 时显示 App 默认背景/壁纸,不会再用 `pic` 兜底。`fm.play`、`fm.vod`、`fm.vodInline`、`fm.pan.play` 共用这套语义;`fm.search(keyword, { direct: true, pic, wallPic })` 可把详情页图片带到原生搜索结果后续播放链路。详情页拿到图片后可先调用 `fm.preloadArtwork(pic, wallPic)` 预热原生 Glide 缓存,点击继续观看、搜索播放或播放时仍应直接调用对应入口,不要在点击后等待预热。WebHome 如果自己渲染最近观看并支持从 `push_agent` 记录继续播放,应在调用 `fm.pan.play()` 前用 `fm.cache` 按播放 URL 保存 `{ pic, wallPic }`,读取 `fm.history()` 后再恢复这些图片;原生历史通常只可靠保存海报,不能依赖它带回 `wallPic`。
-
-SDK 相关事件:
-
-- `fmsdk`:SDK 注入完成,页面早期脚本应等待该事件后再调用 `fm.*`。
-- `fmresume`:App 从后台或锁屏恢复,detail 携带暂停时长,可用于补偿刷新数据。
-- `fmurlchange`:History API 路由变化。
-- `fmviewport`:WebView 尺寸变化,同时更新 `--fm-web-width/--fm-web-height` CSS 变量。
-
-持久化数据建议优先使用 `fm.cache`,不要把账号、页面配置、同步身份等关键数据只放在 `localStorage`。`localStorage` 仍由 Android WebView 提供并按页面 origin 保存;但 `window.fm` 在页面加载完成后注入,页面早期脚本应等待 `fmsdk` 事件,或在检测到 `window.fongmiBridge` 但 `window.fm` 尚未就绪时短暂等待,避免误写到浏览器预览 fallback。
-
-### 3. CORS 和资源加载增强
-
-普通网页 `fetch()` 受浏览器 CORS 限制。WebHomeTV 提供两种内置能力:
-
-- `fm.req()`:接口请求,返回 JSON、文本、二进制等数据。
-- `fm.res()` / `/webResource`:图片、视频、字幕、CSS 背景等资源加载。
-
-可处理常见跨域、Header、Cookie、资源防盗链问题,WebHome 页面不需要用户安装浏览器插件或关闭系统 WebView 安全策略。
-
-### 4. 透明背景 WebHome
-
-App WebView 支持透明背景,WebHome 页面可以让 App 壁纸透出,适合做沉浸式影视首页。要点:`html`/`body`/主容器保持透明,内容层用半透明中性背景,全屏浮层打开时隐藏底层页面。完整建议见开发文档"WebHome 透明背景"。
-
-### 5. WebHome 路由、返回、刷新和恢复
-
-- 使用 History API 管理详情页、搜索页、弹层等路由,App 返回键优先让网页内部回退,再退出 WebHome。
-- `fm.reload()` 刷新当前 WebHome,不要求用户重启 App。
-- App 从后台或锁屏恢复时派发 `fmresume` 事件,网页可保留页面状态并补偿刷新数据。
-- 正常冷启动默认回到 WebHome 主页;详情页、弹层等 UI 快照只建议用于后台恢复或 App 明确带 `_fm_restore=1` 的 WebView 进程恢复场景。
-
-电视端 WebHome 需按遥控器模型单独设计焦点,完整经验见开发文档"电视端遥控器 UX 最佳实践"。
-
-### 6. 内置网盘链接检测和播放
-
-网盘检测开关位于"增强功能"页,默认开启。开启后 WebHome 或自定义工具可调用 App 内置检测能力。
-
-WebHome SDK:
-
-```js
-const config = await fm.config();
-if (config.driveCheck) {
-  const result = await fm.pan.check([
-    { type: "aliyun", url: "https://www.aliyundrive.com/s/xxx" },
-    { type: "quark", url: "https://pan.quark.cn/s/xxx" }
-  ]);
-}
-```
-
-本地 HTTP API:
-
-```http
-POST http://127.0.0.1:{port}/pan/check
-Content-Type: application/json
-
-{
-  "items": [
-    { "type": "quark", "url": "https://pan.quark.cn/s/xxx" }
-  ]
-}
-```
-
-检测接口支持批量提交,内部每批最多 10 条并发检测,超过 10 条自动分批。WebHome 开发时建议只检测用户当前可见范围内、且 App 支持的网盘类型,避免无意义请求和界面跳动。
-
-`fm.pan.play({ type, url, password, title, pic, wallPic })` 是 WebHome 的网盘播放语义入口,内部复用 App 已有的 `push_agent/pvideo` 播放链路。因为底层进入 `SiteApi.PUSH`,磁力、电驴、thunder、jianpian 等地址也可以走这个入口。性能与直接推送 `push://` 基本一致,但语义更清晰,也方便后续 App 内部调整播放策略。`password` 参数保留在 API 形态中,当前播放链路主要依赖 App/JAR/pvideo 自身处理。`pic`/`wallPic` 只影响原生播放页展示图,不参与网盘解析。若后续从 WebHome 自己的“最近观看”再次打开同一个 push 记录,建议按 URL 缓存并恢复 `wallPic`,避免原生历史缺少剧照导致播放页没有背景。
-
-### 6.1 调试日志
-
-调试日志入口在"增强功能"页,默认关闭。开启后,App 记录 WebHome SDK 调用、`fm.req`/资源网关、`pan.check`、`pan.play`、本地 HTTP 服务、爬虫请求、push/pvideo 和播放状态等链路日志。
-
-- 日志保存在当前 App 进程内,最多保留最近 2000 行;关闭开关或进程结束后不保留。
-- 关闭调试日志时不弹 toast,并自动清空当前进程内日志。
-- 开启后会打开 `/debug/logs` 页面,可刷新、下载、清空,也可通过同局域网地址查看。
-
-### 7. PanSou 网盘搜索集成示例
-
-`webhome-devkit/examples/homepages/nostr.html` 的详情页集成了 PanSou 类搜索能力,支持:
-
-- 自定义盘搜服务地址、账号密码认证、自定义 TG 频道。
-- 按网盘类型分 Tab 展示,对支持的类型调用 App 内置检测,只检测可见范围内的结果,检测结果用状态圆点表达。
-- 点击资源前缓存 URL 对应的海报/剧照,再调用 `fm.pan.play({ type, url, password, title, pic, wallPic })` 交给 App 播放；这样原生播放页和 WebHome “最近观看”继续播放都能拿到同一组图片。
-
-PanSou 搜索结果可能是异步补充的,示例页会轮询合并新增结果。
-
-### 8. Nostr + TMDB 推荐首页示例
-
-`webhome-devkit/examples/homepages/nostr.html` 是一个完整的 WebHome 首页示例,不只是 SDK demo。它包含:
-
-- TMDB 今日趋势、电影、剧集、动画等榜单,中国大陆内容优先的推荐分区。
-- 瀑布流卡片布局,移动端一行 3 个,宽屏自动显示更多列。
-- Nostr 去中心化偏好同步;用户搜索、点击、播放时长等行为参与推荐计算,同一用户对同一条目的热度去重。
-- 状态面板展示 SDK、TMDB、Nostr、PanSou、发布状态和身份信息。
-- 支持清理本机测试数据和发布 Nostr 删除事件。
-- 详情页优先使用 TMDB 横屏剧照作为播放页 `wallPic`,状态面板可开启高清剧照以向播放页传 TMDB `original` 图;没有横屏图时只传海报 `pic`,播放页不显示背景图而使用 App 默认背景/壁纸。进入详情后会后台预热原生播放页图片,不阻塞"继续观看"或"搜索播放"跳转。
-
-示例页使用 TMDB API,请自行替换或管理 API Key,并遵守对应服务条款。
-
-### 9. App 行为调整
-
-- 启动 App 不再自动弹出版本更新窗口,用户仍可在设置页手动检查版本。
-- 手机端和电视端都保留原有 FongMi/CatVod 能力。
-- WebHome 能力优先面向手机端体验,同时兼顾电视遥控器焦点和返回操作。
-
-## WebHome Devkit
-
-| 文件 | 说明 |
-| --- | --- |
-| `webhome-devkit/docs/应用完整开发文档.md` | App、配置、WebHome SDK、扩展、网盘、管理页和调试能力的完整开发文档 |
-| `webhome-devkit/README.md` | WebHome 扩展脚本开发指南 |
-| `webhome-devkit/examples/homepages/nostr.html` | 正式推荐首页示例,集成 TMDB、Nostr、PanSou、网盘检测、透明背景 |
-| `webhome-devkit/examples/extensions/` | 站点扩展示例 |
-| `webhome-devkit/templates/` | WebHome 首页和扩展起步模板 |
-| `webhome-devkit/skills/` | AI 编程客户端可安装的 WebHome skills |
-| [`serverless/`](serverless/) | 远程托管中转服务器部署文档、Cloudflare/Deno/Vercel 示例和 Go/Rust 二进制 |
-
-配置示例:
-
-```json
-{
-  "sites": [
-    {
-      "key": "webhome_demo",
-      "name": "WebHome 推荐",
-      "type": 3,
-      "api": "csp_Demo",
-      "homePage": "./nostr.html"
-    }
-  ]
-}
-```
-
 配置文件和示例 HTML 放在同一服务器目录时,`homePage` 可直接写相对路径。
+
+社区内容:
+
+- [网友自制分享](https://github.com/fish2018/webhtv/issues/13)
 
 ## 构建
 
@@ -416,21 +227,21 @@ adb install -r app/build/outputs/apk/mobileArm64_v8a/debug/app-mobile-arm64_v8a-
 
 仓库内置 `.github/workflows/android-release.yml`,只支持在 GitHub Actions 页面手动触发,不会在每次 push 代码时自动打包。默认 tag 会从 `app/build.gradle` 读取当前 `versionName`:稳定版生成 `v<versionName>-yyyyMMddHHmm`;在 `fongmi-sync` 分支选择 `auto` 通道时生成测试版 `v<versionName>-beta-yyyyMMddHHmm`,APK/JSON 文件名同步追加 `-beta`。
 
-工作流会构建 4 个 release APK,生成同名更新清单 JSON,发布到 GitHub Release,并可同步到 CNB 镜像仓库 `apk/` 目录。正式发布前建议在 GitHub Secrets 配置:
+工作流会构建 4 个 release APK,生成同名更新清单 JSON 并发布到 GitHub Release。启用 CNB 同步后,大 APK 会上传到同 tag 的 CNB Release 附件（单文件支持 64GB）,代码仓库的 `apk/` 目录只保存小型 JSON 清单,避免超过 100MB 时 Git 下载返回 413。正式发布前建议在 GitHub Secrets 配置:
 
 ```text
 RELEASE_KEYSTORE_BASE64  # release keystore 的 base64 内容
 RELEASE_KEY_ALIAS        # key alias
 RELEASE_STORE_PASSWORD   # store password,key password 复用该值
 RELEASE_KEY_PASSWORD     # 可选,key password 与 store password 不同时配置
-CNB_TOKEN                # 可选,用于同步 CNB
+CNB_TOKEN                # CNB 访问令牌,需要 repo-contents 读写权限
 ```
 
-CNB 默认同步到 `https://cnb.cool/fish2018/webhtv.git`,如需修改,在 GitHub 仓库变量中设置 `CNB_REPO_URL`。
+CNB 默认同步到 `https://cnb.cool/fish2018/webhtv.git`,仓库标识为 `fish2018/webhtv`。如需修改,在 GitHub 仓库变量中同时设置 `CNB_REPO_URL` 和 `CNB_REPO_SLUG`。更新 JSON 内的 APK 地址使用固定版本直链 `https://cnb.cool/<slug>/-/releases/download/<tag>/<apk>`，公开仓库可匿名下载并支持 Range/断点续传。
 
 GitHub Actions 正式发布必须配置签名 secrets,否则会直接失败,避免使用 runner 临时 debug key 生成无法覆盖安装的 APK。
 
-如果发布时忘记配置 `CNB_TOKEN` 或 CNB 同步失败,不需要重新打包。配置好 `CNB_TOKEN` 后,在 GitHub Actions 手动运行 `CNB Release Sync`,填写已有 `release_tag` 即可把该 GitHub Release 的 APK/JSON 补同步到 CNB；`release_tag` 留空时同步最新 release。
+如果 CNB 同步失败,不需要重新打包。修正 `CNB_TOKEN` 或网络问题后,在 GitHub Actions 手动运行 `CNB Release Sync`,填写已有 `release_tag` 即可把该 GitHub Release 的 APK 上传到 CNB Release 附件,并把改写为 CNB 绝对下载地址的 JSON 补同步到代码仓库；`release_tag` 留空时同步最新 release。
 
 ### 签名
 
@@ -482,13 +293,19 @@ Release/      release 构建的 APK 输出
 other/        Logo 图片和辅助工具
 ```
 
-## 开源说明
-
-本仓库只提供技术实现和开发示例,不内置、不维护、不分发任何影视内容、播放源、资源站接口或网盘资源。项目中的搜索、播放、网盘检测、TMDB、Nostr、PanSou 等能力都需要用户自行配置合法服务和数据来源。
-
-### 上游基线
+## 上游基线
 
 本项目二开起始于[原版影视](https://github.com/FongMi/TV) commit `bec0f1d2fc22f394ba05f8e63a9ef2ba7ecbba0e`,当前已同步合并到[原版影视](https://github.com/FongMi/TV) commit `5fdff00a602dc56e8ba756174daef20edab024f2`。
+
+## 免费声明与社区分享
+
+WebHomeTV 是基于开源生态二次开发的技术学习与研究项目,软件本体完全免费,不提供任何付费服务、影视内容、直播源、接口源、资源存储或内容分发能力。
+
+本软件仅供技术学习、研究和个人测试使用,请在下载、安装或试用后 24 小时内自行卸载。继续使用本软件所产生的一切行为及后果,由使用者自行承担。
+
+本软件不内置、不售卖、不传播任何影视资源,不对用户自行添加的接口、站源、插件、脚本、链接、网盘资源或第三方服务内容负责。使用者应遵守所在地法律法规,尊重版权方和内容提供方的合法权益,不得将本软件用于任何侵权、盗版、传播非法内容或其他违法违规用途。
+
+严禁任何个人或组织以本软件名义进行售卖、引流、收费维护、会员服务、广告变现、盒子预装、电视盒子捆绑销售或其他任何形式的获益行为。对于将本软件内置于电视盒子、机顶盒、付费套餐或商业服务中进行销售、推广的行为,项目方明确反对并予以谴责。
 
 ### 友情链接
 [![Linux.do](https://img.shields.io/badge/-Linux.do-1c1c1e?style=flat-square&logo=data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZlcnNpb249IjEuMiIgYmFzZVByb2ZpbGU9InRpbnktcHMiIHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiB2aWV3Qm94PSIwIDAgMTIwIDEyMCI+CiAgPGNsaXBQYXRoIGlkPSJhIj4KICAgIDxjaXJjbGUgY3g9IjYwIiBjeT0iNjAiIHI9IjQ3Ii8+CiAgPC9jbGlwUGF0aD4KICA8Y2lyY2xlIGZpbGw9IiNmMGYwZjAiIGN4PSI2MCIgY3k9IjYwIiByPSI1MCIvPgogIDxyZWN0IGZpbGw9IiMxYzFjMWUiIGNsaXAtcGF0aD0idXJsKCNhKSIgeD0iMTAiIHk9IjEwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjMwIi8+CiAgPHJlY3QgZmlsbD0iI2YwZjBmMCIgY2xpcC1wYXRoPSJ1cmwoI2EpIiB4PSIxMCIgeT0iNDAiIHdpZHRoPSIxMDAiIGhlaWdodD0iNDAiLz4KICA8cmVjdCBmaWxsPSIjZmZiMDAzIiBjbGlwLXBhdGg9InVybCgjYSkiIHg9IjEwIiB5PSI4MCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIzMCIvPgo8L3N2Zz4K)](https://linux.do/)
