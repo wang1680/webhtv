@@ -8,7 +8,7 @@ on:
         required: false
         type: string
       release_channel:
-        description: "Release channel, auto uses beta on fongmi-sync"
+        description: "Release channel, auto uses beta on dev/fongmi-sync and stable on main"
         required: false
         default: auto
         type: choice
@@ -87,7 +87,7 @@ jobs:
           VERSION_CODE="$(sed -n 's/^[[:space:]]*versionCode[[:space:]]*\([0-9][0-9]*\).*/\1/p' app/build.gradle | head -1)"
           CHANNEL="${{ inputs.release_channel }}"
           if [ "$CHANNEL" = "auto" ] || [ -z "$CHANNEL" ]; then
-            if [ "${{ github.ref_name }}" = "fongmi-sync" ]; then
+            if [ "${{ github.ref_name }}" = "dev" ] || [ "${{ github.ref_name }}" = "fongmi-sync" ]; then
               CHANNEL="beta"
             else
               CHANNEL="stable"
