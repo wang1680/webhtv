@@ -7,6 +7,7 @@ public class PlaybackPerformanceSetting {
     public static final int PROFILE_RECOMMENDED = 0;
     public static final int PROFILE_COMPATIBLE = 1;
     public static final int PROFILE_CUSTOM = 2;
+    public static final int PROFILE_LIGHTWEIGHT = 3;
 
     public static final String KEY_PROFILE = "playback_performance_profile";
     private static final String KEY_INITIALIZED = "playback_performance_initialized";
@@ -46,7 +47,7 @@ public class PlaybackPerformanceSetting {
         Prefers.put("preload_threads", recommendedPreloadThreads());
         Prefers.put("preload_size", 512);
         Prefers.put("preload_time", 120);
-        Prefers.put("audio_pass_through", true);
+        Prefers.put("audio_pass_through", false);
         Prefers.put("prefer_aac", false);
         Prefers.put("audio_prefer", false);
         Prefers.put("video_prefer", false);
@@ -85,6 +86,37 @@ public class PlaybackPerformanceSetting {
         Prefers.put(KEY_PROFILE, PROFILE_COMPATIBLE);
     }
 
+    public static void applyLightweight() {
+        put(KEY_CODEC_ASYNC_QUEUEING, true);
+        put(KEY_DYNAMIC_SCHEDULING, false);
+        put(KEY_VIDEO_DURATION_PROGRESS, false);
+        put(KEY_LATE_DROP_INPUT, false);
+        put(KEY_TRACK_LIMIT, true);
+        put(KEY_ADAPTIVE_DOWNGRADE, true);
+        put(KEY_LOAD_ONLY_SELECTED_TRACKS, true);
+        put(KEY_SURFACE_FIXED_SIZE, false);
+        put(KEY_DECODER_FALLBACK, true);
+        put(KEY_SOFT_VIDEO_TUNE, true);
+        put(KEY_HIGH_BUFFER, true);
+        put(KEY_BANDWIDTH_METER, false);
+        Prefers.put("render", PlayerSetting.RENDER_SURFACE);
+        Prefers.put("tunnel", false);
+        Prefers.put("buffer", 5);
+        Prefers.put("buffer_bytes", 1);
+        Prefers.put("back_buffer", 0);
+        Prefers.put("play_cache", 0);
+        Prefers.put("preload", false);
+        Prefers.put("preload_threads", PreloadSetting.MIN_THREADS);
+        Prefers.put("preload_size", PreloadSetting.MIN_SIZE_MB);
+        Prefers.put("preload_time", PreloadSetting.MIN_TIME_SECONDS);
+        Prefers.put("audio_pass_through", false);
+        Prefers.put("prefer_aac", true);
+        Prefers.put("audio_prefer", false);
+        Prefers.put("video_prefer", false);
+        Prefers.put("exo_4k_compat", false);
+        Prefers.put(KEY_PROFILE, PROFILE_LIGHTWEIGHT);
+    }
+
     public static void markCustom() {
         ensureInitialized();
         Prefers.put(KEY_PROFILE, PROFILE_CUSTOM);
@@ -93,6 +125,7 @@ public class PlaybackPerformanceSetting {
     public static String getProfileName() {
         return switch (getProfile()) {
             case PROFILE_COMPATIBLE -> "兼容";
+            case PROFILE_LIGHTWEIGHT -> "轻量";
             case PROFILE_CUSTOM -> "自定义";
             default -> "推荐";
         };
@@ -104,6 +137,10 @@ public class PlaybackPerformanceSetting {
 
     public static boolean isCompatible() {
         return getProfile() == PROFILE_COMPATIBLE;
+    }
+
+    public static boolean isLightweight() {
+        return getProfile() == PROFILE_LIGHTWEIGHT;
     }
 
     public static boolean isHighBufferEnabled() {
@@ -255,7 +292,7 @@ public class PlaybackPerformanceSetting {
     }
 
     private static int clampProfile(int profile) {
-        return profile == PROFILE_COMPATIBLE || profile == PROFILE_CUSTOM ? profile : PROFILE_RECOMMENDED;
+        return profile == PROFILE_COMPATIBLE || profile == PROFILE_CUSTOM || profile == PROFILE_LIGHTWEIGHT ? profile : PROFILE_RECOMMENDED;
     }
 
     private static void put(String key, boolean value) {

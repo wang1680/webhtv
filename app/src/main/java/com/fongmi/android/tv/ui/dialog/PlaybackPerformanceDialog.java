@@ -25,6 +25,7 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.setting.PlaybackPerformanceSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.PreloadSetting;
+import com.fongmi.android.tv.utils.FileUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
 import com.google.android.material.button.MaterialButton;
@@ -88,20 +89,26 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
         title.setGravity(Gravity.CENTER_VERTICAL);
         titleBar.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
+        MaterialButton reset = actionButton(R.string.dialog_reset, view -> reset());
+        reset.setTextSize(13);
+        LinearLayout.LayoutParams resetParams = new LinearLayout.LayoutParams(dp(72), dp(38));
+        resetParams.leftMargin = dp(8);
+        titleBar.addView(reset, resetParams);
+
         MaterialButton help = actionButton(R.string.player_performance_help, view -> showHelpDialog());
         help.setTextSize(13);
         help.setContentDescription(getString(R.string.player_performance_help_title));
         LinearLayout.LayoutParams helpParams = new LinearLayout.LayoutParams(dp(72), dp(38));
-        helpParams.leftMargin = dp(12);
+        helpParams.leftMargin = dp(8);
         titleBar.addView(help, helpParams);
         root.addView(titleBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)));
 
         LinearLayout actions = new LinearLayout(requireContext());
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.CENTER);
-        actions.addView(actionButton(R.string.player_performance_recommended, view -> apply(true)), actionParams(true));
-        actions.addView(actionButton(R.string.player_performance_compatible, view -> apply(false)), actionParams(false));
-        actions.addView(actionButton(R.string.dialog_reset, view -> apply(PlaybackPerformanceSetting.isCompatible() ? false : true)), actionParams(false));
+        actions.addView(actionButton(R.string.player_performance_recommended, view -> apply(PlaybackPerformanceSetting.PROFILE_RECOMMENDED)), actionParams(true));
+        actions.addView(actionButton(R.string.player_performance_compatible, view -> apply(PlaybackPerformanceSetting.PROFILE_COMPATIBLE)), actionParams(false));
+        actions.addView(actionButton(R.string.player_performance_lightweight, view -> apply(PlaybackPerformanceSetting.PROFILE_LIGHTWEIGHT)), actionParams(false));
         LinearLayout.LayoutParams actionLayout = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40));
         actionLayout.topMargin = dp(14);
         root.addView(actions, actionLayout);
@@ -160,10 +167,10 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
         scrollParams.topMargin = dp(10);
         root.addView(scroll, scrollParams);
 
-        addHelpIntro(content, "这些选项主要影响 EXO / Media3 播放，部分缓存选项也会作用于 MPV。通常先使用“推荐”；遇到黑屏、无声、卡顿、发热或老设备兼容问题时，再参考下方逐项调整。多数选项需重新进入播放后生效。\n\n“推荐”偏向画质、流畅度和预载能力；“兼容”减少缓存和实验特性，适合性能较弱或解码器不稳定的设备；“重置”会覆盖自定义值，兼容配置下恢复兼容默认，其余情况恢复推荐默认。");
+        addHelpIntro(content, "这些选项主要影响 EXO / Media3 播放，部分缓存选项也会作用于 MPV。通常先使用“推荐”；遇到黑屏、无声、卡顿、发热、内存不足或老设备兼容问题时，再参考下方逐项调整。多数选项需重新进入播放后生效。\n\n“推荐”偏向画质、流畅度和预载能力；“兼容”减少实验特性，适合解码器不稳定的设备；“轻量”面向低内存电视，降低内存缓冲、磁盘缓存、预载和后台连接占用。“重置”会覆盖自定义值：当前为兼容或轻量预设时恢复对应默认，其余情况恢复推荐默认。");
 
         addHelpSection(content, "基础性能");
-        addHelpItem(content, "性能配置", "显示当前预设。推荐：功能更完整、画质和抗卡顿能力更强，但占用更多内存、网络与存储；兼容：资源占用更低、设备适配更稳，但启动、画质或拖动体验可能下降；自定义：表示已有参数被单独修改。");
+        addHelpItem(content, "性能配置", "显示当前预设。推荐：功能更完整、画质和抗卡顿能力更强，但占用更多内存、网络与存储；兼容：关闭部分实验调度，优先解决旧设备或异常解码器的兼容问题；轻量：只加载选中轨道，使用 64MB 缓冲容量、关闭回退缓冲和预载，并把播放缓存降到 128MB，适合低内存电视；自定义：表示已有参数被单独修改。");
         addHelpItem(content, "渲染方式", "SurfaceView 直接交给系统合成，通常更省电、更适合高分辨率和隧道模式，但界面叠加、截图及部分机型切换画面可能受限。TextureView 更灵活、兼容动画和缩放，但会增加 GPU 开销，并会关闭隧道模式。");
         addHelpItem(content, "视频轨道限制", "开启后按屏幕和硬件解码能力限制分辨率、帧率与码率，可避免选到设备带不动的轨道；代价是可能不会播放源中最高画质。关闭后优先最高支持码率，画质上限更高，但更容易卡顿、掉帧或解码失败。");
         addHelpItem(content, "自适应降级", "开启后遇到重缓冲、连续掉帧或带宽不足时，会在本次播放中逐级降低视频规格，稳定性更好；代价是画质可能下降，且不会自动升回。关闭可保持选定画质，但网络或性能不足时更容易持续卡顿。");
@@ -180,7 +187,7 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
         addHelpSection(content, "预载");
         addHelpItem(content, "预载", "开启后会提前缓存当前播放位置之后的内容，可改善拖动和网络波动时的连续播放；会增加网络流量、磁盘写入、耗电和后台连接。移动网络流量有限或存储紧张时可关闭。");
         addHelpItem(content, "预载线程", "线程越多，预载填充通常越快，但会同时占用更多网络连接、CPU 和服务器资源，也可能挤占正在播放的数据；线程少更稳、更省资源，但预载速度较慢。");
-        addHelpItem(content, "预载容量", "限制预载缓存可使用的磁盘空间。容量大可保存更多内容、提高缓存命中率，但更占存储；容量小更省空间，但旧缓存会更快被清理。重新启动应用后可确保新的容量上限完全生效。");
+        addHelpItem(content, "预载容量", "限制预载缓存可使用的磁盘空间。内置 128MB、256MB、512MB、1GB、2GB、4GB 六个档位，避免遥控器反复点击。容量大可保存更多内容、提高缓存命中率，但更占存储；容量小更省空间，旧缓存会更快被清理。轻量模式关闭预载并保留最低 128MB 参数。重新启动应用后可确保新的容量上限完全生效。");
         addHelpItem(content, "预载时间", "控制每次向前预载多长的内容。时间长更能抵抗较长网络波动，也会下载更多数据并占用更多缓存；时间短流量和存储消耗较低，但保护范围更小。");
 
         addHelpSection(content, "解码与渲染");
@@ -307,9 +314,18 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
         return params;
     }
 
-    private void apply(boolean recommended) {
-        if (recommended) PlaybackPerformanceSetting.applyRecommended();
-        else PlaybackPerformanceSetting.applyCompatible();
+    private void apply(int profile) {
+        if (profile == PlaybackPerformanceSetting.PROFILE_COMPATIBLE) PlaybackPerformanceSetting.applyCompatible();
+        else if (profile == PlaybackPerformanceSetting.PROFILE_LIGHTWEIGHT) PlaybackPerformanceSetting.applyLightweight();
+        else PlaybackPerformanceSetting.applyRecommended();
+        refresh();
+    }
+
+    private void reset() {
+        int profile = PlaybackPerformanceSetting.getProfile();
+        if (profile == PlaybackPerformanceSetting.PROFILE_COMPATIBLE) PlaybackPerformanceSetting.applyCompatible();
+        else if (profile == PlaybackPerformanceSetting.PROFILE_LIGHTWEIGHT) PlaybackPerformanceSetting.applyLightweight();
+        else PlaybackPerformanceSetting.applyRecommended();
         refresh();
     }
 
@@ -359,7 +375,7 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
             refresh();
         });
         addRow("预载线程", PreloadSetting.getPreloadThreads() + " 条", this::cyclePreloadThreads);
-        addRow("预载容量", PreloadSetting.getPreloadSizeMb() + "MB", this::cyclePreloadSize);
+        addRow("预载容量", FileUtil.byteCountToDisplaySize(PreloadSetting.getPreloadSizeBytes()), this::cyclePreloadSize);
         addRow("预载时间", PreloadSetting.getPreloadTimeSeconds() + " 秒", this::cyclePreloadTime);
 
         addHeader("解码与渲染");
@@ -500,9 +516,7 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
     }
 
     private void cyclePreloadSize() {
-        int value = PreloadSetting.getPreloadSizeMb() + PreloadSetting.STEP_SIZE_MB;
-        if (value > PreloadSetting.MAX_SIZE_MB) value = PreloadSetting.MIN_SIZE_MB;
-        PreloadSetting.putPreloadSizeMb(value);
+        PreloadSetting.putPreloadSizeMb(PreloadSetting.getNextPreloadSizeMb());
         PlaybackPerformanceSetting.markCustom();
         refresh();
     }

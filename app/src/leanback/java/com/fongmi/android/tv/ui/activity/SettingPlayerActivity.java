@@ -296,9 +296,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
     }
 
     private void setPreloadSize(View view) {
-        int value = PreloadSetting.getPreloadSizeMb() + PreloadSetting.STEP_SIZE_MB;
-        if (value > PreloadSetting.MAX_SIZE_MB) value = PreloadSetting.MIN_SIZE_MB;
-        PreloadSetting.putPreloadSizeMb(value);
+        PreloadSetting.putPreloadSizeMb(PreloadSetting.getNextPreloadSizeMb());
         PlaybackPerformanceSetting.markCustom();
         setPreloadText();
         setPerformanceText();
