@@ -112,7 +112,14 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
         if (item.getItemId() == android.R.id.home) onBackInvoked();
         else if (item.getItemId() == R.id.delete) onDelete();
         else if (item.getItemId() == R.id.sync) onSync();
+        else if (item.getItemId() == R.id.report) onReport();
         return super.onOptionsItemSelected(item);
+    }
+
+    private void onReport() {
+        com.fongmi.android.tv.ui.dialog.ViewingReportRangeDialog.create(this)
+                .callback(range -> com.fongmi.android.tv.ui.activity.ViewingReportActivity.start(this, range))
+                .show();
     }
 
     @Override

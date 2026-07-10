@@ -1164,6 +1164,30 @@ public class Setting {
         Prefers.put("subtitle_assrt_token", token);
     }
 
+    public static int getSubtitleAiMaxConcurrency() {
+        return clampSubtitleAiMaxConcurrency(Prefers.getInt("subtitle_ai_max_concurrency", 2));
+    }
+
+    public static void putSubtitleAiMaxConcurrency(int value) {
+        Prefers.put("subtitle_ai_max_concurrency", clampSubtitleAiMaxConcurrency(value));
+    }
+
+    public static int getSubtitleAiChunkCount() {
+        return clampSubtitleAiChunkCount(Prefers.getInt("subtitle_ai_chunk_count", 2));
+    }
+
+    public static void putSubtitleAiChunkCount(int value) {
+        Prefers.put("subtitle_ai_chunk_count", clampSubtitleAiChunkCount(value));
+    }
+
+    private static int clampSubtitleAiMaxConcurrency(int value) {
+        return Math.max(1, Math.min(value, 8));
+    }
+
+    private static int clampSubtitleAiChunkCount(int value) {
+        return Math.max(1, Math.min(value, 32));
+    }
+
     public static int getIntroSkipMode() {
         return Prefers.getInt("intro_skip_mode", INTRO_SKIP_OFF);
     }

@@ -133,6 +133,27 @@ public class PlayerButtonSetting {
         for (View view : ordered) if (view.getParent() == container) container.removeView(view);
         for (View view : ordered) container.addView(view);
         applyVisibility(views);
+        updateFocusNavigation(ordered);
+    }
+
+    private static void updateFocusNavigation(List<View> ordered) {
+        // 过滤出所有可见且可聚焦的按钮
+        List<View> focusable = new ArrayList<>();
+        for (View view : ordered) {
+            if (view.getVisibility() == View.VISIBLE && view.isFocusable()) {
+                focusable.add(view);
+            }
+        }
+
+        // 重新设置焦点导航链
+        for (int i = 0; i < focusable.size(); i++) {
+            View current = focusable.get(i);
+            View prev = i > 0 ? focusable.get(i - 1) : null;
+            View next = i < focusable.size() - 1 ? focusable.get(i + 1) : null;
+
+            if (prev != null) current.setNextFocusLeftId(prev.getId());
+            if (next != null) current.setNextFocusRightId(next.getId());
+        }
     }
 
     public static void applyVisibility(Map<String, View> views) {

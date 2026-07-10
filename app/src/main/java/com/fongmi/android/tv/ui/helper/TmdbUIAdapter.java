@@ -606,8 +606,33 @@ public class TmdbUIAdapter {
             vod.setPic(item.getPosterUrl());
         }
 
-        // 演员：源站缺失时使用 TMDB 演员表（无法直接设置，Vod 无 setter）
-        // 可通过扩展 Vod 添加 setActor() 或在 VideoActivity 显示时从 adapter 获取
+        // 年份：源站缺失时使用 TMDB 年份
+        if (TextUtils.isEmpty(vod.getYear())) {
+            String year = getYear();
+            if (!TextUtils.isEmpty(year)) vod.setYear(year);
+        }
+
+        // 地区：源站缺失时使用 TMDB 制片国家
+        if (TextUtils.isEmpty(vod.getArea())) {
+            String area = getArea();
+            if (!TextUtils.isEmpty(area)) vod.setArea(area);
+        }
+
+        // 类型 / 题材：源站缺失时使用 TMDB 类型
+        if (TextUtils.isEmpty(vod.getTypeName())) {
+            String genres = getGenresText();
+            if (!TextUtils.isEmpty(genres)) vod.setTypeName(genres);
+        }
+
+        // 演员：源站缺失时使用 TMDB 演员表
+        if (TextUtils.isEmpty(vod.getActor())) {
+            List<String> names = new ArrayList<>();
+            for (TmdbPerson person : getCast()) {
+                if (!TextUtils.isEmpty(person.getName())) names.add(person.getName());
+                if (names.size() >= 5) break;
+            }
+            if (!names.isEmpty()) vod.setActor(TextUtils.join(" / ", names));
+        }
 
         // 导演 / 主创：源站缺失时使用 TMDB 主创
         if (TextUtils.isEmpty(vod.getDirector())) {
@@ -666,6 +691,11 @@ public class TmdbUIAdapter {
                 for (Episode episode : flag.getEpisodes()) {
                     TmdbEpisode tmdbEp = findEpisodeByNumber(episodes, episode.getNumber());
                     if (tmdbEp != null) {
+                        if (!TmdbEpisodeMatcher.shouldApply(episode, tmdbEp)) {
+                            if (episode.getTmdbEpisode() != null) changed = true;
+                            episode.setTmdbEpisode(null);
+                            continue;
+                        }
                         if (episode.getTmdbEpisode() == null) changed = true;
                         episode.setTmdbEpisode(tmdbEp);
                         if (!tmdbEp.getTitle().isEmpty()) {

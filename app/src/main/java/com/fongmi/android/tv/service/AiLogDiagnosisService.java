@@ -11,9 +11,9 @@ import okhttp3.Response;
 
 public final class AiLogDiagnosisService {
 
-    private static final int CONNECT_TIMEOUT_SECONDS = 10;
-    private static final int READ_TIMEOUT_SECONDS = 45;
-    private static final int CALL_TIMEOUT_SECONDS = 60;
+    private static final int CONNECT_TIMEOUT_SECONDS = 30;
+    private static final int READ_TIMEOUT_SECONDS = 300;
+    private static final int CALL_TIMEOUT_SECONDS = 330;
     // ponytail: tail clip keeps the prompt bounded; add chunking only for multi-incident diagnosis.
     private static final int MAX_LOG_CHARS = 28 * 1024;
 

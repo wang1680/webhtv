@@ -40,6 +40,7 @@ import com.fongmi.android.tv.player.lut.LutPreset;
 import com.fongmi.android.tv.player.lut.LutSetting;
 import com.fongmi.android.tv.player.lut.LutStore;
 import com.fongmi.android.tv.setting.DanmakuSetting;
+import com.fongmi.android.tv.setting.SiteHealthStore;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.utils.LocalProxyDebug;
 import com.fongmi.android.tv.utils.Notify;
@@ -92,6 +93,7 @@ public class PlayerManager implements ParseCallback {
     private boolean realtimeFallbackTried;
     private boolean videoEffectsActive;
     private boolean videoEffectsDirty;
+    private boolean parseHealthRecorded;
     private boolean lutAppliedForItem;
     private boolean lutApplyInProgress;
     private boolean lutPipelineReadyForItem;
@@ -110,6 +112,7 @@ public class PlayerManager implements ParseCallback {
     private int localProxyRetry;
     private int prepareSeq;
     private int lutApplySeq;
+    private long parseHealthStartedAt;
     private boolean[] playerFallbackTried;
     private int lutWarmupRecoveredErrors;
 
@@ -206,6 +209,14 @@ public class PlayerManager implements ParseCallback {
 
     public List<Danmaku> getDanmakus() {
         return spec != null ? spec.getDanmakus() : null;
+    }
+
+    public Sub getSelectedSubtitleSub() {
+        return spec == null ? null : findSelectedSubtitleSub(spec.getSubs(), getCurrentTracks());
+    }
+
+    public List<Sub> getSubtitleSubs() {
+        return spec == null || spec.getSubs() == null ? Collections.emptyList() : spec.getSubs();
     }
 
     public MediaMetadata getMetadata() {
@@ -371,7 +382,10 @@ public class PlayerManager implements ParseCallback {
     }
 
     private Format getSelectedFormat(int type) {
-        Tracks tracks = getCurrentTracks();
+        return getSelectedFormat(getCurrentTracks(), type);
+    }
+
+    static Format getSelectedFormat(Tracks tracks, int type) {
         if (tracks == null || tracks.isEmpty()) return null;
         for (Tracks.Group group : tracks.getGroups()) {
             if (group.getType() != type) continue;
@@ -380,6 +394,46 @@ public class PlayerManager implements ParseCallback {
             }
         }
         return null;
+    }
+
+    static Sub findSelectedSubtitleSub(List<Sub> subs, Tracks tracks) {
+        Sub selected = findSubtitleSub(subs, getSelectedFormat(tracks, C.TRACK_TYPE_TEXT));
+        if (selected != null || hasTrack(tracks, C.TRACK_TYPE_TEXT)) return selected;
+        return firstSubtitleSub(subs);
+    }
+
+    static Sub findSubtitleSub(List<Sub> subs, Format format) {
+        if (subs == null || format == null) return null;
+        Sub mimeLanguageMatch = null;
+        for (Sub sub : subs) {
+            if (sub == null) continue;
+            if (!TextUtils.isEmpty(format.label) && TextUtils.equals(format.label, sub.getName()) && mimeMatches(sub, format)) return sub;
+            if (TextUtils.isEmpty(format.label) && mimeMatches(sub, format) && languageMatches(sub, format)) {
+                if (mimeLanguageMatch != null) return null;
+                mimeLanguageMatch = sub;
+            }
+        }
+        return mimeLanguageMatch;
+    }
+
+    private static boolean hasTrack(Tracks tracks, int type) {
+        if (tracks == null || tracks.isEmpty()) return false;
+        for (Tracks.Group group : tracks.getGroups()) if (group.getType() == type && group.length > 0) return true;
+        return false;
+    }
+
+    private static Sub firstSubtitleSub(List<Sub> subs) {
+        if (subs == null) return null;
+        for (Sub sub : subs) if (sub != null && !TextUtils.isEmpty(sub.getUrl())) return sub;
+        return null;
+    }
+
+    private static boolean mimeMatches(Sub sub, Format format) {
+        return TextUtils.isEmpty(format.sampleMimeType) || TextUtils.isEmpty(sub.getFormat()) || TextUtils.equals(format.sampleMimeType, sub.getFormat());
+    }
+
+    private static boolean languageMatches(Sub sub, Format format) {
+        return TextUtils.isEmpty(format.language) || TextUtils.isEmpty(sub.getLang()) || TextUtils.equals(format.language, sub.getLang());
     }
 
     private static void append(StringBuilder builder, String name, String value) {
@@ -567,6 +621,8 @@ public class PlayerManager implements ParseCallback {
         lutApplyInProgress = false;
         lutPipelineReadyForItem = false;
         lutPipelinePrepareInProgress = false;
+        parseHealthRecorded = false;
+        parseHealthStartedAt = 0;
         pendingLutPreview = false;
         waitingLutBeforePlay = false;
         clearLutWarmupRecovery();
@@ -709,6 +765,8 @@ public class PlayerManager implements ParseCallback {
         realtimeFallbackTried = false;
         manualPlayerSwitchPending = false;
         localProxyRetry = 0;
+        parseHealthStartedAt = System.currentTimeMillis();
+        parseHealthRecorded = false;
         resetPlayerFallback();
         hardDecodeSwitchRetryArmed = false;
         clearDanmakuState();
@@ -1231,6 +1289,7 @@ public class PlayerManager implements ParseCallback {
     public void onParseSuccess(Map<String, String> headers, String url, String from) {
         if (!TextUtils.isEmpty(from)) Notify.show(ResUtil.getString(R.string.parse_from, from));
         if (SpiderDebug.isEnabled()) SpiderDebug.log("player", "parseSuccess from=%s url=%s headers=%s", from, summarizeUrl(url), headers == null ? 0 : headers.size());
+        recordParseHealth(true, "");
         if (headers != null) headers.remove(HttpHeaders.RANGE);
         if (spec != null) spec.setHeaders(headers);
         if (spec != null) spec.setUrl(url);
@@ -1239,7 +1298,15 @@ public class PlayerManager implements ParseCallback {
 
     @Override
     public void onParseError() {
+        recordParseHealth(false, ResUtil.getString(R.string.error_play_parse));
         callback.onError(ResUtil.getString(R.string.error_play_parse));
+    }
+
+    private void recordParseHealth(boolean success, String error) {
+        if (parseHealthRecorded || spec == null) return;
+        parseHealthRecorded = true;
+        long cost = parseHealthStartedAt <= 0 ? 0 : System.currentTimeMillis() - parseHealthStartedAt;
+        SiteHealthStore.recordParse(spec.getKey(), success, cost, error);
     }
 
     private String debugSpec() {

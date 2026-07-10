@@ -111,6 +111,7 @@ import com.fongmi.android.tv.ui.dialog.TrackDialog;
 import com.fongmi.android.tv.ui.helper.EpisodeDisplayPolicy;
 import com.fongmi.android.tv.ui.helper.PlayerControlFocusHelper;
 import com.fongmi.android.tv.ui.helper.TmdbEpisodeGridPolicy;
+import com.fongmi.android.tv.ui.helper.TmdbEpisodeMatcher;
 import com.fongmi.android.tv.ui.helper.TmdbNavigation;
 import com.fongmi.android.tv.ui.player.VodPlayerChrome;
 import com.fongmi.android.tv.ui.player.VodPlayerUiController;
@@ -147,10 +148,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.Listener, TrackDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, Clock.Callback, SubtitlePlaybackSession.Host {
+public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.Listener, TrackDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, Clock.Callback, SubtitlePlaybackSession.Host, com.fongmi.android.tv.ui.host.TmdbDetailHost {
 
     private static final int SHORT_DRAMA_SCALE = 0; // 0=原始(适合TV), 4=裁剪(适合手机)
-    private static final int TMDB_DETAIL_LOAD_TIMEOUT = 8000;
+    private static final int TMDB_DETAIL_LOAD_TIMEOUT = 15000;
     private static final int TMDB_OVERVIEW_ROW_GAP_DP = 12;
     private static final int TMDB_OVERVIEW_BOTTOM_GUARD_DP = 6;
     private static final int OMDB_FULL_RATING_TEXT_MAX_LENGTH = 20;
@@ -274,6 +275,17 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             }
         });
     });
+
+    @Override
+    public com.fongmi.android.tv.bean.TmdbItem getMatchedTmdbItem() {
+        return mTmdbUIAdapter == null ? null : mTmdbUIAdapter.getTmdbItem();
+    }
+
+    @Override
+    public com.google.gson.JsonObject getMatchedTmdbDetail() {
+        // leanback VideoActivity 不持有 detail JSON，只有 TmdbItem
+        return null;
+    }
 
     public static void push(FragmentActivity activity, String text) {
         PushParser.Parsed push = PushParser.fromText(text);
@@ -497,6 +509,26 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private String getTmdbVodPic() {
         return Objects.toString(getIntent().getStringExtra("tmdb_vod_pic"), "");
+    }
+
+    private String getTmdbVodYear() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_year"), "");
+    }
+
+    private String getTmdbVodArea() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_area"), "");
+    }
+
+    private String getTmdbVodType() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_type"), "");
+    }
+
+    private String getTmdbVodDirector() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_director"), "");
+    }
+
+    private String getTmdbVodActor() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_actor"), "");
     }
 
     private String getWallPic() {
@@ -1339,6 +1371,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             for (Episode episode : flag.getEpisodes()) {
                 String title = titles.get(episode.getNumber());
                 if (TextUtils.isEmpty(title)) continue;
+                if (!TmdbEpisodeMatcher.shouldApply(episode, episode.getNumber(), title)) continue;
                 String displayName = EpisodeTitleFormatter.withSourceFileSize(episode.getName(), EpisodeTitleFormatter.formatTmdbTitle(episode.getNumber(), title), Setting.isTmdbEpisodeFileSize());
                 if (TextUtils.equals(episode.getDisplayName(), displayName)) continue;
                 episode.setDisplayName(displayName);
@@ -2773,6 +2806,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.control.action.speed.setText(player().setSpeed(speed));
         mHistory.setSpeed(player().getSpeed());
         mHistory.setVodName(item.getName());
+        enrichHistoryMeta(item);
         PlaybackEventCollector.get().updateHistory(mHistory);
         setArtwork(getInitialArtwork(item));
         setScale(getScale());
@@ -2833,6 +2867,20 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         history.setWallPic(getWallPic());
         history.findEpisode(item.getFlags());
         return history;
+    }
+
+    /**
+     * 补齐历史记录的富集元数据（题材/地区/演员/主创/年份）。
+     * 炫彩详情模式优先用 TMDB extra，否则用源站 Vod。仅补空字段，新老记录统一走此路径。
+     */
+    private void enrichHistoryMeta(Vod item) {
+        if (mHistory == null || item == null) return;
+        String year = TextUtils.isEmpty(getTmdbVodYear()) ? item.getYear() : getTmdbVodYear();
+        String area = TextUtils.isEmpty(getTmdbVodArea()) ? item.getArea() : getTmdbVodArea();
+        String type = TextUtils.isEmpty(getTmdbVodType()) ? item.getTypeName() : getTmdbVodType();
+        String director = TextUtils.isEmpty(getTmdbVodDirector()) ? item.getDirector() : getTmdbVodDirector();
+        String actor = TextUtils.isEmpty(getTmdbVodActor()) ? item.getActor() : getTmdbVodActor();
+        mHistory.enrichMeta(type, area, actor, director, year);
     }
 
     private void applyIntentPlaybackSelection(Vod item) {
@@ -2992,6 +3040,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (id) mHistory.replace(getHistoryKey());
         if (name) mHistory.setVodName(item.getName());
         if (name) mBinding.name.setText(item.getName());
+        // 原生增强：TMDB 富集完成后回写题材/地区/演员/主创到 History（enrichVod 已填充 item），仅补空字段
+        if (mHistory != null) mHistory.enrichMeta(item.getTypeName(), item.getArea(), item.getActor(), item.getDirector(), item.getYear());
         updateFlag(getFlag(), item.getFlags());
         mBinding.widget.title.setText(getPlaybackControlTitle());
         if (pic) setArtwork(item.getPic());
@@ -3887,12 +3937,41 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (!TextUtils.isEmpty(tmdbRating)) {
             chips.add(new String[]{"TMDB", tmdbRating + "/10", "#21D07A"});
         }
+        String[] boxOffice = buildBoxOfficeChip();
+        if (boxOffice != null) chips.add(boxOffice);
         PersonalRecommendationService.DoubanRating doubanRating = mTmdbDoubanRatingCache.get(currentTmdbDoubanRatingKey());
         if (doubanRating != null && !doubanRating.isEmpty()) {
             String rating = formatRating(doubanRating.getRating());
             if (!TextUtils.isEmpty(rating)) chips.add(new String[]{"豆瓣", rating + "/10", "#00B51D"});
         }
         return chips;
+    }
+
+    private String[] buildBoxOfficeChip() {
+        if (mTmdbUIAdapter == null) return null;
+        com.google.gson.JsonObject detail = mTmdbUIAdapter.getTmdbDetail();
+        if (detail == null) return null;
+        String mediaType = currentTmdbMediaType();
+        if (!"movie".equalsIgnoreCase(mediaType)) return null;
+        long revenue = 0;
+        try {
+            if (detail.has("revenue") && !detail.get("revenue").isJsonNull()) {
+                revenue = detail.get("revenue").getAsLong();
+            }
+        } catch (Exception ignored) {
+        }
+        if (revenue <= 0) return null;
+        return new String[]{"票房", formatBoxOffice(revenue), "#9C27B0"};
+    }
+
+    private String formatBoxOffice(long revenue) {
+        if (revenue >= 1_000_000_000L) {
+            return String.format(java.util.Locale.US, "$%.2fB", revenue / 1_000_000_000.0);
+        } else if (revenue >= 1_000_000L) {
+            return String.format(java.util.Locale.US, "$%.2fM", revenue / 1_000_000.0);
+        } else {
+            return String.format(java.util.Locale.US, "$%,d", revenue);
+        }
     }
 
     private void fetchTmdbDoubanRating() {

@@ -135,6 +135,7 @@ import com.fongmi.android.tv.ui.helper.DetailThemeVisibility;
 import com.fongmi.android.tv.ui.helper.EpisodeDisplayPolicy;
 import com.fongmi.android.tv.ui.helper.EpisodeRangePolicy;
 import com.fongmi.android.tv.ui.helper.PlayerControlFocusHelper;
+import com.fongmi.android.tv.ui.helper.TmdbEpisodeMatcher;
 import com.fongmi.android.tv.ui.helper.TmdbNavigation;
 import com.fongmi.android.tv.ui.player.VodPlayerChrome;
 import com.fongmi.android.tv.ui.player.VodPlayerUiController;
@@ -189,6 +190,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private static final int TMDB_TABLET_PLAYER_GUTTER_DP = 16;
     private static final int TMDB_TABLET_PLAYER_TOP_MARGIN_DP = 16;
     private static final int TMDB_TABLET_SUMMARY_MIN_WIDTH_DP = 280;
+    private static final int TMDB_DETAIL_LOAD_TIMEOUT = 15000;
 
     private ActivityVideoBinding mBinding;
     private ViewGroup.LayoutParams mFrameParams;
@@ -241,6 +243,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private Runnable mR3;
     private Runnable mR4;
     private Runnable mSeekProgressFallback;
+    private Runnable mTmdbDetailTimeout;
     private Clock mClock;
     private PiP mPiP;
     private String mContextWallUrl;
@@ -516,6 +519,26 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return Objects.toString(getIntent().getStringExtra("tmdb_vod_pic"), "");
     }
 
+    private String getTmdbVodYear() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_year"), "");
+    }
+
+    private String getTmdbVodArea() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_area"), "");
+    }
+
+    private String getTmdbVodType() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_type"), "");
+    }
+
+    private String getTmdbVodDirector() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_director"), "");
+    }
+
+    private String getTmdbVodActor() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_actor"), "");
+    }
+
     private String getWallPic() {
         return Objects.toString(getIntent().getStringExtra("wallPic"), "");
     }
@@ -716,6 +739,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected void initView(Bundle savedInstanceState) {
+        mTmdbDetailTimeout = this::showTmdbDetailFallback;
         super.initView(savedInstanceState);
         ViewCompat.setOnApplyWindowInsetsListener(mBinding.getRoot(), (v, insets) -> setStatusBar(insets));
         mKeyDown = CustomKeyDown.create(this, mBinding.exo);
@@ -1124,6 +1148,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void getDetail() {
         detailStartTime = System.currentTimeMillis();
         detailHealthRecorded = false;
+        cancelTmdbDetailFallback();
         SpiderDebug.log("video-flow", "detail start key=%s id=%s name=%s", getKey(), getId(), getName());
 
         // 显示加载指示器
@@ -1198,7 +1223,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             mBinding.search.setVisibility(View.GONE);
             if (mBinding.videoShadow != null) mBinding.videoShadow.setVisibility(View.GONE);
             mBinding.progressLayout.showProgress();
+            scheduleTmdbDetailFallback();
         } else {
+            cancelTmdbDetailFallback();
             restoreDefaultVideoLayout();
             restoreFlagAndEpisodeFromTmdb();
             setNativeDetailInfoVisible(true);
@@ -1416,6 +1443,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             for (Episode episode : flag.getEpisodes()) {
                 String title = titles.get(episode.getNumber());
                 if (android.text.TextUtils.isEmpty(title)) continue;
+                if (!TmdbEpisodeMatcher.shouldApply(episode, episode.getNumber(), title)) continue;
                 String displayName = EpisodeTitleFormatter.withSourceFileSize(episode.getName(), EpisodeTitleFormatter.formatTmdbTitle(episode.getNumber(), title), Setting.isTmdbEpisodeFileSize());
                 if (android.text.TextUtils.equals(episode.getDisplayName(), displayName)) continue;
                 episode.setDisplayName(displayName);
@@ -2456,6 +2484,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void onTmdbContentReady() {
         android.util.Log.d("VideoActivity", "TMDB 内容加载完成");
+        cancelTmdbDetailFallback();
         if (shouldUseTmdbBackdropSurface() && mTmdbHeaderView != null) {
             mTmdbHeaderView.hideNativeHeroBackdrop();
         }
@@ -2505,9 +2534,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.osdDiagnostics.setVisibility(PlayerSetting.isOsdDiagnostics() && !player().isEmpty() ? View.VISIBLE : View.GONE);
         mBinding.control.osdDiagnostics.setAlpha(mOsd != null && mOsd.isDiagnosticsVisible() ? 1f : 0.72f);
         mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() ? View.VISIBLE : View.GONE);
-        // 竖屏模式下隐藏底部控制栏（EXO、硬解等选项），避免界面拥挤
-        // 使用屏幕方向判断：只在横屏全屏时显示，竖屏全屏时隐藏
-        boolean isLandscapeFullscreen = isFullscreen() && ResUtil.isLand(this);
+        // 竖屏模式下隐藏底部控制栏（EXO、硬解等选项），避免界面拥挤。
+        // 判定去耦：以视频方向（player().isPortrait()，即 App 期望的全屏方向）为主判据，
+        // 不再依赖系统 Configuration 何时真正旋转完成——否则慢机型会在 300ms 自动唤出时踩空、
+        // 锁定方向的机型会永久看不到控制台。ResUtil.isLand 作为额外兜底（竖屏视频被强制横屏时）。
+        boolean isLandscapeFullscreen = isFullscreen() && (!player().isPortrait() || ResUtil.isLand(this));
         mBinding.control.action.getRoot().setVisibility(isLandscapeFullscreen || isFusionPlayerActionsDocked() ? View.VISIBLE : View.GONE);
         mBinding.control.right.lock.setVisibility(isFullscreen() ? View.VISIBLE : View.GONE);
         mBinding.control.info.setVisibility(player().isEmpty() ? View.GONE : View.VISIBLE);
@@ -2719,9 +2750,24 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.speed.setText(player().setSpeed(speed));
         mHistory.setSpeed(player().getSpeed());
         mHistory.setVodName(item.getName());
+        enrichHistoryMeta(item);
         PlaybackEventCollector.get().updateHistory(mHistory);
         setArtwork(getInitialArtwork(item));
         setScale(getScale());
+    }
+
+    /**
+     * 补齐历史记录的富集元数据（题材/地区/演员/主创/年份）。
+     * 炫彩详情模式优先用 TMDB extra，否则用源站 Vod。仅补空字段，新老记录统一走此路径。
+     */
+    private void enrichHistoryMeta(Vod item) {
+        if (mHistory == null || item == null) return;
+        String year = TextUtils.isEmpty(getTmdbVodYear()) ? item.getYear() : getTmdbVodYear();
+        String area = TextUtils.isEmpty(getTmdbVodArea()) ? item.getArea() : getTmdbVodArea();
+        String type = TextUtils.isEmpty(getTmdbVodType()) ? item.getTypeName() : getTmdbVodType();
+        String director = TextUtils.isEmpty(getTmdbVodDirector()) ? item.getDirector() : getTmdbVodDirector();
+        String actor = TextUtils.isEmpty(getTmdbVodActor()) ? item.getActor() : getTmdbVodActor();
+        mHistory.enrichMeta(type, area, actor, director, year);
     }
 
     private boolean shouldKeepPushArtwork() {
@@ -2956,6 +3002,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (id) mHistory.replace(getHistoryKey());
         if (name) mHistory.setVodName(item.getName());
         if (name) mBinding.name.setText(item.getName());
+        // 原生增强：TMDB 富集完成后回写题材/地区/演员/主创到 History（enrichVod 已填充 item，仅补空字段）
+        if (mHistory != null) {
+            mHistory.enrichMeta(item.getTypeName(), item.getArea(), item.getActor(), item.getDirector(), item.getYear());
+        }
         updateFlag(getFlag(), item.getFlags());
         mBinding.control.title.setText(getPlaybackControlTitle());
         if (pic) setArtwork(item.getPic());
@@ -2971,21 +3021,26 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             boolean loaded = mTmdbUIAdapter != null && mTmdbUIAdapter.isLoaded();
             android.util.Log.d("VideoActivity", "updateVod - TMDB isLoaded=" + loaded);
             if (loaded) {
-                mTmdbFallbackToNative = false;
-                hideNativePersonalRecommendations();
-                moveFlagAndEpisodeToTmdb();
-                mTmdbHeaderView.bind(mTmdbUIAdapter);
-                styleTmdbSourceInFlagTitle();
-                applyTmdbPlaybackControlColors();
-                applyFusionPlayerBelowSpacing();
-                updateTmdbKeepState();
-                requestIntroSkipPlan();
+                bindLoadedTmdbDetail();
             } else {
                 android.util.Log.d("VideoActivity", "TMDB 加载失败，回退到原生详情");
                 showNativeDetailFallback(item);
                 if (shouldShowAutoTmdbMatchDialog(item)) showManualTmdbMatchDialog();
             }
         }
+    }
+
+    private void bindLoadedTmdbDetail() {
+        if (mTmdbHeaderView == null || mTmdbUIAdapter == null || !mTmdbUIAdapter.isLoaded()) return;
+        mTmdbFallbackToNative = false;
+        hideNativePersonalRecommendations();
+        moveFlagAndEpisodeToTmdb();
+        mTmdbHeaderView.bind(mTmdbUIAdapter);
+        styleTmdbSourceInFlagTitle();
+        applyTmdbPlaybackControlColors();
+        applyFusionPlayerBelowSpacing();
+        updateTmdbKeepState();
+        requestIntroSkipPlan();
     }
 
     private void updateFlag(Flag activated, List<Flag> items) {
@@ -3819,7 +3874,26 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mTmdbHeaderView.getHeaderRoot().setVisibility(View.GONE);
     }
 
+    private void scheduleTmdbDetailFallback() {
+        App.post(mTmdbDetailTimeout, TMDB_DETAIL_LOAD_TIMEOUT);
+    }
+
+    private void cancelTmdbDetailFallback() {
+        App.removeCallbacks(mTmdbDetailTimeout);
+    }
+
+    private void showTmdbDetailFallback() {
+        if (mTmdbContentLoaded) return;
+        SpiderDebug.log("tmdb-mobile", "detail loading timeout fallback");
+        if (mTmdbUIAdapter != null && mTmdbUIAdapter.isLoaded()) {
+            bindLoadedTmdbDetail();
+            if (mTmdbContentLoaded) return;
+        }
+        if (mVod != null) showNativeDetailFallback(mVod);
+    }
+
     private void showNativeDetailFallback(Vod item) {
+        cancelTmdbDetailFallback();
         mTmdbFallbackToNative = true;
         mTmdbContentLoaded = true;
         hideTmdbHeader();
@@ -4060,6 +4134,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         hideTmdbHeader();
         if (mBinding.videoShadow != null) mBinding.videoShadow.setVisibility(View.GONE);
         mBinding.progressLayout.showProgress();
+        scheduleTmdbDetailFallback();
         mTmdbUIAdapter.rememberManualMatch(mVod, item);
         mTmdbUIAdapter.load(item, mVod);
         Notify.show(R.string.detail_tmdb_match_saved);
@@ -4608,7 +4683,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         Timer.get().reset();
         DanmakuApi.cancel();
         RefreshEvent.keep();
-        App.removeCallbacks(mR1, mR2, mR3, mR4, mSeekProgressFallback);
+        App.removeCallbacks(mR1, mR2, mR3, mR4, mSeekProgressFallback, mTmdbDetailTimeout);
         mViewModel.getResult().removeObserver(mObserveDetail);
         mViewModel.getPlayer().removeObserver(mObservePlayer);
         mViewModel.getSearch().removeObserver(mObserveSearch);

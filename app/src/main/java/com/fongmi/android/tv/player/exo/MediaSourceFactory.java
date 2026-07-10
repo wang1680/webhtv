@@ -173,8 +173,24 @@ public class MediaSourceFactory implements MediaSource.Factory {
         return userAgent;
     }
 
-    private static boolean isLocalProxy(String url) {
-        return url.startsWith("http://127.0.0.1") || url.startsWith("http://localhost");
+    static boolean isLocalProxyUrl(String url) {
+        if (url == null || url.isEmpty()) return false;
+        try {
+            URI uri = URI.create(url);
+            if (!"http".equalsIgnoreCase(uri.getScheme())) return false;
+            if (!"/proxy".equals(uri.getPath())) return false;
+            return isLoopbackHost(uri.getHost());
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isLoopbackHost(String host) {
+        if (host == null || host.isEmpty()) return false;
+        String value = host;
+        if (value.startsWith("[") && value.endsWith("]")) value = value.substring(1, value.length() - 1);
+        value = value.toLowerCase(Locale.ROOT);
+        return "localhost".equals(value) || "127.0.0.1".equals(value) || "0.0.0.0".equals(value) || "::1".equals(value);
     }
 
     private static boolean isHls(MediaItem mediaItem, String url) {

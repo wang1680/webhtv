@@ -18,6 +18,7 @@ import com.fongmi.android.tv.bean.TmdbEpisode;
 import com.fongmi.android.tv.databinding.AdapterTmdbEpisodeBinding;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.helper.TmdbEpisodeGridPolicy;
+import com.fongmi.android.tv.ui.helper.TmdbEpisodeMatcher;
 import com.fongmi.android.tv.utils.EpisodeTitleFormatter;
 import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.ResUtil;
@@ -182,6 +183,7 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
         Episode episode = items.get(position);
         int episodeNumber = episodeNumber(episode, position);
         TmdbEpisode tmdbEpisode = tmdbItems.get(episodeNumber);
+        if (!TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode)) tmdbEpisode = null;
         String tmdbTitle = tmdbEpisode != null ? tmdbEpisode.getTitle() : "";
         String cleanTitle = getCleanTitle(episode, episodeNumber, tmdbTitle);
         String title = titleWithFileSize(episode, cleanTitle);

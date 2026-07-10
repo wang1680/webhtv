@@ -156,7 +156,7 @@ public class SettingEnhanceActivity extends BaseActivity {
         safeRun("detailThemeModeVisibility", () -> mBinding.detailThemeMode.setVisibility(Setting.isTmdbMode(Setting.getDetailOpenMode()) ? View.VISIBLE : View.GONE), null);
         safeSet("detailThemeMode", mBinding.detailThemeModeText, this::getDetailThemeModeText);
         safeSet("debugLog", mBinding.debugLogText, () -> getSwitch(Setting.isDebugLog()));
-        safeSet("siteHealthSort", mBinding.siteHealthSortText, () -> getSwitch(Setting.isSiteHealthSort()));
+        safeSet("siteHealthSort", mBinding.siteHealthSortText, this::getSiteHealthText);
         safeSet("webHomeExtension", mBinding.webHomeExtensionText, () -> {
             WebHomeExtensionRegistry.Snapshot webHomeExtension = WebHomeExtensionRegistry.get().snapshot();
             return getSwitch(Setting.isWebHomeExtension()) + " · " + webHomeExtension.readyCount + "/" + webHomeExtension.installedCount;
@@ -279,6 +279,13 @@ public class SettingEnhanceActivity extends BaseActivity {
         int mode = Setting.getTmdbDetailStyle();
         for (int i = 0; i < DETAIL_THEME_MODES.length; i++) if (DETAIL_THEME_MODES[i] == mode) return labels[i];
         return labels[0];
+    }
+
+    private String getSiteHealthText() {
+        SiteHealthStore.Summary summary = SiteHealthStore.summary();
+        String state = getSwitch(Setting.isSiteHealthSort());
+        if (summary.siteCount <= 0) return state;
+        return state + " · " + getString(R.string.site_health_report_setting_summary, summary.siteCount, summary.sampleCount);
     }
 
     private String[] getDetailThemeModes() {

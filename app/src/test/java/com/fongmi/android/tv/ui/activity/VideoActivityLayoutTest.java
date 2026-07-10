@@ -605,11 +605,38 @@ public class VideoActivityLayoutTest {
         int loaded = source.indexOf("if (loaded) {", method);
         int fallback = source.indexOf("} else {", loaded);
         String loadedBody = loaded >= 0 && fallback > loaded ? source.substring(loaded, fallback) : "";
+        int helper = source.indexOf("private void bindLoadedTmdbDetail()");
+        int helperEnd = source.indexOf("private void updateFlag(", helper);
+        String helperBody = helper >= 0 && helperEnd > helper ? source.substring(helper, helperEnd) : "";
 
         assertTrue(sourcePath + " is missing updateVod", method >= 0);
-        assertTrue("TMDB VOD refresh must still bind the loaded header", loadedBody.contains("mTmdbHeaderView.bind(mTmdbUIAdapter);"));
+        assertTrue("TMDB VOD refresh must still bind the loaded header", loadedBody.contains("bindLoadedTmdbDetail();") && helperBody.contains("mTmdbHeaderView.bind(mTmdbUIAdapter);"));
         assertFalse("TMDB VOD refresh must not reveal detail content outside onTmdbContentReady", loadedBody.contains("mBinding.progressLayout.showContent();"));
         assertFalse("TMDB VOD refresh must not clear the independent video loading overlay", loadedBody.contains("hideProgress();"));
+    }
+
+    @Test
+    public void mobileTmdbDetailLoadingHasTimeoutFallback() throws Exception {
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int getDetail = source.indexOf("private void getDetail()");
+        int cancelStart = source.indexOf("cancelTmdbDetailFallback();", getDetail);
+        int detailCall = source.indexOf("mViewModel.detailContent(getKey(), getId());", getDetail);
+        int setDetail = source.indexOf("private void setDetail(Vod item)");
+        int schedule = source.indexOf("scheduleTmdbDetailFallback();", setDetail);
+        int ready = source.indexOf("private void onTmdbContentReady()");
+        int cancelReady = source.indexOf("cancelTmdbDetailFallback();", ready);
+        int fallback = source.indexOf("private void showTmdbDetailFallback()");
+        int end = source.indexOf("private void showNativeDetailFallback(Vod item)", fallback);
+        String fallbackBody = fallback >= 0 && end > fallback ? source.substring(fallback, end) : "";
+
+        assertTrue("mobile TMDB detail loading must use the same timeout as TV", source.contains("TMDB_DETAIL_LOAD_TIMEOUT = 15000"));
+        assertTrue("new detail requests must cancel stale TMDB loading timeouts", cancelStart > getDetail && cancelStart < detailCall);
+        assertTrue("mobile TMDB detail loading must schedule a timeout after the source detail arrives", schedule > setDetail);
+        assertTrue("TMDB content-ready must cancel the timeout", cancelReady > ready);
+        assertTrue(sourcePath + " is missing showTmdbDetailFallback", fallback >= 0);
+        assertTrue("timeout should first bind already-loaded TMDB data, covering missed VOD refresh events", fallbackBody.contains("bindLoadedTmdbDetail();"));
+        assertTrue("timeout must fall back to native details instead of leaving the content area blank", fallbackBody.contains("showNativeDetailFallback(mVod);"));
     }
 
     @Test
@@ -1134,7 +1161,7 @@ public class VideoActivityLayoutTest {
             Element action = findAndroidId(layoutPath.toFile(), id);
             assertTrue(layoutPath + " is missing @+id/" + id, action != null);
             assertTrue(id + " must use the shared TMDB header action width",
-                    "72dp".equals(action.getAttribute("android:minWidth")));
+                    "60dp".equals(action.getAttribute("android:minWidth")));
         }
     }
 
