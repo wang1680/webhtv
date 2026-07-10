@@ -740,11 +740,6 @@ public class TmdbUIAdapter {
                 for (Episode episode : flag.getEpisodes()) {
                     TmdbEpisode tmdbEp = findEpisodeByNumber(episodes, episode.getNumber());
                     if (tmdbEp != null) {
-                        if (!TmdbEpisodeMatcher.shouldApply(episode, tmdbEp)) {
-                            if (episode.getTmdbEpisode() != null) changed = true;
-                            episode.setTmdbEpisode(null);
-                            continue;
-                        }
                         if (episode.getTmdbEpisode() == null) changed = true;
                         episode.setTmdbEpisode(tmdbEp);
                         if (!tmdbEp.getTitle().isEmpty()) {

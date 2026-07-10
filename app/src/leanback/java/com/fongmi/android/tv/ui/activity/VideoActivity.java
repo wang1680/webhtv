@@ -118,7 +118,6 @@ import com.fongmi.android.tv.ui.dialog.TrackDialog;
 import com.fongmi.android.tv.ui.helper.EpisodeDisplayPolicy;
 import com.fongmi.android.tv.ui.helper.PlayerControlFocusHelper;
 import com.fongmi.android.tv.ui.helper.TmdbEpisodeGridPolicy;
-import com.fongmi.android.tv.ui.helper.TmdbEpisodeMatcher;
 import com.fongmi.android.tv.ui.helper.TmdbNavigation;
 import com.fongmi.android.tv.ui.player.VodPlayerChrome;
 import com.fongmi.android.tv.ui.player.VodPlayerUiController;
@@ -1818,7 +1817,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             for (Episode episode : flag.getEpisodes()) {
                 String title = titles.get(episode.getNumber());
                 if (TextUtils.isEmpty(title)) continue;
-                if (!TmdbEpisodeMatcher.shouldApply(episode, episode.getNumber(), title)) continue;
                 String displayName = EpisodeTitleFormatter.withSourceFileSize(episode.getName(), EpisodeTitleFormatter.formatTmdbTitle(episode.getNumber(), title), Setting.isTmdbEpisodeFileSize());
                 if (TextUtils.equals(episode.getDisplayName(), displayName)) continue;
                 episode.setDisplayName(displayName);

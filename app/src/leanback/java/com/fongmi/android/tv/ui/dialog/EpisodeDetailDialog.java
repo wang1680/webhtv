@@ -20,7 +20,6 @@ import com.fongmi.android.tv.service.TmdbService;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.adapter.EpisodePhotoAdapter;
 import com.fongmi.android.tv.ui.adapter.TmdbPersonAdapter;
-import com.fongmi.android.tv.ui.helper.TmdbEpisodeMatcher;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.gson.JsonObject;
@@ -38,7 +37,6 @@ public class EpisodeDetailDialog {
 
     public static void show(FragmentActivity activity, Episode episode, Site site) {
         TmdbEpisode tmdbEpisode = episode.getTmdbEpisode();
-        if (!TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode)) tmdbEpisode = null;
         if (tmdbEpisode == null) {
             // 电影没有分集对象，尝试从宿主获取影片级数据
             if (activity instanceof com.fongmi.android.tv.ui.host.TmdbDetailHost) {

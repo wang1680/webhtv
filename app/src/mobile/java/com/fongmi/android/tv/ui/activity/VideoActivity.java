@@ -145,7 +145,6 @@ import com.fongmi.android.tv.ui.helper.DetailThemeVisibility;
 import com.fongmi.android.tv.ui.helper.EpisodeDisplayPolicy;
 import com.fongmi.android.tv.ui.helper.EpisodeRangePolicy;
 import com.fongmi.android.tv.ui.helper.PlayerControlFocusHelper;
-import com.fongmi.android.tv.ui.helper.TmdbEpisodeMatcher;
 import com.fongmi.android.tv.ui.helper.TmdbNavigation;
 import com.fongmi.android.tv.ui.player.VodPlayerChrome;
 import com.fongmi.android.tv.ui.player.VodPlayerUiController;
@@ -1531,7 +1530,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             for (Episode episode : flag.getEpisodes()) {
                 String title = titles.get(episode.getNumber());
                 if (android.text.TextUtils.isEmpty(title)) continue;
-                if (!TmdbEpisodeMatcher.shouldApply(episode, episode.getNumber(), title)) continue;
                 String displayName = EpisodeTitleFormatter.withSourceFileSize(episode.getName(), EpisodeTitleFormatter.formatTmdbTitle(episode.getNumber(), title), Setting.isTmdbEpisodeFileSize());
                 if (android.text.TextUtils.equals(episode.getDisplayName(), displayName)) continue;
                 episode.setDisplayName(displayName);

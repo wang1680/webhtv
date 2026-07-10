@@ -12,7 +12,7 @@ public final class EpisodeDisplayPolicy {
     public static boolean hasTmdbEpisodeData(List<Episode> items) {
         if (items == null || items.isEmpty()) return false;
         for (Episode item : items) {
-            if (TmdbEpisodeMatcher.shouldApply(item, item == null ? null : item.getTmdbEpisode())) return true;
+            if (item != null && item.getTmdbEpisode() != null) return true;
         }
         return false;
     }
