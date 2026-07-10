@@ -46,7 +46,7 @@ public class PlaybackPerformanceSetting {
         Prefers.put("preload_threads", recommendedPreloadThreads());
         Prefers.put("preload_size", 512);
         Prefers.put("preload_time", 120);
-        Prefers.put("audio_pass_through", true);
+        Prefers.put("audio_pass_through", false);
         Prefers.put("prefer_aac", false);
         Prefers.put("audio_prefer", false);
         Prefers.put("video_prefer", false);
