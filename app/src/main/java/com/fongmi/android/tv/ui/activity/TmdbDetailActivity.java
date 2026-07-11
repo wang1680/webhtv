@@ -5178,7 +5178,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private int getDetailMode() {
-        if (getIntent().hasExtra("detail_mode")) return normalizeDetailMode(getIntent().getIntExtra("detail_mode", Setting.DETAIL_OPEN_ENHANCED));
+        // 返回原始模式，不做 normalize，否则 isPlayerMode() 永远返回 false
+        if (getIntent().hasExtra("detail_mode")) return getIntent().getIntExtra("detail_mode", Setting.DETAIL_OPEN_ENHANCED);
         return getIntent().getBooleanExtra("fusion", false) ? Setting.DETAIL_OPEN_FUSION : Setting.DETAIL_OPEN_ENHANCED;
     }
 
@@ -6606,7 +6607,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void backFromInlineFullscreen() {
-        if (Util.isLeanback() && isPlayerMode()) {
+        // 详情直放模式（含手机版）返回时应关闭内嵌播放器回到纯详情页，
+        // 否则手机版只退出全屏、播放器面板仍可见，看起来跟沉浸融合模式一样
+        if (isPlayerMode()) {
             exitInlineFullscreen();
             closeDetailFullscreenPlayer();
             return;
