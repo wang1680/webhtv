@@ -8,16 +8,19 @@ import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.player.extractor.Force;
 import com.fongmi.android.tv.player.extractor.JianPian;
+import com.fongmi.android.tv.player.extractor.MpdSanitizer;
 import com.fongmi.android.tv.player.extractor.Push;
 import com.fongmi.android.tv.player.extractor.Strm;
 import com.fongmi.android.tv.player.extractor.TVBus;
 import com.fongmi.android.tv.player.extractor.Thunder;
 import com.fongmi.android.tv.player.extractor.Video;
 import com.fongmi.android.tv.player.extractor.Youtube;
+import com.github.catvod.crawler.SpiderDebug;
 import com.fongmi.android.tv.utils.Task;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -83,7 +86,32 @@ public class Source {
         Extractor extractor = getExtractor(uri);
         if (extractor != null) result.setParse(0);
         if (extractor instanceof Video) result.setParse(1);
-        return extractor == null ? url : extractor.fetch(result);
+        String fetched = extractor == null ? url : extractor.fetch(result);
+        String sanitized = MpdSanitizer.sanitize(fetched);
+        if (MpdSanitizer.hasLimitedYoutubeAudio(sanitized)) {
+            String referer = getHeader(result.getHeader(), "Referer");
+            if (referer.contains("youtube.com/watch")) {
+                try {
+                    sanitized = new Youtube().fetch(referer);
+                    SpiderDebug.log("mpd-sanitizer", "replaced limited jar MPD with app YouTube extractor");
+                } catch (Exception e) {
+                    SpiderDebug.log("mpd-sanitizer", "app YouTube extractor fallback failed: %s", e.getMessage());
+                }
+            }
+        }
+        if (MpdSanitizer.isYoutube(sanitized)) {
+            Map<String, String> headers = result.getHeader();
+            headers.put("User-Agent", "com.google.android.youtube/21.02.35 (Linux; U; Android 14) gzip");
+            result.setHeader(headers);
+        }
+        return sanitized;
+    }
+
+    private String getHeader(Map<String, String> headers, String name) {
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            if (name.equalsIgnoreCase(entry.getKey())) return entry.getValue();
+        }
+        return "";
     }
 
     public void stop() {

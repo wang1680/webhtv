@@ -149,8 +149,12 @@ public class MpvPlayerEngine implements PlayerEngine {
                 player.setTrackSelection(C.TRACK_TYPE_TEXT, "no");
                 continue;
             }
-            String id = findMpvTrackId(track);
-            if (id != null) player.setTrackSelection(track.getType(), id);
+            String id = resolveMpvTrackId(track);
+            if (id != null) {
+                player.setTrackSelection(track.getType(), id);
+            } else {
+                SpiderDebug.log("mpv", "select track failed: no mpv id type=%d name=%s format=%s", track.getType(), track.getName(), track.getFormat());
+            }
         }
     }
 
@@ -236,8 +240,12 @@ public class MpvPlayerEngine implements PlayerEngine {
             player.setSecondarySubtitleTrackSelection("no");
             return;
         }
-        String id = findMpvTrackId(track);
-        if (id != null) player.setSecondarySubtitleTrackSelection(id);
+        String id = resolveMpvTrackId(track);
+        if (id != null) {
+            player.setSecondarySubtitleTrackSelection(id);
+        } else {
+            SpiderDebug.log("mpv", "select secondary subtitle failed: no mpv id name=%s format=%s", track.getName(), track.getFormat());
+        }
     }
 
     @Override
@@ -267,6 +275,14 @@ public class MpvPlayerEngine implements PlayerEngine {
             }
         }
         return null;
+    }
+
+    private String resolveMpvTrackId(Track track) {
+        if (track == null) return null;
+        String id = parseMpvTrackId(track.getPlayerId());
+        // playerId is supplied by the currently visible track list. Only persisted
+        // preferences from an earlier playback need the legacy description fallback.
+        return id != null ? id : findMpvTrackId(track);
     }
 
     private String parseMpvTrackId(String id) {

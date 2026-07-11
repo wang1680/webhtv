@@ -47,6 +47,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -123,6 +124,8 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     private final MpvHlsProxy hlsProxy;
     private final List<String> recentLogs;
     private final List<ParcelFileDescriptor> contentFds;
+    @Nullable
+    private final File subtitleDiagnosticFile;
     private MediaItem mediaItem;
     private SurfaceHolder surfaceHolder;
     private Surface surface;
@@ -217,6 +220,9 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         hlsProxy = new MpvHlsProxy();
         recentLogs = new ArrayList<>();
         contentFds = new ArrayList<>();
+        File externalFiles = this.context.getExternalFilesDir(null);
+        subtitleDiagnosticFile = externalFiles == null ? null : new File(externalFiles, "mpv-subtitle-debug.log");
+        if (subtitleDiagnosticFile != null && subtitleDiagnosticFile.length() > 2 * 1024 * 1024) subtitleDiagnosticFile.delete();
         playbackParameters = PlaybackParameters.DEFAULT;
         currentTracks = Tracks.EMPTY;
         currentChapters = List.of();
@@ -568,6 +574,8 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             String line = prefix + ": " + text;
             rememberLog(line);
             markFailureSignal(line);
+            String lower = line.toLowerCase(Locale.US);
+            if (lower.contains("sub") || lower.contains("font") || lower.contains("track switched") || lower.contains("mkv: select track")) appendSubtitleDiagnostic("native " + line);
             if (shouldDebugLogMpvLine(line)) SpiderDebug.log("mpv", "%s", line);
         });
     }
@@ -674,8 +682,20 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         setOption("demuxer-max-bytes", String.valueOf(config.demuxerMaxBytes()));
         setOption("demuxer-max-back-bytes", String.valueOf(config.demuxerMaxBackBytes()));
         setOption("demuxer-readahead-secs", String.valueOf(config.demuxerReadaheadSeconds()));
+        // These options are required for reliable text subtitle rendering on Android.
+        // This libmpv build includes libass but not fontconfig, so let libass index the
+        // Android system font directory directly instead of selecting an unavailable
+        // fontconfig provider. Keep this in native initialization because user configs
+        // may replace the bundled defaults.
+        setOption("sub-ass", "yes");
+        setOption("sub-ass-override", "yes");
+        setOption("embeddedfonts", "yes");
+        setOption("sub-fix-timing", "yes");
+        setOption("sub-use-margins", "yes");
+        setOption("sub-font-provider", "none");
         setOption("msg-level", config.logLevel());
         for (Map.Entry<String, String> entry : config.extraOptions().entrySet()) setOption(entry.getKey(), entry.getValue());
+        setOption("msg-level", "all=warn,cplayer=v,demux=v,mkv=v,sub=trace,osd/libass=trace");
     }
 
     private void applyPostInitOptions() {
@@ -849,7 +869,13 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             audioTrackManuallySelected = true;
             preferAacApplied = true;
         }
+        if (type == C.TRACK_TYPE_TEXT) logSubtitleState("before-select requested=" + mpvId);
         setMpvTrack(type, mpvId);
+        if (type == C.TRACK_TYPE_TEXT) {
+            logSubtitleState("after-select requested=" + mpvId);
+            mainHandler.postDelayed(() -> logSubtitleState("after-select-100ms requested=" + mpvId), 100);
+            mainHandler.postDelayed(() -> logSubtitleState("after-select-500ms requested=" + mpvId), 500);
+        }
         refreshTracks();
         invalidateState();
     }
@@ -882,8 +908,42 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         if (!initialized) return;
         String property = mpvTrackProperty(type);
         if (property == null) return;
-        safeSetPropertyString(property, mpvId);
+        try {
+            MPVLib.setPropertyString(property, mpvId);
+            Log.d(TAG, "set track property=" + property + " requested=" + mpvId + " actual=" + propertyStringOrInt(property));
+            appendSubtitleDiagnostic("set-track property=" + property + " requested=" + mpvId + " actual=" + propertyStringOrInt(property));
+        } catch (Throwable e) {
+            Log.e(TAG, "set track failed property=" + property + " requested=" + mpvId, e);
+            appendSubtitleDiagnostic("set-track-failed property=" + property + " requested=" + mpvId + " error=" + e);
+        }
         SpiderDebug.log("mpv", "select track type=%d property=%s id=%s", type, property, mpvId);
+    }
+
+    private void logSubtitleState(String reason) {
+        if (!initialized) return;
+        String text = stringProperty("sub-text", "");
+        String state = reason
+                + " positionMs=" + cachedPositionMs
+                + " sid=" + propertyStringOrInt("sid")
+                + " currentSub=" + propertyStringOrInt("current-tracks/sub/id")
+                + " visible=" + booleanProperty("sub-visibility", true)
+                + " subStart=" + doubleProperty("sub-start", Double.NaN)
+                + " subEnd=" + doubleProperty("sub-end", Double.NaN)
+                + " textLength=" + text.length()
+                + " text=" + (text.length() > 80 ? text.substring(0, 80) : text);
+        Log.d(TAG, "subtitle-state " + state);
+        appendSubtitleDiagnostic("state " + state);
+    }
+
+    private synchronized void appendSubtitleDiagnostic(String text) {
+        if (subtitleDiagnosticFile == null) return;
+        File parent = subtitleDiagnosticFile.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
+        String line = System.currentTimeMillis() + " " + text + "\n";
+        try (OutputStream out = new FileOutputStream(subtitleDiagnosticFile, true)) {
+            out.write(line.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IOException ignored) {
+        }
     }
 
     @Nullable
@@ -2735,7 +2795,38 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
 
     private void copySupportAssets() throws IOException {
         copyAsset("cacert.pem", config.caFile());
+        copyFallbackSubtitleFont(new File(config.configDir(), "subfont.ttf"));
         writeFontsConf(new File(config.configDir(), "fonts.conf"));
+    }
+
+    private void copyFallbackSubtitleFont(File outFile) throws IOException {
+        if (outFile.isFile() && outFile.length() > 0) return;
+        String[] candidates = {
+                "/system/fonts/NotoSansCJK-Regular.ttc",
+                "/system/fonts/NotoSansSC-Regular.otf",
+                "/system/fonts/DroidSansFallback.ttf",
+                "/system/fonts/DroidSansFallbackBBK.ttf",
+                "/product/fonts/NotoSansCJK-Regular.ttc",
+                "/system/fonts/Roboto-Regular.ttf"
+        };
+        for (String path : candidates) {
+            File source = new File(path);
+            if (!source.isFile() || source.length() == 0) continue;
+            copyFile(source, outFile);
+            SpiderDebug.log("mpv", "subtitle fallback font copied source=%s size=%d", path, outFile.length());
+            return;
+        }
+        SpiderDebug.log("mpv", "subtitle fallback font unavailable");
+    }
+
+    private void copyFile(File source, File outFile) throws IOException {
+        File parent = outFile.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) throw new IOException("Unable to create " + parent);
+        try (InputStream in = new FileInputStream(source); OutputStream out = new FileOutputStream(outFile)) {
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+        }
     }
 
     private void copyAsset(String name, File outFile) throws IOException {

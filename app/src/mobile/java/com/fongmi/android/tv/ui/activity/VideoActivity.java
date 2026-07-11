@@ -2530,10 +2530,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void switchPlayerKernelWithResult(int type, Result result, long position, float speed, boolean repeat, MediaMetadata metadata) {
         playerKernelSwitchRefreshing = false;
-        if (result == null || result.hasMsg() || result.getRealUrl().isEmpty() || result.needParse() || isUseParse()) {
+        if (result == null || result.hasMsg() || result.getRealUrl().isEmpty()) {
             player().togglePlayer();
         } else {
-            player().switchPlayer(type, PlaySpec.from(result, getHistoryKey(), metadata), position, speed, repeat);
+            player().switchPlayer(type, result, getHistoryKey(), metadata, isUseParse(), position, speed, repeat);
         }
         setPlayerKernel();
         setDecode();
