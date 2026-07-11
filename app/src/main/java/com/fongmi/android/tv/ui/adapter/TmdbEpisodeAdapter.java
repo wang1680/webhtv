@@ -58,6 +58,8 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
     private boolean light;
     private boolean compactPlain;
     private boolean nativeEnhanced;
+    private boolean showScrapedName = Setting.getTmdbEpisodeShowScrapedName();
+    private boolean showFileSize = Setting.isTmdbEpisodeFileSize();
     private int activeStrokeColor = 0xFF2CC56F;
     private int gridSpanCount = 2;
     private String fallbackStillUrl = "";
@@ -77,7 +79,8 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
     }
 
     public void setItems(List<Episode> episodes, Map<Integer, TmdbEpisode> tmdbEpisodes, Map<Episode, Integer> numbers, Episode selected, boolean forceRefresh) {
-        if (!forceRefresh && sameItems(episodes, tmdbEpisodes, numbers)) {
+        boolean displaySettingsChanged = updateDisplaySettings();
+        if (!forceRefresh && !displaySettingsChanged && sameItems(episodes, tmdbEpisodes, numbers)) {
             if (Objects.equals(this.selected, selected)) return;
             setSelected(selected);
             return;
@@ -166,6 +169,16 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
         if (this.nativeEnhanced == nativeEnhanced) return;
         this.nativeEnhanced = nativeEnhanced;
         notifyDataSetChanged();
+    }
+
+    public void refreshDisplaySettings(RecyclerView recyclerView) {
+        updateDisplaySettings();
+        for (int index = 0; index < recyclerView.getChildCount(); index++) {
+            RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(recyclerView.getChildAt(index));
+            int position = holder.getBindingAdapterPosition();
+            if (!(holder instanceof ViewHolder) || position == RecyclerView.NO_POSITION || position >= items.size()) continue;
+            onBindViewHolder((ViewHolder) holder, position);
+        }
     }
 
     public int getPosition(Episode episode) {
@@ -383,6 +396,15 @@ public class TmdbEpisodeAdapter extends RecyclerView.Adapter<TmdbEpisodeAdapter.
 
     private boolean sameItems(List<Episode> episodes, Map<Integer, TmdbEpisode> tmdbEpisodes, Map<Episode, Integer> numbers) {
         return sameEpisodes(episodes) && sameTmdbEpisodes(tmdbEpisodes) && sameEpisodeNumbers(numbers);
+    }
+
+    private boolean updateDisplaySettings() {
+        boolean currentShowScrapedName = Setting.getTmdbEpisodeShowScrapedName();
+        boolean currentShowFileSize = Setting.isTmdbEpisodeFileSize();
+        boolean changed = showScrapedName != currentShowScrapedName || showFileSize != currentShowFileSize;
+        showScrapedName = currentShowScrapedName;
+        showFileSize = currentShowFileSize;
+        return changed;
     }
 
     private boolean sameEpisodes(List<Episode> episodes) {

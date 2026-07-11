@@ -60,8 +60,8 @@ public class MediaSourceFactory implements MediaSource.Factory {
     }
 
     static DataSource.Factory createUpstreamDataSourceFactory(Map<String, String> headers) {
-        HttpDataSource.Factory factory = new OkHttpDataSource.Factory(OkHttp.player());
-        factory.setDefaultRequestProperties(headers);
+        OkHttpDataSource.Factory factory = new OkHttpDataSource.Factory(OkHttp.player());
+        applyHeaders(factory, headers);
         return new DefaultDataSource.Factory(App.get(), factory);
     }
 
@@ -108,7 +108,7 @@ public class MediaSourceFactory implements MediaSource.Factory {
     @NonNull
     @Override
     public MediaSource createMediaSource(@NonNull MediaItem mediaItem) {
-        applyHeaders(ExoUtil.extractHeaders(mediaItem));
+        applyHeaders(getHttpDataSourceFactory(), ExoUtil.extractHeaders(mediaItem));
         String url = mediaItem.requestMetadata.mediaUri != null ? mediaItem.requestMetadata.mediaUri.toString() : "";
         if (isConcatenatingUrl(url)) return createConcatenatingMediaSource(mediaItem, url);
         else return defaultMediaSourceFactory.createMediaSource(mediaItem);
@@ -142,10 +142,10 @@ public class MediaSourceFactory implements MediaSource.Factory {
         return httpDataSourceFactory;
     }
 
-    private void applyHeaders(Map<String, String> headers) {
+    private static void applyHeaders(OkHttpDataSource.Factory factory, Map<String, String> headers) {
         Map<String, String> sanitized = sanitizeHeaders(headers);
         String userAgent = removeUserAgentHeader(sanitized);
-        getHttpDataSourceFactory().setUserAgent(userAgent).setDefaultRequestProperties(sanitized);
+        factory.setUserAgent(userAgent).setDefaultRequestProperties(sanitized);
     }
 
     static Map<String, String> sanitizeHeaders(Map<String, String> headers) {
@@ -199,7 +199,7 @@ public class MediaSourceFactory implements MediaSource.Factory {
         return isHlsUrl(url);
     }
 
-    static boolean isHlsUrl(String url) {
+    public static boolean isHlsUrl(String url) {
         String lower = url == null ? "" : url.toLowerCase(Locale.ROOT);
         if (lower.contains("m3u8") || lower.contains("type=hls") || lower.contains("format=hls")) return true;
         String path = getUrlPath(lower);

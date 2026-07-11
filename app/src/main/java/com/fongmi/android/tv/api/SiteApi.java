@@ -116,16 +116,8 @@ public class SiteApi {
         if (WebHomeInlineVodStore.KEY.equals(key)) return WebHomeInlineVodStore.detail(id);
         Site site = VodConfig.get().getSite(key);
         PushParser.Parsed push = PUSH.equals(key) ? PushParser.fromId(id) : null;
-        if (site.isEmpty() && PUSH.equals(key)) {
-            Vod vod = new Vod();
-            vod.setId(id);
-            vod.setName(push.getName());
-            vod.setPlayUrl(push.getUrl());
-            vod.setPlayFrom(ResUtil.getString(R.string.push));
-            vod.setPic(ResUtil.getString(R.string.push_image));
-            Source.get().parse(vod.setFlags());
-            return Result.vod(vod);
-        } else if (isSpider(site)) {
+        if (site.isEmpty() && PUSH.equals(key)) return pushDetail(id, push);
+        if (isSpider(site)) {
             String detailContent = site.recent().spider().detailContent(Arrays.asList(id));
             SpiderDebug.log("detail", detailContent);
             Result result = Result.fromJson(detailContent);
@@ -194,6 +186,17 @@ public class SiteApi {
             SpiderDebug.log("player", result.toString());
             return result;
         }
+    }
+
+    private static Result pushDetail(@NonNull String id, PushParser.Parsed push) throws Exception {
+        Vod vod = new Vod();
+        vod.setId(id);
+        vod.setName(push.getName());
+        vod.setPlayUrl(push.getUrl());
+        vod.setPlayFrom(ResUtil.getString(R.string.push));
+        vod.setPic(ResUtil.getString(R.string.push_image));
+        Source.get().parse(vod.setFlags());
+        return Result.vod(vod);
     }
 
     @NonNull

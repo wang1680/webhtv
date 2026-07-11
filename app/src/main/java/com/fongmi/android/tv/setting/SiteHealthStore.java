@@ -5,6 +5,7 @@ import android.text.TextUtils;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.api.SiteApi;
+import com.fongmi.android.tv.api.config.AdBlockStatsStore;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.bean.Vod;
@@ -197,7 +198,7 @@ public class SiteHealthStore {
         if (skip(site)) return Status.UNKNOWN;
         synchronized (SiteHealthStore.class) {
             Health health = find(site.getKey());
-            return health == null ? Status.UNKNOWN : health.status();
+            return health == null ? Status.UNKNOWN : health.status(calculateAdPenalty(site.getKey()));
         }
     }
 
@@ -205,8 +206,22 @@ public class SiteHealthStore {
         if (skip(key)) return 0;
         synchronized (SiteHealthStore.class) {
             Health health = find(key);
-            return health == null ? 0 : health.score();
+            if (health == null) return 0;
+            double baseScore = health.score();
+            return baseScore - calculateAdPenalty(key);
         }
+    }
+
+    private static double calculateAdPenalty(String siteKey) {
+        long adBlocked = AdBlockStatsStore.getSiteBlockedCount(siteKey);
+        if (adBlocked > 5) {
+            // 广告多：扣 8-15 分（对数衰减）
+            return 8 + Math.min(7, Math.log1p(adBlocked - 5) * 2);
+        } else if (adBlocked > 0) {
+            // 广告少：扣 2-8 分（线性）
+            return 2 + adBlocked * 1.2;
+        }
+        return 0;
     }
 
     private static Health get(String siteKey) {
@@ -381,7 +396,8 @@ public class SiteHealthStore {
         }
 
         private static Row from(String siteKey, String siteName, Health health) {
-            return new Row(siteKey, siteName, health.status(),
+            double adPenalty = calculateAdPenalty(siteKey);
+            return new Row(siteKey, siteName, health.status(adPenalty),
                     new Stage("SEARCH", Math.max(0, health.searchSuccess - health.searchEmpty), health.searchFail + health.searchEmpty, health.searchEmpty, health.lastSearchCost, health.lastSearchFailAt, health.lastSearchError, health.searchReasons),
                     new Stage("DETAIL", health.detailSuccess, health.detailFail, 0, health.lastDetailCost, health.lastDetailFailAt, health.lastDetailError, health.detailReasons),
                     new Stage("PARSE", health.parseSuccess, health.parseFail, 0, health.lastParseCost, health.lastParseFailAt, health.lastParseError, health.parseReasons),
@@ -529,8 +545,12 @@ public class SiteHealthStore {
         }
 
         private Status status() {
+            return status(0);
+        }
+
+        private Status status(double adPenalty) {
             if (total() == 0) return Status.UNKNOWN;
-            double score = score();
+            double score = score() - adPenalty;
             if (lastPlayFailAt > lastPlaySuccessAt && playFail >= 3 && score < 0) return Status.BAD;
             if (score >= 20 || lastPlaySuccessAt >= lastPlayFailAt && playSuccess > 0) return Status.GOOD;
             if (score <= -20) return Status.BAD;

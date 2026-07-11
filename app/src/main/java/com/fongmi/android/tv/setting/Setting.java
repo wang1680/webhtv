@@ -800,6 +800,14 @@ public class Setting {
         Prefers.put("ai_title_extraction", enabled);
     }
 
+    public static boolean isAiAdDetection() {
+        return Prefers.getBoolean("ai_ad_detection", false);
+    }
+
+    public static void putAiAdDetection(boolean enabled) {
+        Prefers.put("ai_ad_detection", enabled);
+    }
+
     public static TmdbMatchCache getTmdbMatchCache() {
         return TmdbMatchCache.objectFrom(AppCache.get(AppCache.KEY_TMDB_MATCH));
     }

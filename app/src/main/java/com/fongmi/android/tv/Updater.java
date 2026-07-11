@@ -8,10 +8,12 @@ import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleEventObserver;
 
 import com.fongmi.android.tv.bean.Update;
+import com.fongmi.android.tv.db.AppDatabase;
 import com.fongmi.android.tv.impl.UpdateListener;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.dialog.UpdateDialog;
 import com.fongmi.android.tv.utils.Download;
+import com.fongmi.android.tv.utils.PermissionUtil;
 import com.fongmi.android.tv.utils.FileUtil;
 import com.fongmi.android.tv.utils.AppVersion;
 import com.fongmi.android.tv.utils.GithubProxy;
@@ -278,6 +280,48 @@ public class Updater implements Download.Callback, UpdateListener {
             return;
         }
         view.setEnabled(false);
+        showBackupConfirmDialog(view);
+    }
+
+    private void showBackupConfirmDialog(View view) {
+        FragmentActivity activity = activityRef == null ? null : activityRef.get();
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(activity, R.style.ThemeOverlay_WebHTV_LightDialog)
+                .setTitle(R.string.update_backup_title)
+                .setMessage(R.string.update_backup_message)
+                .setPositiveButton(R.string.update_backup_positive, (dialog, which) -> startBackupAndUpdate(view))
+                .setNegativeButton(R.string.update_backup_negative, (dialog, which) -> startUpdate(view))
+                .setNeutralButton(R.string.dialog_negative, (dialog, which) -> view.setEnabled(true))
+                .setCancelable(false)
+                .show();
+    }
+
+    private void startBackupAndUpdate(View view) {
+        Notify.show(R.string.update_backup_running);
+        PermissionUtil.requestFile(activityRef.get(), allGranted -> {
+            if (!allGranted) {
+                Notify.show(R.string.update_backup_permission_denied);
+                startUpdate(view);
+                return;
+            }
+            AppDatabase.backup(new com.fongmi.android.tv.impl.Callback() {
+                @Override
+                public void success() {
+                    Notify.show(R.string.update_backup_done);
+                    startUpdate(view);
+                }
+
+                @Override
+                public void error() {
+                    Notify.show(R.string.update_backup_failed);
+                    startUpdate(view);
+                }
+            });
+        });
+    }
+
+    private void startUpdate(View view) {
         downloading = true;
         canceled = false;
         resetProgress();

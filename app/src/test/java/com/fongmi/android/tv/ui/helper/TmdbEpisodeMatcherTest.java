@@ -5,7 +5,7 @@ import com.fongmi.android.tv.bean.TmdbEpisode;
 
 import org.junit.Test;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class TmdbEpisodeMatcherTest {
@@ -19,11 +19,11 @@ public class TmdbEpisodeMatcherTest {
     }
 
     @Test
-    public void rejectsDifferentSourceEpisodeTitleForSameNumber() {
+    public void allowsDifferentSourceEpisodeTitleForSameNumber() {
         Episode episode = Episode.create("106. 通天宫中通天抗压", "http://example.test/106");
         TmdbEpisode tmdbEpisode = new TmdbEpisode(106, "六圣紫霄议封神", "", "", "", 0, 0);
 
-        assertFalse(TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode));
+        assertTrue(TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode));
     }
 
     @Test
@@ -32,5 +32,33 @@ public class TmdbEpisodeMatcherTest {
         TmdbEpisode tmdbEpisode = new TmdbEpisode(106, "六圣紫霄议封神", "", "", "", 0, 0);
 
         assertTrue(TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode));
+    }
+
+    @Test
+    public void allowsNumberOnlyReleaseNameWithSourceTags() {
+        Episode episode = Episode.create("[1.08G] S01E03.2026.2160p.WEB-DL.H265.10bit", "http://example.test/3");
+        TmdbEpisode tmdbEpisode = new TmdbEpisode(3, "雷修远看似在帮助小棒槌", "", "", "", 0, 0);
+
+        assertTrue(TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode));
+    }
+
+    @Test
+    public void ignoresFileSizeWhenItMatchesEpisodeNumber() {
+        Episode episode = Episode.create("[1.41G] S01E01.2026.2160p.WEB-DL.H265.10bit", "http://example.test/1");
+        TmdbEpisode tmdbEpisode = new TmdbEpisode(1, "青丘脚下", "", "", "", 0, 0);
+
+        assertEquals(1, episode.getNumber());
+        assertTrue(TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode));
+    }
+
+    @Test
+    public void appliesStandardSeasonEpisodeReleaseNamesByNumber() {
+        Episode episode21 = Episode.create("[1.14G] S01E21.2026.2160p.WEB-DL.H265.10bit", "http://example.test/21");
+        Episode episode22 = Episode.create("[1.22G] S01E22.2026.2160p.WEB-DL.H265.10bit", "http://example.test/22");
+
+        assertEquals(21, episode21.getNumber());
+        assertEquals(22, episode22.getNumber());
+        assertTrue(TmdbEpisodeMatcher.shouldApply(episode21, new TmdbEpisode(21, "妙青重伤众人为其招灵", "", "", "https://image.test/21.jpg", 0, 0)));
+        assertTrue(TmdbEpisodeMatcher.shouldApply(episode22, new TmdbEpisode(22, "修远黎非入翠玄小屋", "", "", "https://image.test/22.jpg", 0, 0)));
     }
 }

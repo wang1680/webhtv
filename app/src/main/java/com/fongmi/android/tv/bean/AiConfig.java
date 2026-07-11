@@ -69,6 +69,42 @@ public class AiConfig {
             + "6. recommendationHint: 20-40字方向建议，基于用户真实偏好给具体题材或类型方向。\n"
             + "\n"
             + "整体要求：宁可少说、说实话，也不要用空泛好话堆字数。所有结论都要能在输入数据里找到依据。";
+    // v1 (legacy): URL 特征分析（未解析 m3u8）
+    public static final String DEFAULT_AD_DETECTION_PROMPT_V1 = "你是视频广告特征识别专家。根据用户反馈的视频播放上下文，分析可能的广告 URL 特征，输出去广规则建议。\n"
+            + "\n"
+            + "常见广告特征：\n"
+            + "- 主机名含 ad/ads/adv/adx/adservice/adsdk/advertisement 等广告相关词\n"
+            + "- 路径含 /ad/ /ads/ /preroll/ /midroll/ /commercial/ 等广告相关段\n"
+            + "- 与主内容域名不同的第三方域\n"
+            + "\n"
+            + "输出要求：只返回严格 JSON，不要 Markdown、不要解释。格式：\n"
+            + "{\"confidence\":0.0,\"hostsBlacklist\":[\"域名片段\"],\"regexPatterns\":[\"广告URL正则\"],\"excludePatterns\":[\"正片保护正则\"],\"reasoning\":\"简短分析理由\"}\n"
+            + "\n"
+            + "规则设计原则：\n"
+            + "- hostsBlacklist 越具体越好，避免误伤正常域名\n"
+            + "- regexPatterns 命中即视为广告，需转义特殊字符，避免匹配过宽\n"
+            + "- excludePatterns 命中即视为正片，用于保护已知正片 URL\n"
+            + "- confidence 取 0.0-1.0，低于 0.5 时在 reasoning 中提示不确定，建议人工审核";
+
+    // v2 (current): m3u8 切片证据分析
+    public static final int DEFAULT_AD_DETECTION_PROMPT_VERSION = 2;
+    public static final String DEFAULT_AD_DETECTION_PROMPT = "你是视频广告特征识别专家。根据用户反馈的 m3u8 切片列表，分析可能的广告片段，输出去广规则建议。\n"
+            + "\n"
+            + "广告特征（优先级递减）：\n"
+            + "1. #EXT-X-DISCONTINUITY 标记 + 前后切片跨域，高置信度广告边界\n"
+            + "2. 切片域名与主内容域不同（跨域）且含 ad/ads/adv/adservice/preroll/midroll 等\n"
+            + "3. 连续跨域切片 + 时长累计 5-60 秒（典型广告时长）\n"
+            + "4. 路径含 /ad/ /ads/ /preroll/ /midroll/ /commercial/ 等广告相关段\n"
+            + "\n"
+            + "输出要求：只返回严格 JSON，不要 Markdown、不要解释。格式：\n"
+            + "{\"confidence\":0.0,\"hostsBlacklist\":[\"域名片段\"],\"regexPatterns\":[\"广告URL正则\"],\"excludePatterns\":[\"正片保护正则\"],\"reasoning\":\"简短分析理由\"}\n"
+            + "\n"
+            + "规则设计原则：\n"
+            + "- hostsBlacklist 越具体越好，避免误伤正常域名\n"
+            + "- regexPatterns 命中即视为广告，需转义特殊字符，避免匹配过宽\n"
+            + "- excludePatterns 命中即视为正片，用于保护已知正片 URL\n"
+            + "- confidence 取 0.0-1.0，低于 0.5 时在 reasoning 中说明证据不足，建议人工审核\n"
+            + "- 若无明显广告特征（无 DISCONTINUITY、无跨域、无关键词），confidence 应低于 0.3";
 
     @SerializedName("enabled")
     private boolean enabled;
@@ -100,6 +136,12 @@ public class AiConfig {
     private int viewingReportPromptVersion;
     @SerializedName("viewingReportPromptCustom")
     private boolean viewingReportPromptCustom;
+    @SerializedName("adDetectionPrompt")
+    private String adDetectionPrompt;
+    @SerializedName("adDetectionPromptVersion")
+    private int adDetectionPromptVersion;
+    @SerializedName("adDetectionPromptCustom")
+    private boolean adDetectionPromptCustom;
 
     public static AiConfig objectFrom(String json) {
         try {
@@ -119,6 +161,7 @@ public class AiConfig {
         sanitizeRecommendPrompt();
         sanitizeTitleExtractionPrompt();
         sanitizeViewingReportPrompt();
+        sanitizeAdDetectionPrompt();
         return this;
     }
 
@@ -271,6 +314,35 @@ public class AiConfig {
         viewingReportPromptVersion = DEFAULT_VIEWING_REPORT_PROMPT_VERSION;
     }
 
+    public String getAdDetectionPrompt() {
+        return adDetectionPrompt;
+    }
+
+    public void setAdDetectionPrompt(String adDetectionPrompt) {
+        String value = adDetectionPrompt == null ? "" : adDetectionPrompt.trim();
+        if (isEmpty(value) || isBuiltInAdDetectionPrompt(value)) {
+            resetAdDetectionPrompt();
+        } else {
+            this.adDetectionPrompt = value;
+            this.adDetectionPromptCustom = true;
+            this.adDetectionPromptVersion = DEFAULT_AD_DETECTION_PROMPT_VERSION;
+        }
+    }
+
+    public int getAdDetectionPromptVersion() {
+        return adDetectionPromptVersion;
+    }
+
+    public boolean isAdDetectionPromptCustom() {
+        return adDetectionPromptCustom;
+    }
+
+    public void resetAdDetectionPrompt() {
+        adDetectionPrompt = DEFAULT_AD_DETECTION_PROMPT;
+        adDetectionPromptCustom = false;
+        adDetectionPromptVersion = DEFAULT_AD_DETECTION_PROMPT_VERSION;
+    }
+
     public static String defaultEndpoint(String protocol) {
         if (PROTOCOL_OPENAI_CHAT.equals(protocol)) return DEFAULT_OPENAI_CHAT_ENDPOINT;
         if (PROTOCOL_ANTHROPIC_MESSAGES.equals(protocol)) return DEFAULT_ANTHROPIC_ENDPOINT;
@@ -328,6 +400,17 @@ public class AiConfig {
         if (viewingReportPromptVersion <= 0) viewingReportPromptVersion = DEFAULT_VIEWING_REPORT_PROMPT_VERSION;
     }
 
+    private void sanitizeAdDetectionPrompt() {
+        String value = adDetectionPrompt == null ? "" : adDetectionPrompt.trim();
+        if (isEmpty(value) || isBuiltInAdDetectionPrompt(value)) {
+            resetAdDetectionPrompt();
+            return;
+        }
+        adDetectionPrompt = value;
+        adDetectionPromptCustom = true;
+        if (adDetectionPromptVersion <= 0) adDetectionPromptVersion = DEFAULT_AD_DETECTION_PROMPT_VERSION;
+    }
+
     public static boolean isBuiltInRecommendPrompt(String prompt) {
         if (prompt == null) return false;
         String value = prompt.trim();
@@ -349,6 +432,13 @@ public class AiConfig {
         return LEGACY_VIEWING_REPORT_PROMPT_V1.equals(value);
     }
 
+    public static boolean isBuiltInAdDetectionPrompt(String prompt) {
+        if (prompt == null) return false;
+        String value = prompt.trim();
+        if (DEFAULT_AD_DETECTION_PROMPT.equals(value)) return true;
+        return DEFAULT_AD_DETECTION_PROMPT_V1.equals(value);
+    }
+
     public static String[] systemRecommendPromptsForCache() {
         return new String[]{DEFAULT_RECOMMEND_PROMPT, LEGACY_RECOMMEND_PROMPT_V1};
     }
@@ -359,5 +449,9 @@ public class AiConfig {
 
     public static String[] systemViewingReportPromptsForCache() {
         return new String[]{DEFAULT_VIEWING_REPORT_PROMPT, LEGACY_VIEWING_REPORT_PROMPT_V1};
+    }
+
+    public static String[] systemAdDetectionPromptsForCache() {
+        return new String[]{DEFAULT_AD_DETECTION_PROMPT};
     }
 }

@@ -3,6 +3,7 @@ package com.fongmi.android.tv.api.config;
 import android.text.TextUtils;
 
 import com.fongmi.android.tv.App;
+import com.fongmi.android.tv.api.CspWarmup;
 import com.fongmi.android.tv.api.Decoder;
 import com.fongmi.android.tv.api.loader.BaseLoader;
 import com.fongmi.android.tv.bean.Config;
@@ -121,6 +122,17 @@ public class VodConfig extends BaseConfig {
     @Override
     protected boolean isLoaded() {
         return !getSites().isEmpty();
+    }
+
+    @Override
+    protected void beforeLoad() {
+        CspWarmup.reset();
+    }
+
+    @Override
+    protected void onLoadSuccess() {
+        CspWarmup.schedule("vod-config-loaded");
+        InterfaceAdRuleLearningService.schedule(getConfig().getDesc(), getConfig().getUrl(), getAds(), getRules());
     }
 
     private void checkJson(Config config, JsonObject object) throws Throwable {

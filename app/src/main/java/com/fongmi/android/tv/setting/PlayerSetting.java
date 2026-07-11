@@ -12,12 +12,15 @@ public class PlayerSetting {
     public static final int EXO = 0;
     public static final int IJK = 1;
     public static final int SYSTEM = 2;
+    public static final int MPV = 3;
     public static final int NONE = -1;
     public static final int RENDER_SURFACE = 0;
     public static final int RENDER_TEXTURE = 1;
     public static final int FFMPEG_MODE_NEXTLIB = 0;
     public static final int FFMPEG_MODE_OFFICIAL = 1;
     public static final int FFMPEG_MODE_SIMPLE = 2;
+    public static final int MPV_RENDER_OPENGL = 0;
+    public static final int MPV_RENDER_VULKAN = 1;
     public static final int PAD_LIVE_FULLSCREEN = 0;
     public static final int PAD_LIVE_STANDARD = 1;
     private static final int DEFAULT_PLAY_CACHE_OPTION = 0;
@@ -48,7 +51,7 @@ public class PlayerSetting {
     }
 
     public static boolean isPlayer(int player) {
-        return player == EXO || player == IJK || player == SYSTEM;
+        return player == EXO || player == IJK || player == SYSTEM || player == MPV;
     }
 
     public static int sanitizePlayer(int player) {
@@ -67,6 +70,15 @@ public class PlayerSetting {
         return true;
     }
 
+    public static int nextPlayer(int player) {
+        return switch (sanitizePlayer(player)) {
+            case EXO -> IJK;
+            case IJK -> SYSTEM;
+            case SYSTEM -> MPV;
+            default -> EXO;
+        };
+    }
+
     public static int getRender() {
         return Math.min(Math.max(Prefers.getInt("render", RENDER_SURFACE), RENDER_SURFACE), RENDER_TEXTURE);
     }
@@ -76,7 +88,7 @@ public class PlayerSetting {
     }
 
     public static boolean useNativeVideoOutput(int player) {
-        return player == IJK || player == SYSTEM;
+        return player == IJK || player == SYSTEM || player == MPV;
     }
 
     public static void putRender(int render) {
@@ -84,6 +96,15 @@ public class PlayerSetting {
         Prefers.put("render", value);
         if (isTunnel() && value == RENDER_TEXTURE) Prefers.put("tunnel", false);
         if (isExoEnhanced() && value == RENDER_TEXTURE) Prefers.put("exo_4k_compat", false);
+    }
+
+    public static int getMpvRender() {
+        int render = Prefers.getInt("mpv_render", MPV_RENDER_OPENGL);
+        return render == MPV_RENDER_VULKAN ? MPV_RENDER_VULKAN : MPV_RENDER_OPENGL;
+    }
+
+    public static void putMpvRender(int render) {
+        Prefers.put("mpv_render", render == MPV_RENDER_VULKAN ? MPV_RENDER_VULKAN : MPV_RENDER_OPENGL);
     }
 
     public static int getPadLiveMode() {

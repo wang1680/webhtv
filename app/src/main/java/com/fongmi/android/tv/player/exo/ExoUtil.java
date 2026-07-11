@@ -2,6 +2,7 @@ package com.fongmi.android.tv.player.exo;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.media.MediaCrypto;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.net.Uri;
@@ -15,6 +16,7 @@ import android.view.accessibility.CaptioningManager;
 import androidx.annotation.NonNull;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
@@ -29,6 +31,7 @@ import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -37,6 +40,7 @@ import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.util.EventLogger;
+import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.ui.CaptionStyleCompat;
 import androidx.media3.ui.PlayerView;
@@ -515,7 +519,10 @@ public class ExoUtil {
         @Override
         protected void buildVideoRenderers(Context context, int extensionRendererMode, MediaCodecSelector mediaCodecSelector, boolean enableDecoderFallback, Handler eventHandler, VideoRendererEventListener eventListener, long allowedVideoJoiningTimeMs, ArrayList<Renderer> out) {
             super.buildVideoRenderers(context, videoRenderMode, getVideoCodecSelector(mediaCodecSelector), enableDecoderFallback, eventHandler, eventListener, allowedVideoJoiningTimeMs, out);
-            if (videoRenderMode == EXTENSION_RENDERER_MODE_OFF) return;
+            if (videoRenderMode == EXTENSION_RENDERER_MODE_OFF) {
+                out.add(new DolbyVisionHevcFallbackRenderer(context, getCodecAdapterFactory(), getVideoCodecSelector(mediaCodecSelector), allowedVideoJoiningTimeMs, enableDecoderFallback, eventHandler, eventListener));
+                return;
+            }
             try {
                 out.add(getExtensionRendererIndex(videoRenderMode, videoPrefer, out), buildFfmpegVideoRenderer(allowedVideoJoiningTimeMs, eventHandler, eventListener));
             } catch (Throwable ignored) {
@@ -570,6 +577,57 @@ public class ExoUtil {
             int index = out.size();
             if (index > 0 && (extensionRendererMode == EXTENSION_RENDERER_MODE_PREFER || prefer)) index--;
             return index;
+        }
+    }
+
+    private static final class DolbyVisionHevcFallbackRenderer extends MediaCodecVideoRenderer {
+
+        DolbyVisionHevcFallbackRenderer(Context context, MediaCodecAdapter.Factory codecAdapterFactory, MediaCodecSelector mediaCodecSelector, long allowedJoiningTimeMs, boolean enableDecoderFallback, Handler eventHandler, VideoRendererEventListener eventListener) {
+            super(context, codecAdapterFactory, mediaCodecSelector, allowedJoiningTimeMs, enableDecoderFallback, eventHandler, eventListener, DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+        }
+
+        @Override
+        public String getName() {
+            return "MediaCodecVideoRenderer-DV5-HEVC";
+        }
+
+        @Override
+        protected int supportsFormat(MediaCodecSelector mediaCodecSelector, Format format) throws androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException {
+            if (!isDolbyVisionProfile5(format)) return C.FORMAT_UNSUPPORTED_TYPE;
+            Format hevc = asHevc(format);
+            int support = super.supportsFormat(mediaCodecSelector, hevc);
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("exo-dv", "DV5 HEVC fallback support=%d codecs=%s size=%dx%d", support, format.codecs, format.width, format.height);
+            return support;
+        }
+
+        @Override
+        protected List<MediaCodecInfo> getDecoderInfos(MediaCodecSelector mediaCodecSelector, Format format, boolean requiresSecureDecoder) throws androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException {
+            if (!isDolbyVisionProfile5(format)) return List.of();
+            List<MediaCodecInfo> infos = super.getDecoderInfos(mediaCodecSelector, asHevc(format), requiresSecureDecoder);
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("exo-dv", "DV5 HEVC fallback decoders=%s", decoderNames(infos));
+            return infos;
+        }
+
+        @Override
+        protected MediaCodecAdapter.Configuration getMediaCodecConfiguration(MediaCodecInfo codecInfo, Format format, MediaCrypto crypto, float codecOperatingRate) {
+            if (isDolbyVisionProfile5(format) && SpiderDebug.isEnabled()) SpiderDebug.log("exo-dv", "DV5 configure as HEVC decoder=%s codecMime=%s", codecInfo.name, codecInfo.codecMimeType);
+            return super.getMediaCodecConfiguration(codecInfo, isDolbyVisionProfile5(format) ? asHevc(format) : format, crypto, codecOperatingRate);
+        }
+
+        private static boolean isDolbyVisionProfile5(Format format) {
+            if (format == null || !MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType) || format.codecs == null) return false;
+            String codecs = format.codecs.toLowerCase(java.util.Locale.US);
+            return codecs.startsWith("dvhe.05.") || codecs.startsWith("dvh1.05.");
+        }
+
+        private static Format asHevc(Format format) {
+            return format.buildUpon().setSampleMimeType(MimeTypes.VIDEO_H265).setCodecs(null).build();
+        }
+
+        private static String decoderNames(List<MediaCodecInfo> infos) {
+            List<String> names = new ArrayList<>();
+            for (MediaCodecInfo info : infos) names.add(info.name);
+            return String.join(",", names);
         }
     }
 

@@ -21,6 +21,7 @@ import android.text.style.ClickableSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -59,7 +60,11 @@ import com.fongmi.android.tv.Constant;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.DanmakuApi;
 import com.fongmi.android.tv.api.SiteApi;
+import com.fongmi.android.tv.api.config.AdBlockStatsStore;
 import com.fongmi.android.tv.api.config.VodConfig;
+import com.fongmi.android.tv.bean.AdDetectionRequest;
+import com.fongmi.android.tv.bean.AdDetectionResult;
+import com.fongmi.android.tv.bean.AiConfig;
 import com.fongmi.android.tv.bean.CastVideo;
 import com.fongmi.android.tv.bean.Danmaku;
 import com.fongmi.android.tv.bean.Episode;
@@ -72,6 +77,7 @@ import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.bean.Sub;
 import com.fongmi.android.tv.bean.Track;
+import com.fongmi.android.tv.bean.UserAdRule;
 import com.fongmi.android.tv.bean.TmdbEpisode;
 import com.fongmi.android.tv.bean.TmdbItem;
 import com.fongmi.android.tv.bean.Vod;
@@ -87,9 +93,12 @@ import com.fongmi.android.tv.playback.PlaybackOrientation;
 import com.fongmi.android.tv.player.IntroSkipPlayback;
 import com.fongmi.android.tv.player.PlayerHelper;
 import com.fongmi.android.tv.player.PlayerManager;
+import com.fongmi.android.tv.player.engine.PlayerEngine;
+import com.fongmi.android.tv.player.engine.PlaySpec;
 import com.fongmi.android.tv.player.lut.LutPreset;
 import com.fongmi.android.tv.player.lut.LutSetting;
 import com.fongmi.android.tv.player.lut.LutStore;
+import com.fongmi.android.tv.service.AiAdDetectionService;
 import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.service.PersonalRecommendationService;
 import com.fongmi.android.tv.service.IntroSkipService;
@@ -114,6 +123,7 @@ import com.fongmi.android.tv.ui.custom.CustomMovement;
 import com.fongmi.android.tv.ui.custom.CustomSeekView;
 import com.fongmi.android.tv.ui.custom.PlayerOsdController;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
+import com.fongmi.android.tv.ui.dialog.AdRuleEditDialog;
 import com.fongmi.android.tv.ui.dialog.CastDialog;
 import com.fongmi.android.tv.ui.dialog.CodecCapabilityDialog;
 import com.fongmi.android.tv.ui.dialog.ControlDialog;
@@ -135,7 +145,6 @@ import com.fongmi.android.tv.ui.helper.DetailThemeVisibility;
 import com.fongmi.android.tv.ui.helper.EpisodeDisplayPolicy;
 import com.fongmi.android.tv.ui.helper.EpisodeRangePolicy;
 import com.fongmi.android.tv.ui.helper.PlayerControlFocusHelper;
-import com.fongmi.android.tv.ui.helper.TmdbEpisodeMatcher;
 import com.fongmi.android.tv.ui.helper.TmdbNavigation;
 import com.fongmi.android.tv.ui.player.VodPlayerChrome;
 import com.fongmi.android.tv.ui.player.VodPlayerUiController;
@@ -153,8 +162,10 @@ import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Sniffer;
 import com.fongmi.android.tv.utils.Task;
 import com.fongmi.android.tv.utils.Timer;
+import com.fongmi.android.tv.utils.TmdbDetailCache;
 import com.fongmi.android.tv.utils.Traffic;
 import com.fongmi.android.tv.utils.Util;
+import com.fongmi.android.tv.utils.VodDetailCache;
 import com.github.catvod.crawler.SpiderDebug;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
@@ -183,6 +194,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private static final String EXTRA_TMDB_PLAY_FLAG = "tmdb_play_flag";
     private static final String EXTRA_TMDB_PLAY_EPISODE_NAME = "tmdb_play_episode_name";
     private static final String EXTRA_TMDB_PLAY_EPISODE_URL = "tmdb_play_episode_url";
+    private static final String EXTRA_TMDB_VOD_CACHE_KEY = "tmdb_vod_cache_key";
     private static final String EXTRA_TMDB_DETAIL_THEME = "tmdb_detail_theme";
     private static final int TMDB_TABLET_PLAYER_MIN_WIDTH_DP = 440;
     private static final int TMDB_TABLET_PLAYER_MAX_WIDTH_DP = 640;
@@ -191,6 +203,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private static final int TMDB_TABLET_PLAYER_TOP_MARGIN_DP = 16;
     private static final int TMDB_TABLET_SUMMARY_MIN_WIDTH_DP = 280;
     private static final int TMDB_DETAIL_LOAD_TIMEOUT = 15000;
+    private static final int TMDB_CACHED_DETAIL_APPLY_DELAY_MS = 16;
+
+    private static final String SIZE_TAG = "MPV_SIZE";
 
     private ActivityVideoBinding mBinding;
     private ViewGroup.LayoutParams mFrameParams;
@@ -235,6 +250,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean mNativePersonalTmdbLoading;
     private boolean mNativePersonalDoubanLoading;
     private boolean mEpisodeGridMode = Setting.getTmdbEpisodeGridMode();
+    private boolean playerKernelSwitchRefreshing;
+    private boolean decodeSwitchRefreshing;
     private int mEpisodeSpanCount;
     private int mEpisodeBottomInset;
     private int mEpisodeMaxHeight;
@@ -270,6 +287,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private View mFusionPlayerBottomSpacer;
     private int mTmdbDialogGeneration;
     private int mPersonalRecommendationGeneration;
+    private int mAdFeedbackGeneration;
     private final List<TmdbMovedView> mTmdbMovedViews = new ArrayList<>();
     private boolean pendingLutImport;
     private boolean skipPausePiP;
@@ -317,6 +335,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected boolean customWall() {
+        return true;
+    }
+
+    @Override
+    protected boolean customWallMotion() {
         return false;
     }
 
@@ -467,6 +490,14 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     public static void startDirectTmdb(Activity activity, String key, String id, String name, String pic, String mark, ArrayList<String> episodeTitles, TmdbItem item, Vod tmdbVod, String playFlag, String playEpisodeName, String playEpisodeUrl) {
+        startDirectTmdb(activity, key, id, name, pic, mark, episodeTitles, item, tmdbVod, null, playFlag, playEpisodeName, playEpisodeUrl);
+    }
+
+    public static void startDirectTmdb(Activity activity, String key, String id, String name, String pic, String mark, ArrayList<String> episodeTitles, TmdbItem item, Vod tmdbVod, Vod detailVod, String playFlag, String playEpisodeName, String playEpisodeUrl) {
+        startDirectTmdb(activity, key, id, name, pic, mark, episodeTitles, item, tmdbVod, detailVod, "", playFlag, playEpisodeName, playEpisodeUrl);
+    }
+
+    public static void startDirectTmdb(Activity activity, String key, String id, String name, String pic, String mark, ArrayList<String> episodeTitles, TmdbItem item, Vod tmdbVod, Vod detailVod, String tmdbDetailCacheKey, String playFlag, String playEpisodeName, String playEpisodeUrl) {
         if (AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
         Intent intent = new Intent(activity, VideoActivity.class);
         intent.putExtra("tmdbMode", item != null);
@@ -481,6 +512,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         intent.putStringArrayListExtra("tmdb_episode_titles", episodeTitles);
         putIntentPlaybackSelection(intent, playFlag, playEpisodeName, playEpisodeUrl);
         putTmdbVod(intent, tmdbVod);
+        putDetailVodCache(intent, detailVod);
+        if (!TextUtils.isEmpty(tmdbDetailCacheKey)) intent.putExtra(TmdbDetailCache.EXTRA_KEY, tmdbDetailCacheKey);
         activity.startActivity(intent);
     }
 
@@ -501,6 +534,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         intent.putExtra("tmdb_vod_director", vod.getDirector());
         intent.putExtra("tmdb_vod_actor", vod.getActor());
         intent.putExtra("tmdb_vod_remark", vod.getRemarks());
+    }
+
+    private static void putDetailVodCache(Intent intent, Vod vod) {
+        String key = VodDetailCache.put(vod);
+        if (!TextUtils.isEmpty(key)) intent.putExtra(EXTRA_TMDB_VOD_CACHE_KEY, key);
     }
 
     private static boolean dispatchToContentHandler(Activity activity, String key, String id, String name, String pic, String mark) {
@@ -563,6 +601,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return Objects.toString(getIntent().getStringExtra(EXTRA_TMDB_PLAY_EPISODE_URL), "");
     }
 
+    private String getTmdbVodCacheKey() {
+        return Objects.toString(getIntent().getStringExtra(EXTRA_TMDB_VOD_CACHE_KEY), "");
+    }
+
     private String getKey() {
         return Objects.toString(getIntent().getStringExtra("key"), "");
     }
@@ -580,16 +622,17 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private Flag getFlag() {
-        return mFlagAdapter.getActivated();
+        return mFlagAdapter == null || mFlagAdapter.isEmpty() ? null : mFlagAdapter.getActivated();
     }
 
     private Episode getEpisode() {
-        if (mFlagAdapter != null && !mFlagAdapter.isEmpty()) {
-            List<Episode> items = getFlag().getEpisodes();
+        Flag flag = getFlag();
+        if (flag != null) {
+            List<Episode> items = flag.getEpisodes();
             for (Episode item : items) if (item.isSelected()) return item;
             if (!items.isEmpty()) return items.get(0);
         }
-        return mEpisodeAdapter.isEmpty() ? new Episode() : mEpisodeAdapter.getActivated();
+        return mEpisodeAdapter == null || mEpisodeAdapter.isEmpty() ? null : mEpisodeAdapter.getActivated();
     }
 
     private boolean isTmdbMode() {
@@ -860,6 +903,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.repeat.setOnClickListener(view -> onRepeat());
         mBinding.control.action.opening.setOnClickListener(view -> onOpening());
         mBinding.control.action.danmaku.setOnClickListener(view -> onDanmaku());
+        mBinding.control.action.adFeedback.setOnClickListener(view -> onAdFeedback());
         mBinding.control.action.episodes.setOnClickListener(view -> onEpisodes());
         mBinding.control.action.text.setOnLongClickListener(view -> onTextLong());
         mBinding.control.action.speed.setOnLongClickListener(view -> onSpeedLong());
@@ -1043,9 +1087,18 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void setVideoView() {
         mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
+        mBinding.control.action.adFeedback.setVisibility(isAdFeedbackEnabled() ? View.VISIBLE : View.GONE);
         mBinding.control.action.reset.setText(ResUtil.getStringArray(R.array.select_reset)[Setting.getReset()]);
         setupActionButtons();
-        mBinding.video.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> mPiP.update(this, view));
+        mBinding.video.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            mPiP.update(this, view);
+            Log.d(SIZE_TAG, "video layout new=" + (right - left) + "x" + (bottom - top)
+                    + " old=" + (oldRight - oldLeft) + "x" + (oldBottom - oldTop)
+                    + " fullscreen=" + isFullscreen()
+                    + " land=" + isLand()
+                    + " scale=" + getScale()
+                    + " player=" + (service() == null ? "none" : player().getPlayerText()));
+        });
         // 初始化时隐藏底部控制栏，避免竖屏小窗时显示
         mBinding.control.action.getRoot().setVisibility(View.GONE);
         setPlayer();
@@ -1112,6 +1165,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.decode.setText(player().getDecodeText());
     }
 
+    private void setDecodeSwitchPending(boolean pending) {
+        mBinding.control.action.decode.setEnabled(!pending);
+        mBinding.control.action.decode.setAlpha(pending ? 0.65f : 1.0f);
+    }
+
+    private void setNextDecodeText() {
+        int next = player().isHardDecode() ? PlayerEngine.SOFT : PlayerEngine.HARD;
+        mBinding.control.action.decode.setText(ResUtil.getStringArray(R.array.select_decode)[next]);
+    }
+
     private void setPlayerKernel() {
         mBinding.control.action.player.setText(player().getPlayerText());
     }
@@ -1138,7 +1201,23 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void checkId() {
         if (getId().startsWith("push://")) getIntent().putExtra("key", SiteApi.PUSH).putExtra("id", getId().substring(7));
         if (getId().isEmpty() || getId().startsWith("msearch:")) setEmpty(false);
-        else getDetail();
+        else if (!setCachedTmdbDetail()) getDetail();
+    }
+
+    private boolean setCachedTmdbDetail() {
+        Vod cached = VodDetailCache.take(getTmdbVodCacheKey());
+        if (cached == null) return false;
+        detailStartTime = System.currentTimeMillis();
+        detailHealthRecorded = true;
+        mBinding.progressLayout.showProgress();
+        SpiderDebug.log("video-flow", "detail cache hit queued key=%s id=%s name=%s", getKey(), getId(), cached.getName());
+        mBinding.getRoot().postDelayed(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            long start = System.currentTimeMillis();
+            setDetail(Result.vod(cached));
+            SpiderDebug.log("video-flow", "detail cache apply cost=%dms key=%s id=%s name=%s", System.currentTimeMillis() - start, getKey(), getId(), cached.getName());
+        }, TMDB_CACHED_DETAIL_APPLY_DELAY_MS);
+        return true;
     }
 
     private void checkLand() {
@@ -1443,7 +1522,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             for (Episode episode : flag.getEpisodes()) {
                 String title = titles.get(episode.getNumber());
                 if (android.text.TextUtils.isEmpty(title)) continue;
-                if (!TmdbEpisodeMatcher.shouldApply(episode, episode.getNumber(), title)) continue;
                 String displayName = EpisodeTitleFormatter.withSourceFileSize(episode.getName(), EpisodeTitleFormatter.formatTmdbTitle(episode.getNumber(), title), Setting.isTmdbEpisodeFileSize());
                 if (android.text.TextUtils.equals(episode.getDisplayName(), displayName)) continue;
                 episode.setDisplayName(displayName);
@@ -1765,6 +1843,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private int getEpisodeSpan(List<Episode> items, boolean useTmdbCard) {
         if (useTmdbCard) return getEpisodeGridSpanCount();
         EpisodeTitleCompact.apply(items);
+        if (items.size() == 1) return 1;
         int maxLen = 0;
         for (Episode item : items) maxLen = Math.max(maxLen, item.getDisplayName().length());
         if (maxLen >= 12) return PlayerSetting.getEpisodeColumn();
@@ -1971,6 +2050,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             int viewType = useTmdbCard && !mEpisodeGridMode ? ViewType.HORI : ViewType.GRID;
             mEpisodeAdapter = new EpisodeAdapter(this, viewType, items);
             mEpisodeAdapter.setUseTmdbCard(useTmdbCard);
+            updateEpisodeFallbackStillUrl();
             mBinding.episode.setAdapter(mEpisodeAdapter);
             scrollToPosition(mBinding.episode, position);
         } else {
@@ -2124,6 +2204,19 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void onDanmaku() {
         DanmakuDialog.create().player(player()).identity(getKey(), getId(), mHistory == null ? "" : mHistory.getVodName(), getEpisode().getName()).show(this);
         hideControl();
+    }
+
+    private void onAdFeedback() {
+        if (player() == null || TextUtils.isEmpty(player().getUrl())) {
+            Notify.show(R.string.ad_feedback_no_url);
+            return;
+        }
+        if (!isAdFeedbackEnabled()) {
+            Notify.show(R.string.ad_feedback_ai_disabled);
+            return;
+        }
+        hideControl();
+        submitAdFeedback();
     }
 
     @Override
@@ -2280,9 +2373,53 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void onDecode() {
+        if (refreshAndSwitchDecode()) return;
         mClock.setCallback(null);
         player().toggleDecode();
         setR1Callback();
+        setDecode();
+    }
+
+    private boolean refreshAndSwitchDecode() {
+        if (decodeSwitchRefreshing) return true;
+        if (getFlag() == null || getEpisode() == null) return false;
+        long position = player().getPosition();
+        float speed = player().getSpeed();
+        boolean repeat = player().isRepeatOne();
+        String key = getKey();
+        String flag = getFlag().getFlag();
+        String episode = getEpisode().getUrl();
+        MediaMetadata metadata = buildMetadata();
+        decodeSwitchRefreshing = true;
+        setNextDecodeText();
+        setDecodeSwitchPending(true);
+        mClock.setCallback(null);
+        SpiderDebug.log("video-flow", "switch decode refresh start key=%s flag=%s episode=%s", key, flag, episode);
+        Task.execute(() -> {
+            try {
+                Result result = SiteApi.playerContent(key, flag, episode);
+                App.post(() -> switchDecodeWithResult(result, position, speed, repeat, metadata));
+            } catch (Throwable e) {
+                App.post(() -> {
+                    decodeSwitchRefreshing = false;
+                    setDecodeSwitchPending(false);
+                    setDecode();
+                    Notify.show(e.getMessage());
+                });
+            }
+        });
+        return true;
+    }
+
+    private void switchDecodeWithResult(Result result, long position, float speed, boolean repeat, MediaMetadata metadata) {
+        decodeSwitchRefreshing = false;
+        if (result == null || result.hasMsg() || result.getRealUrl().isEmpty()) {
+            player().toggleDecode();
+        } else {
+            player().switchDecode(result, getHistoryKey(), metadata, isUseParse(), position, speed, repeat);
+        }
+        setR1Callback();
+        setDecodeSwitchPending(false);
         setDecode();
     }
 
@@ -2347,6 +2484,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void onPlayerKernel() {
+        if (refreshAndSwitchPlayerKernel()) return;
         mClock.setCallback(null);
         onChoose();
         setR1Callback();
@@ -2355,6 +2493,52 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean onPlayerKernelLong() {
         onPlayerKernel();
         return true;
+    }
+
+    private boolean refreshAndSwitchPlayerKernel() {
+        if (playerKernelSwitchRefreshing) return true;
+        Flag currentFlag = getFlag();
+        Episode currentEpisode = getEpisode();
+        if (currentFlag == null || currentEpisode == null || TextUtils.isEmpty(currentFlag.getFlag()) || TextUtils.isEmpty(currentEpisode.getUrl())) return false;
+        int nextType = PlayerSetting.nextPlayer(player().getPlayerType());
+        long position = player().getPosition();
+        float speed = player().getSpeed();
+        boolean repeat = player().isRepeatOne();
+        String key = getKey();
+        String flag = currentFlag.getFlag();
+        String episode = currentEpisode.getUrl();
+        MediaMetadata metadata = buildMetadata();
+        playerKernelSwitchRefreshing = true;
+        mClock.setCallback(null);
+        SpiderDebug.log("video-flow", "switch player refresh start type=%d key=%s flag=%s episode=%s", nextType, key, flag, episode);
+        Task.execute(() -> {
+            try {
+                Result result = SiteApi.playerContent(key, flag, episode);
+                App.post(() -> switchPlayerKernelWithResult(nextType, result, position, speed, repeat, metadata));
+            } catch (Throwable e) {
+                App.post(() -> {
+                    playerKernelSwitchRefreshing = false;
+                    player().togglePlayer();
+                    setPlayerKernel();
+                    setDecode();
+                    setR1Callback();
+                    Notify.show(e.getMessage());
+                });
+            }
+        });
+        return true;
+    }
+
+    private void switchPlayerKernelWithResult(int type, Result result, long position, float speed, boolean repeat, MediaMetadata metadata) {
+        playerKernelSwitchRefreshing = false;
+        if (result == null || result.hasMsg() || result.getRealUrl().isEmpty()) {
+            player().togglePlayer();
+        } else {
+            player().switchPlayer(type, result, getHistoryKey(), metadata, isUseParse(), position, speed, repeat);
+        }
+        setPlayerKernel();
+        setDecode();
+        setR1Callback();
     }
 
     private boolean onTextLong() {
@@ -2381,6 +2565,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void enterFullscreen() {
         if (isFullscreen()) return;
+        logVideoFrame("enterFullscreen before");
         setFullscreen(true);
         if (isLand() && !player().isPortrait()) setTransition();
         mBinding.video.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
@@ -2392,6 +2577,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mKeyDown.resetScale();
         App.post(mR3, 2000);
         hideControl();
+        logVideoFrame("enterFullscreen after");
     }
 
     private void scheduleFullscreenControlReveal() {
@@ -2406,6 +2592,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void exitFullscreen() {
         if (!isFullscreen()) return;
+        logVideoFrame("exitFullscreen before");
         setFullscreen(false);
         if (isLand() && !player().isPortrait()) setTransition();
         setRequestedOrientation(PlaybackOrientation.getExitFullscreenOrientation(isPort()));
@@ -2419,6 +2606,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         App.post(mR3, 2000);
         setRotate(false);
         hideControl();
+        logVideoFrame("exitFullscreen after");
     }
 
     private void restoreEmbeddedVideoLayoutAfterFullscreen() {
@@ -2444,10 +2632,18 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setTransition() {
+        if (!shouldAnimateVideoFrameTransition()) {
+            Log.d(SIZE_TAG, "video transition skipped native player=" + player().getPlayerText());
+            return;
+        }
         ChangeBounds transition = new ChangeBounds();
         transition.setDuration(150);
         ViewGroup parent = (ViewGroup) mBinding.video.getParent();
         TransitionManager.beginDelayedTransition(parent, transition);
+    }
+
+    private boolean shouldAnimateVideoFrameTransition() {
+        return service() == null || !player().isNativePlayer();
     }
 
     private int getLockOrient() {
@@ -2514,6 +2710,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void refreshDanmakuControls() {
         mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
+        mBinding.control.action.adFeedback.setVisibility(isAdFeedbackEnabled() ? View.VISIBLE : View.GONE);
         applyActionButtonVisibility();
         if (mBinding.control.getRoot().getVisibility() == View.VISIBLE) mBinding.control.danmaku.setVisibility(isLock() || !player().haveDanmaku() ? View.GONE : View.VISIBLE);
     }
@@ -3159,6 +3356,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 applyShortDramaMode();
                 requestIntroSkipPlan();
                 if (!pendingResumeSeekApplied) applyAutoIntroSkip();
+                setAdFeedbackVisible(); // 播放地址确定后按格式刷新"有广告"按钮
                 break;
             case Player.STATE_ENDED:
                 checkEnded(true);
@@ -3179,16 +3377,20 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected void onSizeChanged(VideoSize size) {
+        logVideoFrame("onSizeChanged before size=" + size.width + "x" + size.height);
         mPiP.update(this, size.width, size.height, getScale());
         setSizeText();
         updateVideoHeight();
         applyResizeMode(getScale());
         checkOrientation();
+        logVideoFrame("onSizeChanged after size=" + size.width + "x" + size.height);
     }
 
     @Override
     protected void onSurfaceAttached() {
+        logVideoFrame("onSurfaceAttached before");
         applyResizeMode(getScale());
+        logVideoFrame("onSurfaceAttached after");
     }
 
     private void hideSeekProgressIfReady() {
@@ -3205,7 +3407,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     public void onSubtitleClick() {
-        SubtitleDialog.create().view(mBinding.exo.getSubtitleView()).search(() -> SubtitleManualSearchDialog.show(this, subtitlePlaybackSession, this)).show(this);
+        SubtitleDialog.create().view(mBinding.exo.getSubtitleView()).player(player()).search(() -> SubtitleManualSearchDialog.show(this, subtitlePlaybackSession, this)).show(this);
         hideControl();
     }
 
@@ -3355,8 +3557,27 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void updateVideoHeight() {
         if (isLand() || isFullscreen() || isInPictureInPictureMode()) return;
         if (mFrameHeight <= 0 || mFrameParams.height == mFrameHeight) return;
+        logVideoFrame("updateVideoHeight restore from=" + mFrameParams.height + " to=" + mFrameHeight);
         mFrameParams.height = mFrameHeight;
         mBinding.video.setLayoutParams(mFrameParams);
+    }
+
+    private void logVideoFrame(String step) {
+        if (mBinding == null) return;
+        Log.d(SIZE_TAG, "video " + step
+                + " frameParam=" + (mFrameParams == null ? "null" : mFrameParams.width + "x" + mFrameParams.height)
+                + " frameHeight=" + mFrameHeight
+                + " video=" + viewSize(mBinding.video)
+                + " exo=" + viewSize(mBinding.exo)
+                + " fullscreen=" + isFullscreen()
+                + " land=" + isLand()
+                + " scale=" + getScale()
+                + " player=" + (service() == null ? "none" : player().getPlayerText()));
+    }
+
+    private static String viewSize(View view) {
+        if (view == null) return "null";
+        return view.getWidth() + "x" + view.getHeight();
     }
 
     private void checkEnded(boolean notify) {
@@ -4731,6 +4952,94 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     public boolean isSubtitleHostActive() {
         return !isFinishing() && !isDestroyed() && service() != null && player() != null && !player().isReleased() && !player().isEmpty() && isOwner();
+    }
+
+    private boolean isAdFeedbackEnabled() {
+        // 功能开关 + 仅支持解析的格式(HLS/m3u8)才可反馈,因为去广分析依赖切片列表
+        return Setting.isAiConfigReady() && Setting.isAdblock() && Setting.isAiAdDetection() && isAdFeedbackSupportedFormat();
+    }
+
+    private boolean isAdFeedbackSupportedFormat() {
+        if (player() == null) return false;
+        String url = player().getUrl();
+        if (TextUtils.isEmpty(url)) return false;
+        return com.fongmi.android.tv.player.exo.MediaSourceFactory.isHlsUrl(url);
+    }
+
+    private void setAdFeedbackVisible() {
+        mBinding.control.action.adFeedback.setVisibility(isAdFeedbackEnabled() ? View.VISIBLE : View.GONE);
+    }
+
+    private void submitAdFeedback() {
+        AdDetectionRequest request = buildAdDetectionRequest();
+        if (request == null) {
+            Notify.show(R.string.ad_feedback_no_url);
+            return;
+        }
+        // 记录 AI 反馈统计
+        AdBlockStatsStore.recordFeedback(request.getSiteKey());
+
+        Notify.show(R.string.ad_feedback_analyzing);
+        int generation = ++mAdFeedbackGeneration;
+        AiConfig config = AiConfig.objectFrom(Setting.getAiConfig());
+        Task.execute(() -> {
+            // Parse m3u8 evidence (blocking I/O)
+            enrichRequestWithM3u8Evidence(request);
+            AdDetectionResult result = new AiAdDetectionService(config).analyze(request);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed() || generation != mAdFeedbackGeneration) return;
+                onAdDetectionResult(request, result);
+            });
+        });
+    }
+
+    private AdDetectionRequest buildAdDetectionRequest() {
+        if (player() == null || TextUtils.isEmpty(player().getUrl())) return null;
+        String url = player().getUrl();
+        Uri uri = Uri.parse(url);
+        AdDetectionRequest request = new AdDetectionRequest();
+        Site site = getSite();
+        request.setSiteKey(site == null ? getKey() : site.getKey());
+        request.setSiteName(site == null ? "" : site.getName());
+        request.setVodName(mHistory == null ? mBinding.name.getText().toString() : mHistory.getVodName());
+        request.setFlagName(getFlag() == null ? "" : getFlag().getFlag());
+        request.setEpisodeName(getEpisode() == null ? "" : getEpisode().getName());
+        request.setUrlHost(uri.getHost());
+        request.setUrlPath(uri.getPath());
+        return request;
+    }
+
+    private void enrichRequestWithM3u8Evidence(AdDetectionRequest request) {
+        if (player() == null || TextUtils.isEmpty(player().getUrl())) return;
+        String url = player().getUrl();
+        if (!url.contains(".m3u8")) return; // Only parse m3u8
+        try {
+            java.util.Map<String, String> headers = player().getHeaders();
+            com.fongmi.android.tv.bean.M3u8Evidence evidence = com.fongmi.android.tv.utils.M3u8Parser.parse(url, headers);
+            request.setEvidence(evidence);
+        } catch (Exception e) {
+            // Ignore parsing failures
+        }
+    }
+
+    private void onAdDetectionResult(AdDetectionRequest request, AdDetectionResult result) {
+        // 记录 AI 分析结果统计
+        AdBlockStatsStore.recordAiAnalysis(result != null && !result.isError());
+
+        if (result == null || result.isError()) {
+            Notify.show(result == null ? getString(R.string.ad_feedback_failed) : result.getErrorMessage());
+            return;
+        }
+        if (result.isEmpty()) {
+            Notify.show(R.string.ad_feedback_no_ad);
+            return;
+        }
+        // Show preview dialog
+        com.fongmi.android.tv.ui.dialog.AdRulePreviewDialog.create(result).show(this, confirmedResult -> {
+            UserAdRule rule = UserAdRule.fromAiResult(confirmedResult, request.getSiteKey());
+            com.fongmi.android.tv.api.config.UserAdRuleStore.add(rule);
+            Notify.show(R.string.ad_feedback_saved);
+        });
     }
 
     private static class ShortDramaControlItem {

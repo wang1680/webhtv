@@ -20,7 +20,6 @@ import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.base.BaseEpisodeHolder;
 import com.fongmi.android.tv.ui.base.ViewType;
 import com.fongmi.android.tv.ui.custom.EpisodeTitlePopup;
-import com.fongmi.android.tv.ui.helper.TmdbEpisodeMatcher;
 import com.fongmi.android.tv.ui.holder.EpisodeGridHolder;
 import com.fongmi.android.tv.ui.holder.EpisodeHoriHolder;
 import com.fongmi.android.tv.utils.EpisodeTitleFormatter;
@@ -123,7 +122,7 @@ public class EpisodeAdapter extends RecyclerView.Adapter<BaseEpisodeHolder> {
     public static String getTitle(Episode item) {
         if (item == null) return "";
         TmdbEpisode tmdbEpisode = item.getTmdbEpisode();
-        if (TmdbEpisodeMatcher.shouldApply(item, tmdbEpisode)) return getTmdbTitle(item, tmdbEpisode);
+        if (tmdbEpisode != null) return getTmdbTitle(item, tmdbEpisode);
         return getNativeTitle(item);
     }
 
@@ -142,7 +141,7 @@ public class EpisodeAdapter extends RecyclerView.Adapter<BaseEpisodeHolder> {
     public static String getCardTitle(Episode item) {
         if (item == null) return "";
         TmdbEpisode tmdbEpisode = item.getTmdbEpisode();
-        if (!TmdbEpisodeMatcher.shouldApply(item, tmdbEpisode)) return getNativeTitle(item);
+        if (tmdbEpisode == null) return getNativeTitle(item);
         int number = tmdbEpisode.getNumber();
         String label = number > 0 ? String.valueOf(number) : item.getName();
         String title = EpisodeTitleFormatter.formatTmdbTitle(label, item.getName(), tmdbEpisode.getTitle(), Setting.getTmdbEpisodeShowScrapedName());

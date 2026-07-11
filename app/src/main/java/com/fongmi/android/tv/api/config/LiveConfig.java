@@ -134,6 +134,11 @@ public class LiveConfig extends BaseConfig {
     }
 
     @Override
+    protected void onLoadSuccess() {
+        InterfaceAdRuleLearningService.schedule(getConfig().getDesc(), getConfig().getUrl(), getAds(), getRules());
+    }
+
+    @Override
     public synchronized void ensureLoaded() {
         try {
             if (isLoaded()) return;

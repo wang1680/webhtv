@@ -120,6 +120,22 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void mobileEpisodeNameToggleRestoresFallbackArtworkAfterAdapterRecreation() throws Exception {
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int method = source.indexOf("private void toggleEpisodeFileName()");
+        int methodEnd = source.indexOf("private void updateEpisodeFileNameButton()", method);
+        String methodBody = method >= 0 && methodEnd > method ? source.substring(method, methodEnd) : "";
+        int recreateAdapter = methodBody.indexOf("mEpisodeAdapter = new EpisodeAdapter");
+        int restoreFallback = methodBody.indexOf("updateEpisodeFallbackStillUrl();", recreateAdapter);
+        int attachAdapter = methodBody.indexOf("mBinding.episode.setAdapter(mEpisodeAdapter);", recreateAdapter);
+
+        assertTrue(sourcePath + " is missing toggleEpisodeFileName", method >= 0);
+        assertTrue("name toggle must restore fallback artwork on the recreated episode adapter",
+                recreateAdapter >= 0 && restoreFallback > recreateAdapter && restoreFallback < attachAdapter);
+    }
+
+    @Test
     public void mobileVideoKeepsParseRowHiddenInEmbeddedPlayerWhenPlaybackStarts() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
@@ -779,6 +795,18 @@ public class VideoActivityLayoutTest {
                         && "true".equals(row.getAttribute("android:layout_alignParentEnd")));
         assertTrue("leanback detail action row should hide scrollbars",
                 "none".equals(row.getAttribute("android:scrollbars")));
+    }
+
+    @Test
+    public void leanbackTmdbPlaybackOverviewWrapsWithinRightPane() throws Exception {
+        Path layoutFile = findLeanbackResPath().resolve(Path.of("layout", "activity_video.xml"));
+        Element overview = findAndroidId(layoutFile.toFile(), "tmdbOverview");
+
+        assertTrue(layoutFile + " is missing @+id/tmdbOverview", overview != null);
+        assertTrue("TMDB playback overview must be measured between the title column and screen edge so it wraps instead of ellipsizing as one long line",
+                "match_parent".equals(overview.getAttribute("android:layout_width"))
+                        && "@+id/name".equals(overview.getAttribute("android:layout_alignStart"))
+                        && "true".equals(overview.getAttribute("android:layout_alignParentEnd")));
     }
 
     @Test

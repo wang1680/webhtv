@@ -41,10 +41,10 @@ public class EpisodeDisplayPolicyTest {
     }
 
     @Test
-    public void tmdbModeWithMismatchedEpisodeData_usesNativeEpisodeDisplay() {
-        assertFalse(EpisodeDisplayPolicy.hasTmdbEpisodeData(Collections.singletonList(mismatchedTmdbEpisode())));
-        assertFalse(EpisodeDisplayPolicy.shouldUseTmdbEpisodeCards(true, Collections.singletonList(mismatchedTmdbEpisode())));
-        assertFalse(EpisodeDisplayPolicy.shouldShowTmdbEpisodeChrome(true, false, Collections.singletonList(mismatchedTmdbEpisode())));
+    public void originalEnhancedMode_keepsScrapedEpisodeDataAcrossDifferentlyNamedSourceLines() {
+        assertTrue(EpisodeDisplayPolicy.hasTmdbEpisodeData(Collections.singletonList(mismatchedTmdbEpisode())));
+        assertTrue(EpisodeDisplayPolicy.shouldUseTmdbEpisodeCards(true, Collections.singletonList(mismatchedTmdbEpisode())));
+        assertTrue(EpisodeDisplayPolicy.shouldShowTmdbEpisodeChrome(true, false, Collections.singletonList(mismatchedTmdbEpisode())));
     }
 
     @Test

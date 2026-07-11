@@ -159,7 +159,7 @@ public class CustomKeyDown extends GestureDetector.SimpleOnGestureListener imple
     @Override
     public boolean onSingleTapConfirmed(@NonNull MotionEvent e) {
         if (isMultiple(e) || changeScale) return true;
-        listener.onSingleTap();
+        listener.onSingleTap(e.getX(), videoView.getWidth());
         return true;
     }
 
@@ -261,6 +261,10 @@ public class CustomKeyDown extends GestureDetector.SimpleOnGestureListener imple
         void onFlingDown();
 
         void onSingleTap();
+
+        default void onSingleTap(float x, float width) {
+            onSingleTap();
+        }
 
         void onDoubleTap();
 

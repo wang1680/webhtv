@@ -2,6 +2,7 @@ package com.fongmi.android.tv.server.process;
 
 import android.text.TextUtils;
 
+import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.bean.AiConfig;
 import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.server.impl.Process;
@@ -10,6 +11,8 @@ import com.fongmi.android.tv.setting.Setting;
 import com.github.catvod.crawler.DebugLogStore;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
@@ -21,7 +24,7 @@ public class DebugLogs implements Process {
 
     @Override
     public boolean isRequest(IHTTPSession session, String url) {
-        return url.startsWith("/debug/logs") || url.startsWith("/debug/diagnose") || url.startsWith("/debug/stream") || url.startsWith("/debug/clear") || url.startsWith("/debug/enable") || url.startsWith("/debug/disable");
+        return url.startsWith("/debug/logs") || url.startsWith("/debug/diagnose") || url.startsWith("/debug/mpd") || url.startsWith("/debug/stream") || url.startsWith("/debug/clear") || url.startsWith("/debug/enable") || url.startsWith("/debug/disable");
     }
 
     @Override
@@ -40,8 +43,18 @@ public class DebugLogs implements Process {
         }
         if (url.startsWith("/debug/diagnose")) return diagnose();
         if (url.startsWith("/debug/stream")) return stream(session);
+        if (url.startsWith("/debug/mpd")) return mpd();
         if (url.startsWith("/debug/logs.txt")) return download();
         return page();
+    }
+
+    private Response mpd() {
+        try {
+            File file = new File(App.get().getCacheDir(), "youtube-mpd.xml");
+            return noCache(NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "application/dash+xml", new FileInputStream(file), file.length()), null);
+        } catch (Exception e) {
+            return noCache(NanoHTTPD.newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "MPD unavailable"), null);
+        }
     }
 
     private Response page() {

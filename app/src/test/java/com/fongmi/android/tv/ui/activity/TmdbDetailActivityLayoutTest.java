@@ -1447,9 +1447,10 @@ public class TmdbDetailActivityLayoutTest {
         int inlineKey = activity.indexOf("private boolean handleInlineKey(KeyEvent event)", dispatch);
         String dispatchBody = dispatch >= 0 && inlineKey > dispatch ? activity.substring(dispatch, inlineKey) : "";
 
-        assertTrue("detail layout must include both reverse and grid/list controls",
+        assertTrue("detail layout must include reverse, filename, and grid/list controls",
                 layout.indexOf("android:id=\"@+id/episodeReverse\"") >= 0
-                        && layout.indexOf("android:id=\"@+id/episodeReverse\"") < layout.indexOf("android:id=\"@+id/episodeViewMode\""));
+                        && layout.indexOf("android:id=\"@+id/episodeReverse\"") < layout.indexOf("android:id=\"@+id/episodeFileName\"")
+                        && layout.indexOf("android:id=\"@+id/episodeFileName\"") < layout.indexOf("android:id=\"@+id/episodeViewMode\""));
         assertTrue("detail episode view-mode button must stay visible on TV detail pages",
                 activity.contains("binding.episodeViewMode.setVisibility(View.VISIBLE);")
                         && !activity.contains("binding.episodeViewMode.setVisibility(shouldForceAdaptiveEpisodeGrid() ? View.GONE : View.VISIBLE);"));
@@ -1465,18 +1466,20 @@ public class TmdbDetailActivityLayoutTest {
                         && episodeKeyBody.contains("if (focusDetailEpisodeToolButton(View.FOCUS_UP)) return true;")
                         && episodeKeyBody.indexOf("focusDetailEpisodeRangeButton()") < episodeKeyBody.indexOf("focusDetailEpisodeToolButton(View.FOCUS_UP)")
                         && episodeKeyBody.indexOf("focusDetailEpisodeToolButton(View.FOCUS_UP)") < episodeKeyBody.indexOf("focusDetailFlagButton()"));
-        assertTrue("episode header tool focusing should prefer reverse and expose the grid/list toggle",
+        assertTrue("episode header tool focusing should include every visible header tool",
                 helperBody.contains("return focusDetailButton(binding.episodeReverse, direction)")
+                        && helperBody.contains("|| focusDetailButton(binding.episodeFileName, direction)")
                         && helperBody.contains("|| focusDetailButton(binding.episodeViewMode, direction);")
                         && helperBody.contains("button.requestFocus(direction);"));
         assertTrue("episode header tools should let remote users move back up or down",
                 activity.contains("binding.episodeReverse.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));")
+                        && activity.contains("binding.episodeFileName.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));")
                         && activity.contains("binding.episodeViewMode.setOnKeyListener((view, keyCode, event) -> onDetailEpisodeToolKey(view, keyCode, event));")
                         && activity.contains("if (KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event)) return onDetailHorizontalButtonGroupKey(binding.episodeHeader, null, view, event);"));
         assertTrue("activity-level key dispatch should guard the detail episode focus chain when child listeners are bypassed",
                 dispatchBody.contains("if (handleDetailEpisodeNavigationKey(event)) return true;")
                         && dispatchBody.contains("isFocusInside(focus, binding.flagScroll)") && dispatchBody.contains("onDetailFlagKey(event.getKeyCode(), event)")
-                        && dispatchBody.contains("focus == binding.episodeReverse || focus == binding.episodeViewMode") && dispatchBody.contains("onDetailEpisodeToolKey(focus, event.getKeyCode(), event)")
+                        && dispatchBody.contains("isEpisodeToolButton(focus)") && dispatchBody.contains("onDetailEpisodeToolKey(focus, event.getKeyCode(), event)")
                         && dispatchBody.contains("isFocusInside(focus, binding.episodeRangeScroll)") && dispatchBody.contains("onDetailEpisodeRangeKey(focus, event.getKeyCode(), event)")
                         && dispatchBody.contains("isFocusInside(focus, binding.episodeContainer)") && dispatchBody.contains("onDetailEpisodeContainerKey(focus, event)")
                         && activity.contains("binding.episodeContainer.findContainingViewHolder(focus)")
@@ -1597,7 +1600,8 @@ public class TmdbDetailActivityLayoutTest {
                         && activity.contains("fetchSeasonIfNeeded(firstSeason, true);")
                         && activity.contains("seasonEpisodeCounts.put(seasonNumber, episodes.size());")
                         && service.contains("season(@NonNull TmdbItem item, int seasonNumber, @NonNull TmdbConfig config, JsonObject detail, boolean refresh)")
-                        && service.contains("refresh ? null : readCache(file, ttl)"));
+                        && service.contains("refresh ? null : readFirstCache(lookupFiles, ttl)")
+                        && service.contains("readFirstCache(lookupFiles, Long.MAX_VALUE)"));
     }
 
     @Test

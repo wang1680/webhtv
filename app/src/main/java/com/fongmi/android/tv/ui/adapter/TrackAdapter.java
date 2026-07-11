@@ -52,6 +52,12 @@ public class TrackAdapter extends RecyclerView.Adapter<TrackAdapter.ViewHolder> 
         return first != null && second != null && Objects.equals(first.getName(), second.getName()) && Objects.equals(first.getFormat(), second.getFormat());
     }
 
+    public void replaceAll(List<Track> items) {
+        mItems.clear();
+        mItems.addAll(items);
+        notifyDataSetChanged();
+    }
+
     public int getSelected() {
         for (int i = 0; i < mItems.size(); i++) if (mItems.get(i).isSelected()) return i;
         return 0;

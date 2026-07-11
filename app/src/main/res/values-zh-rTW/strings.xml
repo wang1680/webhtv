@@ -82,6 +82,9 @@
     <string name="play_track_audio">音軌</string>
     <string name="play_track_video">視軌</string>
     <string name="play_track_disable_subtitle">關閉字幕</string>
+    <string name="play_track_disable_secondary_subtitle">關閉第二字幕</string>
+    <string name="play_track_secondary_subtitle">第二字幕</string>
+    <string name="play_track_primary_subtitle">主字幕</string>
     <string name="offset_text">字幕偏移</string>
     <string name="offset_audio">音軌偏移</string>
     <string name="offset_setting">偏移設定</string>
@@ -452,7 +455,7 @@
     <string name="site_health_reason_play_failed">播放失敗</string>
     <string name="setting_web_home_extension">WebHome 擴展</string>
     <string name="setting_web_home_fullscreen">WebHome 主頁全屏</string>
-    <string name="setting_csp_warmup">CSP init 預熱</string>
+    <string name="setting_csp_warmup">CSP預熱</string>
     <string name="setting_csp_warmup_default">預設</string>
     <string name="setting_csp_warmup_custom">自訂</string>
     <string name="setting_csp_warmup_custom_count">自訂 · %1$d 個</string>
@@ -884,9 +887,31 @@
     <string name="player_performance">播放效能</string>
     <string name="player_performance_recommended">推薦</string>
     <string name="player_performance_compatible">相容</string>
+    <string name="player_performance_lightweight">輕量</string>
+    <string name="player_performance_original">原版預設</string>
+    <string name="player_performance_help">說明</string>
+    <string name="player_performance_help_title">播放效能參數說明</string>
+    <string name="player_performance_help_close">關閉</string>
     <string name="player_kernel">播放器內核</string>
     <string name="player_scale">縮放比例</string>
     <string name="player_lut">LUT 調色</string>
+    <string name="player_mpv_config">MPV 設定管理</string>
+    <string name="player_mpv_render">MPV 渲染後端</string>
+    <string name="mpv_render_native_unavailable">目前不可用</string>
+    <string name="mpv_config_target">%1$s · %2$s</string>
+    <string name="mpv_config_default">預設</string>
+    <string name="mpv_config_local">本機 mpv.conf</string>
+    <string name="mpv_config_url">URL mpv.conf</string>
+    <string name="mpv_config_name_hint">名稱（可選）</string>
+    <string name="mpv_config_history">歷史</string>
+    <string name="mpv_config_history_empty">暫無 MPV 設定歷史</string>
+    <string name="mpv_config_script_hint">腳本 URL 或選擇本機腳本</string>
+    <string name="mpv_config_scripts_count">%1$d 個腳本</string>
+    <string name="mpv_config_saved">MPV 設定已儲存，重新進入播放後生效</string>
+    <string name="mpv_config_empty">MPV 設定為空</string>
+    <string name="mpv_config_file_invalid">mpv.conf 檔案無效</string>
+    <string name="mpv_config_url_invalid">mpv.conf URL 無效</string>
+    <string name="mpv_config_download_empty">下載到的 mpv.conf 為空</string>
     <string name="player_libass">字幕渲染</string>
     <string name="player_caption">字幕樣式</string>
     <string name="player_background">背景播放</string>
@@ -1033,6 +1058,15 @@
     <string name="error_play_parse">播放網址解析失敗</string>
     <string name="error_play_drm">本設備不支援所需的 DRM scheme</string>
     <string name="error_play_url">播放網址載入失敗</string>
+    <string name="error_play_mpv_hls_unsupported">MPV 播放此 HLS 失敗，請手動切換播放器或更換線路</string>
+    <string name="error_play_mpv_load_failed">MPV 載入媒體失敗，請檢查網路或更換線路</string>
+    <string name="error_play_mpv_network_failed">MPV 網路載入失敗，請檢查網路、請求頭或更換線路</string>
+    <string name="error_play_mpv_drm_unsupported">MPV 不支援此 DRM 保護媒體，請手動切換播放器或更換線路</string>
+    <string name="error_play_mpv_unexpected_image">MPV 載入到了圖片而不是影片，請更換線路</string>
+    <string name="error_play_mpv_no_av">MPV 沒有讀取到可播放的音視訊資料</string>
+    <string name="error_play_mpv_invalid_data">MPV 識別到異常媒體資料，請更換線路或手動切換播放器</string>
+    <string name="error_play_mpv_decode_failed">MPV 解碼失敗，請嘗試切換軟硬解或更換線路</string>
+    <string name="error_play_mpv_video_output">MPV 視訊輸出初始化失敗，請嘗試切換解碼或重新進入播放</string>
     <string name="error_play_flag">暫無線路資料</string>
     <string name="error_play_timeout">連線逾時</string>
     <string name="error_play_fallback">%1$s 播放失敗，已切換到 %2$s</string>
@@ -1071,6 +1105,14 @@
     <string name="update_status_unavailable">暫無</string>
     <string name="update_expand">展開</string>
     <string name="update_collapse">收起</string>
+    <string name="update_backup_title">更新前備份</string>
+    <string name="update_backup_message">建議在更新前備份當前配置，以便更新後出現問題時可以恢復。是否先備份？</string>
+    <string name="update_backup_positive">備份並更新</string>
+    <string name="update_backup_negative">直接更新</string>
+    <string name="update_backup_running">正在備份…</string>
+    <string name="update_backup_done">備份完成，開始更新</string>
+    <string name="update_backup_failed">備份失敗，仍將繼續更新</string>
+    <string name="update_backup_permission_denied">未授予儲存權限，無法備份，仍將繼續更新</string>
 
     <!-- Crash -->
     <string name="crash_info">發生意外錯誤\n抱歉給您帶來不便</string>
@@ -1118,6 +1160,7 @@
         <item>EXO</item>
         <item>IJK</item>
         <item>系統</item>
+        <item>MPV</item>
     </string-array>
 
     <string-array name="select_decode">
@@ -1129,6 +1172,11 @@
         <item>EXO</item>
         <item>IJK</item>
         <item>系統</item>
+        <item>MPV</item>
+    </string-array>
+    <string-array name="select_mpv_render">
+        <item>OpenGL</item>
+        <item>Vulkan</item>
     </string-array>
     <string-array name="select_buffer_bytes">
         <item>自動</item>
@@ -1225,6 +1273,7 @@
         <item>選擇視軌</item>
         <item>選擇字幕</item>
     </string-array>
+    <string name="select_secondary_subtitle_track">選擇第二字幕</string>
 
     <string name="setting_tmdb_source">TMDB 數據配置</string>
     <string name="setting_ai_recommendation">AI 通用配置</string>
@@ -1322,6 +1371,7 @@
     <string name="dialog_ai_recommend_prompt_label">推薦提示詞</string>
     <string name="dialog_ai_title_extraction_prompt_label">名稱提取提示詞</string>
     <string name="dialog_ai_viewing_report_prompt_label">觀影報告提示詞</string>
+    <string name="dialog_ai_ad_detection_prompt_label">廣告偵測提示詞</string>
     <string name="dialog_ai_prompt_reset">重置預設</string>
     <string name="dialog_ai_test">測試配置</string>
     <string name="dialog_ai_test_running">正在測試 AI 配置...</string>
@@ -1457,4 +1507,6 @@
     <string name="viewing_report_unit_minutes">分鐘</string>
     <string name="viewing_report_unit_times">次</string>
 
+    <string name="ad_rule_delete_confirm">刪除規則</string>
+    <string name="ad_rule_delete_message">確定刪除「%1$s」嗎？介面匯入規則刪除後可在待審核規則中重新匯入。</string>
 </resources>
