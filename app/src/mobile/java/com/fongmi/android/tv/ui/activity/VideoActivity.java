@@ -40,6 +40,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.media3.common.C;
@@ -144,6 +145,7 @@ import com.fongmi.android.tv.ui.dialog.VideoContentDialog;
 import com.fongmi.android.tv.ui.helper.DetailThemeVisibility;
 import com.fongmi.android.tv.ui.helper.EpisodeDisplayPolicy;
 import com.fongmi.android.tv.ui.helper.EpisodeRangePolicy;
+import com.fongmi.android.tv.ui.helper.PipExitDecision;
 import com.fongmi.android.tv.ui.helper.PlayerControlFocusHelper;
 import com.fongmi.android.tv.ui.helper.TmdbNavigation;
 import com.fongmi.android.tv.ui.player.VodPlayerChrome;
@@ -4832,11 +4834,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         } else {
             showDanmaku();
             restoreContextWall();
-            // PiP 窗口点 × 关闭时，主动停止播放，避免声音继续（与正常退出保持一致）
-            if (isStop()) {
-                saveHistory(true);
-                finishPlayback();
-            }
+            // PiP 窗口点 × 关闭时，主动停止播放，避免声音继续（与正常退出保持一致）。
+            // 不能依赖 isStop() 时序，改为等生命周期 settle 后按最终状态判定。
+            App.post(this::finishIfPipClosed, 0);
         }
     }
 
@@ -4844,6 +4844,14 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     protected void onResume() {
         super.onResume();
         restoreContextWall();
+    }
+
+    private void finishIfPipClosed() {
+        boolean atLeastStarted = getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED);
+        if (PipExitDecision.shouldFinishAfterPipExit(atLeastStarted, isFinishing(), isDestroyed())) {
+            saveHistory(true);
+            finishPlayback();
+        }
     }
 
     @Override
