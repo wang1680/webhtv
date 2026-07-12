@@ -366,8 +366,9 @@ public class MpvPlayerEngine implements PlayerEngine {
         boolean nativeVulkan = MPVLib.isBundledVulkanEnabled(App.get());
         boolean deviceVulkan = MPVLib.isDeviceVulkan13Capable(App.get());
         boolean useVulkan = requestVulkan && nativeVulkan && deviceVulkan;
+        boolean useGpuNext = useVulkan || decode != HARD;
         if (requestVulkan && !useVulkan) SpiderDebug.log("player-engine", "mpv render requested=vulkan but unavailable native=%s device=%s; fallback=opengl", nativeVulkan, deviceVulkan);
-        SpiderDebug.log("player-engine", "mpv render requested=%s nativeVulkan=%s deviceVulkan=%s actual=%s", requestVulkan ? "vulkan" : "opengl", nativeVulkan, deviceVulkan, useVulkan ? "vulkan" : "opengl");
+        SpiderDebug.log("player-engine", "mpv render requested=%s nativeVulkan=%s deviceVulkan=%s decode=%s actual=%s/%s", requestVulkan ? "vulkan" : "opengl", nativeVulkan, deviceVulkan, decode == HARD ? "hard" : "soft", useVulkan ? "vulkan" : "opengl", useGpuNext ? "gpu-next" : "gpu");
         MpvPlayerConfig.Builder builder = MpvPlayerConfig.builder(App.get())
                 .configDir(MpvConfigStore.configDir())
                 .hwdec(decode == HARD ? "mediacodec,mediacodec-copy" : "no")
@@ -381,6 +382,11 @@ public class MpvPlayerEngine implements PlayerEngine {
                     .gpuContext("androidvk")
                     .gpuApi("vulkan")
                     .openglEs(false);
+        } else if (useGpuNext) {
+            // The legacy gpu renderer restores the original pre-Dolby-Vision
+            // color representation. Software-decoded Profile 5 frames need
+            // gpu-next/libplacebo to apply their per-frame DOVI mapping.
+            builder.vo("gpu-next");
         }
         return builder.build();
     }

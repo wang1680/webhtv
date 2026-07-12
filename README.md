@@ -78,7 +78,7 @@ WebHome 主页、扩展、模板、示例和 AI skills 统一放在 [webhome-dev
 
 - JDK 21。不要使用 JDK 17；当前 `sourceCompatibility` / `targetCompatibility` 均为 Java 21。
 - Android SDK Platform 37 和 Build Tools 37.0.0。当前 `compileSdk=37`、`minSdk=24`、`targetSdk=28`。
-- Android NDK 28.2.13676358。普通 Gradle 打包会直接使用仓库内置 `libplayer.so`，不需要每次重编 MPV JNI；修改 `third_party/mpv-player-jni` 或 MPV native 头文件后必须安装该 NDK 并运行重建脚本。
+- Android NDK 28.2.13676358。普通 Gradle 打包会直接使用仓库内置的 MPV native assets 和 `libplayer.so`。`scripts/build_mpv_player_jni.sh` 只重建 JNI 桥接库 `libplayer.so`，不会重编 `libmpv.so`、FFmpeg 或 libplacebo。
 - 使用仓库内置 Gradle Wrapper：Gradle 9.5.1，Android Gradle Plugin 9.2.1。
 - 能访问 Maven Central、Google Maven、Gradle Plugin Portal 和 JitPack。仓库内已带定制 Media3、nextlib 和本地 AAR，但普通 Android 依赖仍需要联网下载。
 
@@ -164,6 +164,14 @@ bash gradlew :app:assembleLeanbackArm64_v8aRelease
 bash gradlew :app:assembleLeanbackArmeabi_v7aRelease
 ```
 
+临时验证“仅 Release 包可用”的接口时，可以关闭 R8/资源压缩，获得接近 debug 的构建速度：
+
+```bash
+bash gradlew :app:assembleMobileArm64_v8aRelease -PfastRelease=true
+```
+
+快速 Release 的版本标识为 `<versionName>-fast-yyyyMMddHHmm`（当前例如 `5.5.6-fast-202607112354`），时间使用上海时区；不传 `-PfastRelease=true` 时仍执行正常 Release 优化，版本标识保持 `<versionName>-yyyyMMddHHmm`。快速包只用于临时测试，不代替正式发布包。
+
 也可以一次打常用三包：手机 64 位、电视 32 位、电视 64 位。
 
 ```bash
@@ -172,15 +180,36 @@ bash gradlew :app:assembleMobileArm64_v8aDebug :app:assembleLeanbackArmeabi_v7aD
 
 ### MPV native/JNI 重建
 
-普通打包不需要执行本节命令，Gradle 会把仓库内已提交的 MPV assets 和 `libplayer.so` 打进 APK。只有修改以下内容时才需要先重建 MPV JNI：
+普通打包不需要执行本节命令，Gradle 会把仓库内已提交的 MPV assets 和 `libplayer.so` 打进 APK。修改以下内容时需要重建 MPV JNI：
 
 - `third_party/mpv-player-jni/src/**`
 - `third_party/mpv-player-jni/include/mpv/client.h`
-- `app/src/arm64_v8a/assets/mpv-libs/arm64-v8a/` 或 `app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a/` 里的 MPV 相关 `.so`
+- 升级 MPV client API，或新的 `libmpv.so` 与现有 JNI 头文件/API 不兼容
 
-当前 `libmpv.so`/FFmpeg assets 已使用启用 Vulkan 的 Android 构建；`libplayer.so` 仍由本仓库 `third_party/mpv-player-jni` 构建，用于保留 END_FILE reason/error 等本地桥接能力。替换外部 MPV native 包时，必须继续把 FFmpeg 依赖名从 `libav*`/`libsw*` 等长改为 `libmv*`/`libmw*`，否则会和 `nextlib-media3ext` 内置 FFmpeg 发生 Android linker 复用冲突。
+当前 `libmpv.so` 同时启用 OpenGL 和 Vulkan；`libplayer.so` 由本仓库 `third_party/mpv-player-jni` 构建，用于保留 END_FILE reason/error 等本地桥接能力。当前 native 基线：
 
-重建命令：
+| ABI | MPV | FFmpeg | libplacebo | 说明 |
+| --- | --- | --- | --- | --- |
+| `arm64-v8a` | `0.41.0-556-g9ce79bcaa` | `5ba2525c7aff`（8.0.git） | `7.362.0` / `82224764a981` | 已验证 OpenGL LUT 效果、预览分割线/滑动和 Vulkan |
+| `armeabi-v7a` | `0.41.0-224-gd54bad563` | `N-122998-g5ba2525c7a` | `7.360.0-3-gc93aa134` | 仍为原 32 位 Vulkan 基线，不能与 arm64 二进制混用 |
+
+替换或升级 MPV native 时必须遵守：
+
+- `libmpv.so`、FFmpeg（codec/device/filter/format/util/swresample/swscale）、libplacebo 和 `libc++_shared.so` 必须按同一 ABI、同一兼容构建成套更新。禁止只替换 `libmpv.so`；否则常见结果是 `cannot locate symbol` 或进入播放即失败。
+- arm64 本次验证组合固定为 MPV `9ce79bcaa0132660a2e45b6bfc1fb0c199665277`、FFmpeg `5ba2525c7affc29cbd99e6266946b382d3fffe8b`、libplacebo `82224764a98164ce9d2d9a10e4fefca934e475fb`、NDK `28.2.13676358`。该 MPV 要求 libplacebo `>= 7.360.1`，旧 `7.360.0` 不能直接链接。
+- FFmpeg 文件名、ELF `SONAME` 和所有 `DT_NEEDED` 都要从 `libav*`/`libsw*` 等长改为 `libmv*`/`libmw*`，不能只重命名文件，否则会和 `nextlib-media3ext` 内置 FFmpeg 发生 Android linker 复用冲突。
+- 更新后用 NDK `llvm-readelf -d` 确认没有残留 `libav*.so`/`libsw*.so` 依赖，再分别回归 OpenGL 普通播放、LUT 效果、预览分割线连续滑动、Vulkan、字幕切换和硬解。
+
+从固定源码重新生成 arm64 MPV/FFmpeg `.so`：
+
+```bash
+scripts/build_mpv_native.sh --abi arm64-v8a --install
+bash gradlew :app:assembleMobileArm64_v8aRelease -PfastRelease=true
+```
+
+脚本读取 `third_party/mpv-native-lock.json`，自动下载固定 commit、构建依赖、修改 ELF 依赖名、strip并校验。普通 Gradle 和 GitHub Actions 不会调用该脚本，仍直接复用仓库已提交的 `.so`。完整环境准备、两 ABI 构建、输出目录和故障处理见 [MPV Native 可复现构建](third_party/mpv-native-build.md)。
+
+只重建 App JNI 桥接库 `libplayer.so`：
 
 ```bash
 export ANDROID_HOME="$HOME/Library/Android/sdk"
@@ -275,7 +304,7 @@ keyPassword=your_key_password
 - `failed to find target with hash string 'android-37'`：未安装 Android SDK Platform 37。
 - `NDK clang++ not found under .../ndk/28.2.13676358`：未安装 NDK 28.2.13676358，或 `ANDROID_NDK_HOME` 指向错误。
 - `Missing MPV asset directory`：MPV assets 缺失或 ABI 目录名不匹配，确认 `app/src/arm64_v8a/assets/mpv-libs/arm64-v8a` 和 `app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a` 存在。
-- 运行后提示 `dlopen failed`、`libplayer.so` 或 `libmpv.so` 相关错误：先确认 MPV `.so` 是否随对应 ABI 打包；如果改过 JNI 或 MPV native 库，重新执行 `scripts/build_mpv_player_jni.sh` 后再打包。
+- 运行后提示 `dlopen failed`、`libplayer.so` 或 `libmpv.so` 相关错误：先确认对应 ABI 的整套 MPV/FFmpeg `.so` 已打包，并用 NDK `llvm-readelf -d` 检查 `SONAME`/`DT_NEEDED`。只有 JNI 或 client API 变化才运行 `scripts/build_mpv_player_jni.sh`；该脚本不能修复不配套的 `libmpv.so`、FFmpeg 或 libplacebo。
 - `Could not resolve ...`：依赖下载失败，检查网络或设置代理后重新执行 Gradle。
 - `Permission denied: ./gradlew`：本仓库文档统一使用 `bash gradlew`，不依赖可执行位。
 
