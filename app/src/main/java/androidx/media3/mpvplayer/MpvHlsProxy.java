@@ -3,7 +3,8 @@ package androidx.media3.mpvplayer;
 import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
-import androidx.media3.exoplayer.hls.playlist.HlsAdsParser;
+import com.fongmi.android.tv.api.config.HlsRuleConfig;
+import com.fongmi.android.tv.utils.HlsAdblockPipeline;
 
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.PreloadSetting;
@@ -262,12 +263,14 @@ public final class MpvHlsProxy extends NanoHTTPD {
 
     private String applyAdblock(String text, int session, String url) {
         if (!Setting.isAdblock() || !isVodPlaylist(text)) return text;
+        if (HlsAdblockPipeline.isCoreM3u8Proxy(url)) return text;
         try {
-            String filtered = HlsAdsParser.process(text);
-            if (!TextUtils.equals(filtered, text)) {
-                SpiderDebug.log(TAG, "adblock filtered session=%d bytes=%d->%d url=%s", session, text.length(), filtered.length(), shortUrl(url));
+            HlsAdblockPipeline.Outcome outcome = HlsAdblockPipeline.apply(url, text, HlsRuleConfig.getRules(), true);
+            if (!TextUtils.equals(outcome.manifest(), text)) {
+                SpiderDebug.log(TAG, "adblock filtered session=%d bytes=%d->%d structured=%s legacy=%s url=%s",
+                        session, text.length(), outcome.manifest().length(), outcome.structured(), outcome.legacy(), shortUrl(url));
             }
-            return filtered;
+            return outcome.manifest();
         } catch (Throwable e) {
             SpiderDebug.log(TAG, "adblock ignored session=%d url=%s error=%s", session, shortUrl(url), e.getMessage());
             return text;
