@@ -1589,6 +1589,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 .source(MediaTitleLearningExample.SOURCE_DANMAKU_AUTO)
                 .allowAi(true)
                 .build(), danmaku -> {
+            if (player() == null) return;
             if (DanmakuSetting.isSpiderFirst() && !siteDanmakus.isEmpty()) player().addDanmaku(danmaku);
             else player().setDanmaku(danmaku);
             refreshDanmakuControls();
