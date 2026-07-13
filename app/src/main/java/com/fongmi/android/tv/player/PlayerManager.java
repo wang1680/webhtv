@@ -1017,7 +1017,7 @@ public class PlayerManager implements ParseCallback {
         if (SpiderDebug.isEnabled()) SpiderDebug.log("player", "switch player refresh direct type=%d key=%s flag=%s url=%s", playerType, key, result.getFlag(), summarizeUrl(result.getUrl().v()));
         Task.execute(() -> {
             try {
-                Result refreshed = SiteApi.playerContent(key, result.getFlag(), result.getUrl().v());
+                Result refreshed = SiteApi.playerContent(key, result.getFlag(), result.getUrl().v(), playerType);
                 App.post(() -> startRefreshedSwitchResult(refreshed, key, metadata));
             } catch (Throwable e) {
                 App.post(() -> {

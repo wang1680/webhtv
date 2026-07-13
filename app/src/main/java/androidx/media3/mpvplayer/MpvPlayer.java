@@ -79,6 +79,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     private static final String CONCAT_DURATION_SEPARATOR = "|||";
     private static final String CONCAT_DURATION_SEPARATOR_REGEX = "\\|\\|\\|";
     private static final String HLS_LOAD_OPTIONS = "demuxer=lavf,demuxer-lavf-format=hls,demuxer-lavf-probesize=10485760,demuxer-lavf-analyzeduration=5";
+    private static final String DASH_LOAD_OPTIONS = "demuxer=lavf,demuxer-lavf-format=dash,demuxer-lavf-probesize=10485760,demuxer-lavf-analyzeduration=5";
     private static final int RECENT_LOG_LIMIT = 32;
     private static final String HEADER_ACCEPT = "Accept";
     private static final String HEADER_ORIGIN = "Origin";
@@ -171,6 +172,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     private boolean eofReached;
     private boolean idleActive;
     private boolean currentLikelyHls;
+    private boolean currentLikelyDash;
     private boolean sawNoAvData;
     private boolean sawInvalidData;
     private boolean sawPngVideo;
@@ -312,6 +314,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         audioTrackManuallySelected = false;
         currentPlayableUri = null;
         currentLikelyHls = false;
+        currentLikelyDash = false;
         currentChapter = C.INDEX_UNSET;
         resetFailureSignals();
         recentLogs.clear();
@@ -620,6 +623,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             applySubtitleStyle();
             currentPlayableUri = playableUri(mediaItem);
             currentLikelyHls = isLikelyHls(mediaItem, currentPlayableUri);
+            currentLikelyDash = isLikelyDash(mediaItem, currentPlayableUri);
             if (shouldProxyHls(currentPlayableUri, currentLikelyHls)) {
                 String originalUri = currentPlayableUri;
                 currentPlayableUri = hlsProxy.proxy(originalUri, headers);
@@ -628,8 +632,8 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
                 hlsProxy.clear();
             }
             applyShaderPipeline(true);
-            Log.d(TAG, "load uri=" + currentPlayableUri + " hls=" + currentLikelyHls);
-            SpiderDebug.log("mpv", "load uri=%s hls=%s surface=%s attached=%s hwdec=%s vo=%s gpuContext=%s gpuApi=%s", currentPlayableUri, currentLikelyHls, surface != null && surface.isValid(), surfaceAttached, config.hwdec(), config.vo(), config.gpuContext(), config.gpuApi());
+            Log.d(TAG, "load uri=" + currentPlayableUri + " hls=" + currentLikelyHls + " dash=" + currentLikelyDash);
+            SpiderDebug.log("mpv", "load uri=%s hls=%s dash=%s surface=%s attached=%s hwdec=%s vo=%s gpuContext=%s gpuApi=%s", currentPlayableUri, currentLikelyHls, currentLikelyDash, surface != null && surface.isValid(), surfaceAttached, config.hwdec(), config.vo(), config.gpuContext(), config.gpuApi());
             loadCurrentUri();
             scheduleLoadStartRetry();
             invalidateState();
@@ -1090,6 +1094,20 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         return lower.contains("m3u8");
     }
 
+    private boolean isLikelyDash(MediaItem item, String uri) {
+        if (uri != null && uri.startsWith("edl://")) return false;
+        if (item.localConfiguration != null) {
+            String mimeType = item.localConfiguration.mimeType;
+            if (MimeTypes.APPLICATION_MPD.equals(mimeType)
+                    || "application/dash+xml".equalsIgnoreCase(mimeType)
+                    || "dash".equalsIgnoreCase(mimeType)) {
+                return true;
+            }
+        }
+        String lower = uri == null ? "" : uri.toLowerCase(Locale.US);
+        return lower.contains(".mpd") || lower.contains("type=mpd") || lower.contains("format=mpd");
+    }
+
     private boolean loadedUnexpectedImage() {
         String path = stringProperty("path", "");
         if (!isImageUri(path)) return false;
@@ -1505,6 +1523,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         idleActive = false;
         currentPlayableUri = null;
         currentLikelyHls = false;
+        currentLikelyDash = false;
         currentChapter = C.INDEX_UNSET;
         resetFailureSignals();
         hlsProxy.clear();
@@ -1562,6 +1581,8 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     private void loadCurrentUri() {
         if (currentLikelyHls) {
             MPVLib.command(new String[]{"loadfile", currentPlayableUri, "replace", "-1", HLS_LOAD_OPTIONS});
+        } else if (currentLikelyDash) {
+            MPVLib.command(new String[]{"loadfile", currentPlayableUri, "replace", "-1", DASH_LOAD_OPTIONS});
         } else {
             MPVLib.command(new String[]{"loadfile", currentPlayableUri, "replace"});
         }
@@ -2607,6 +2628,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         List<String> parts = new ArrayList<>();
         parts.add("uri=" + currentPlayableUri);
         parts.add("hls=" + currentLikelyHls);
+        parts.add("dash=" + currentLikelyDash);
         parts.add("loaded=" + fileLoaded);
         parts.add("started=" + loadStarted);
         parts.add("restart=" + playbackRestarted);
