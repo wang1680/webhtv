@@ -349,7 +349,11 @@ class IjkSimplePlayer extends SimpleBasePlayer implements IMediaPlayer.Listener 
             String playableUrl = sourceUri.toString();
             boolean dash = isLikelyDash(mediaItem, playableUrl);
             if (BuildConfig.DEBUG) Log.e("WebHTV-IJK", "open dash=" + dash + " uri=" + playableUrl + " headers=" + headers.keySet());
-            if (!dash && shouldProxyHls(mediaItem, playableUrl)) {
+            if (dash) {
+                String originalUrl = playableUrl;
+                playableUrl = hlsProxy.proxyDash(playableUrl, headers);
+                SpiderDebug.log("ijk", "dash compatibility proxy enabled original=%s proxy=%s", originalUrl, playableUrl);
+            } else if (shouldProxyHls(mediaItem, playableUrl)) {
                 playableUrl = hlsProxy.proxy(playableUrl, headers);
                 SpiderDebug.log("ijk", "hls proxy enabled original=%s proxy=%s", sourceUri, playableUrl);
             }
