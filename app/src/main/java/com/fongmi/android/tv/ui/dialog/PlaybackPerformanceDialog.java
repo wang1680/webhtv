@@ -99,14 +99,14 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
 
         MaterialButton reset = actionButton(R.string.dialog_reset, view -> reset());
         reset.setTextSize(13);
-        LinearLayout.LayoutParams resetParams = new LinearLayout.LayoutParams(dp(72), dp(38));
+        LinearLayout.LayoutParams resetParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36));
         resetParams.leftMargin = dp(8);
         titleBar.addView(reset, resetParams);
 
         MaterialButton help = actionButton(R.string.player_performance_help, view -> showHelpDialog());
         help.setTextSize(13);
         help.setContentDescription(getString(R.string.player_performance_help_title));
-        LinearLayout.LayoutParams helpParams = new LinearLayout.LayoutParams(dp(72), dp(38));
+        LinearLayout.LayoutParams helpParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36));
         helpParams.leftMargin = dp(8);
         titleBar.addView(help, helpParams);
         root.addView(titleBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)));
@@ -264,9 +264,13 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
         button.setSingleLine(true);
         button.setGravity(Gravity.CENTER);
         button.setTextSize(14);
-        button.setMinWidth(0);
+        button.setMinWidth(dp(64));
         button.setMinimumWidth(0);
-        button.setMinHeight(dp(38));
+        button.setMinHeight(dp(36));
+        button.setMinimumHeight(dp(36));
+        button.setPaddingRelative(dp(10), 0, dp(10), 0);
+        button.setInsetLeft(0);
+        button.setInsetRight(0);
         button.setInsetTop(0);
         button.setInsetBottom(0);
         button.setFocusable(true);
