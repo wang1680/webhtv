@@ -975,7 +975,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailControlView(R.id.cast, View.class).setOnClickListener(guarded(this::onInlineCast));
         detailControlView(R.id.info, View.class).setOnClickListener(guarded(this::onInlineInfo));
         detailControlView(R.id.keep, View.class).setOnClickListener(view -> onKeep());
-        detailControlView(R.id.setting, View.class).setOnClickListener(guarded(this::showInlineDisplay));
+        detailControlView(R.id.setting, View.class).setOnClickListener(guarded(this::showInlineControlDialog));
         detailControlView(R.id.danmaku, View.class).setOnClickListener(guarded(this::toggleInlineDanmaku));
         detailControlView(R.id.lock, View.class).setOnClickListener(guarded(this::toggleInlineLock));
         detailControlView(R.id.rotate, View.class).setOnClickListener(guarded(this::rotateInlineFullscreen));
@@ -5875,6 +5875,66 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
         battery.setVisibility(View.VISIBLE);
         battery.setImageResource(BatteryUtil.getIcon(level));
+    }
+
+    private void showInlineControlDialog() {
+        try {
+            Class<?> dialogClass = Class.forName("com.fongmi.android.tv.ui.dialog.ControlDialog");
+            Object dialog = dialogClass.getMethod("create").invoke(null);
+            dialog = dialogClass.getMethod("inline", TmdbDetailActivity.class).invoke(dialog, this);
+            dialogClass.getMethod("show", androidx.fragment.app.FragmentActivity.class).invoke(dialog, this);
+        } catch (Throwable ignored) {
+            showInlineDisplay();
+        }
+    }
+
+    public TextView inlineControlDialogAction(int id) {
+        return detailActionRoot == null ? null : detailActionRoot.findViewById(id);
+    }
+
+    public View inlineControlDialogControl(int id) {
+        return detailControlRoot == null ? null : detailControlRoot.findViewById(id);
+    }
+
+    public TextView inlineControlDialogLutView() {
+        return binding.playerLut;
+    }
+
+    public PlayerManager inlineControlDialogPlayer() {
+        return player();
+    }
+
+    public History inlineControlDialogHistory() {
+        return history;
+    }
+
+    public boolean inlineControlDialogUseParse() {
+        return useParse;
+    }
+
+    public void inlineControlDialogScale(int scale) {
+        setInlineScale(scale);
+    }
+
+    public void inlineControlDialogParse(Parse item) {
+        changeInlineParse(item);
+    }
+
+    public void inlineControlDialogLut() {
+        onInlineLut();
+    }
+
+    public void inlineControlDialogTrack(int type) {
+        View view = type == C.TRACK_TYPE_TEXT ? binding.playerTextTrack : type == C.TRACK_TYPE_AUDIO ? binding.playerAudioTrack : binding.playerVideoTrack;
+        showInlineTrack(view);
+    }
+
+    public void inlineControlDialogTitle() {
+        showInlineTitle();
+    }
+
+    public void inlineControlDialogDanmaku() {
+        showInlineDanmaku();
     }
 
     private void showInlineDisplay() {
