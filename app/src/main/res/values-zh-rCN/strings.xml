@@ -188,6 +188,7 @@
     <string name="setting_search_ui">搜索布局</string>
     <string name="setting_search_column">搜索结果列数</string>
     <string name="setting_site_column">站点展示模式</string>
+    <string name="setting_search_result_sort">搜索结果模式</string>
     <string name="repo_github">GitHub 仓库</string>
     <string name="repo_cnb">CNB 仓库</string>
     <string name="setting_debug_log">调试日志</string>
@@ -1289,6 +1290,11 @@
     <string-array name="select_site_column">
         <item>单行</item>
         <item>双行</item>
+    </string-array>
+
+    <string-array name="select_search_result_sort">
+        <item>动态模式（谁快谁在前）</item>
+        <item>固定模式（按配置顺序）</item>
     </string-array>
 
     <string-array name="select_ui_scale">

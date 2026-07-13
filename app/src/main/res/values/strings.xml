@@ -190,6 +190,7 @@
     <string name="setting_search_ui">Search layout</string>
     <string name="setting_search_column">Search results per row</string>
     <string name="setting_site_column">Site display mode</string>
+    <string name="setting_search_result_sort">Search result mode</string>
     <string name="repo_github">GitHub repository</string>
     <string name="repo_cnb">CNB repository</string>
     <string name="setting_debug_log">Debug log</string>
@@ -1307,6 +1308,11 @@
     <string-array name="select_site_column">
         <item>Single row</item>
         <item>Double row</item>
+    </string-array>
+
+    <string-array name="select_search_result_sort">
+        <item>Dynamic (first returned first)</item>
+        <item>Fixed (by source order)</item>
     </string-array>
 
     <string-array name="select_ui_scale">
