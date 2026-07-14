@@ -40,4 +40,16 @@ public class SiteNameRulesTest {
         assertTrue(SiteNameRules.matchesSearch("XYQ线路一", "[主力]爸妈用", "csp_xxx", "主力"));
         assertFalse(SiteNameRules.matchesSearch("XYQ线路一", "[主力]爸妈用", "csp_xxx", "音乐"));
     }
+
+    @Test
+    public void unchangedOriginalNameIsNotStoredAsCustomName() {
+        assertEquals("", SiteNameRules.customNameForStorage("📁｜文件｜浏览", "📁｜文件｜浏览"));
+        assertEquals("", SiteNameRules.customNameForStorage("📁｜文件｜浏览", "  📁｜文件｜浏览  "));
+    }
+
+    @Test
+    public void editedNameOrAddedTagsAreStored() {
+        assertEquals("[本地]📁｜文件｜浏览", SiteNameRules.customNameForStorage("📁｜文件｜浏览", "  [本地]📁｜文件｜浏览  "));
+        assertEquals("我的文件", SiteNameRules.customNameForStorage("📁｜文件｜浏览", "我的文件"));
+    }
 }

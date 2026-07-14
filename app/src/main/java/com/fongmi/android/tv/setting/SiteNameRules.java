@@ -20,6 +20,11 @@ final class SiteNameRules {
         return custom.isEmpty() ? safe(rawName) : custom;
     }
 
+    static String customNameForStorage(String rawName, String inputName) {
+        String value = safe(inputName).trim();
+        return value.equals(safe(rawName).trim()) ? "" : value;
+    }
+
     static List<String> groups(String rawName, String customName) {
         Set<String> groups = new LinkedHashSet<>();
         Matcher matcher = GROUP_PATTERN.matcher(effectiveName(rawName, customName));

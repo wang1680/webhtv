@@ -75,7 +75,7 @@ public final class SiteNameDialog {
         input.setSingleLine(true);
         input.setImeOptions(EditorInfo.IME_ACTION_DONE);
         input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(100)});
-        input.setText(SiteNameStore.get(site));
+        input.setText(SiteNameStore.getEditableName(site));
         input.setSelection(input.length());
 
         TextInputLayout inputLayout = new TextInputLayout(activity);

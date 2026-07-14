@@ -54,11 +54,15 @@ public final class SiteNameStore {
         if (TextUtils.isEmpty(config)) return;
         Map<String, Map<String, String>> all = load();
         Map<String, String> names = all.computeIfAbsent(config, ignored -> new LinkedHashMap<>());
-        String value = name == null ? "" : name.trim();
+        String value = SiteNameRules.customNameForStorage(site.getName(), name);
         if (value.isEmpty()) names.remove(site.getKey());
         else names.put(site.getKey(), value);
         if (names.isEmpty()) all.remove(config);
         save(all);
+    }
+
+    public static String getEditableName(Site site) {
+        return site == null ? "" : SiteNameRules.effectiveName(site.getName(), get(site));
     }
 
     public static String getDisplayName(Site site) {
