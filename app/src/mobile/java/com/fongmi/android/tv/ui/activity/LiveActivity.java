@@ -343,10 +343,18 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
 
     private void setupWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(mBinding.getRoot(), (view, insets) -> {
+            updateStatusBarInset(insets);
             updateLiveListBottomInset(insets);
             return insets;
         });
         ViewCompat.requestApplyInsets(mBinding.getRoot());
+    }
+
+    private void updateStatusBarInset(WindowInsetsCompat insets) {
+        int top = isEmbeddedLiveUi() && insets != null ? insets.getInsets(WindowInsetsCompat.Type.statusBars()).top : 0;
+        ViewGroup.LayoutParams lp = mBinding.statusBar.getLayoutParams();
+        lp.height = top;
+        mBinding.statusBar.setLayoutParams(lp);
     }
 
     private void setVideoView() {
@@ -1963,7 +1971,9 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     private void updateLiveMenuInsets() {
         if (isEmbeddedLiveUi()) noPadding(mBinding.recycler);
         else setPadding(mBinding.recycler, true);
-        updateLiveListBottomInset(ViewCompat.getRootWindowInsets(mBinding.getRoot()));
+        WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(mBinding.getRoot());
+        updateStatusBarInset(insets);
+        updateLiveListBottomInset(insets);
     }
 
     private void updateControlInsets() {
