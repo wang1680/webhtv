@@ -2736,6 +2736,17 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             mBinding.exo.requestLayout();
             mBinding.scroll.requestLayout();
         }, 180);
+        mBinding.episode.post(this::refreshEpisodeLayoutAfterFullscreen);
+        mBinding.episode.postDelayed(this::refreshEpisodeLayoutAfterFullscreen, 180);
+    }
+
+    private void refreshEpisodeLayoutAfterFullscreen() {
+        // Detail data can bind holders against the temporary fullscreen width; rebind after rotation settles.
+        if (isFullscreen() || mEpisodeAdapter == null || mEpisodeAdapter.isEmpty()) return;
+        updateEpisodeLayout(mEpisodeAdapter.getItems());
+        mEpisodeAdapter.notifyItemRangeChanged(0, mEpisodeAdapter.getItemCount());
+        mBinding.episode.requestLayout();
+        mBinding.episode.post(this::updateEpisodeViewportHeight);
     }
 
     private void setTransition() {
@@ -4979,6 +4990,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             applyTmdbTabletVideoLayoutIfNeeded();
             if (mVod != null) bindTmdbTabletTopSummary(mVod);
         }
+        if (!isFullscreen()) refreshEpisodeLayoutAfterFullscreen();
         if (isFullscreen()) {
             Util.hideSystemUI(this);
             if (isVisible(mBinding.control.getRoot())) showControl();
