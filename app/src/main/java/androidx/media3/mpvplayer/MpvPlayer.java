@@ -3058,7 +3058,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         }
 
         Format toFormat() {
-            String label = TextUtils.isEmpty(title) ? trackLabel() : title;
+            String label = TextUtils.isEmpty(title) ? (TextUtils.isEmpty(lang) ? trackLabel() : null) : title;
             Format.Builder builder = new Format.Builder()
                     .setId(type + ":" + id)
                     .setLabel(label)
