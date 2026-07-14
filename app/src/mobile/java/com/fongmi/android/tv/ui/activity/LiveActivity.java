@@ -566,7 +566,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
 
     private void onLock() {
         setLock(!isLock());
-        setRequestedOrientation(getLockOrient());
+        if (isLock()) setRequestedOrientation(getLockOrient());
         mKeyDown.setLock(isLock());
         checkLockImg();
         showControl();
