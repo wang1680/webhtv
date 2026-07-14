@@ -755,6 +755,15 @@
     <string name="setting_incognito">无痕模式</string>
     <string name="setting_drive_check">网盘检测</string>
     <string name="setting_audio_source">音频源配置</string>
+    <string name="setting_site_name">站源名称与分组</string>
+    <string name="setting_site_name_summary">已自定义 %1$d 个</string>
+    <string name="site_name_custom">自定义名称</string>
+    <string name="site_name_original">原始名称：%1$s</string>
+    <string name="site_name_key">站源 Key：%1$s</string>
+    <string name="site_name_group_hint">在自定义名称中使用 [标签] 创建分组</string>
+    <string name="site_name_empty">当前接口暂无可用站源</string>
+    <string name="site_name_reset_title">重置自定义站源名称？</string>
+    <string name="site_name_reset_message">将清除当前接口的全部自定义名称和分组。</string>
     <string name="setting_short_drama_source">短剧源配置</string>
     <string name="setting_theme_color">主题色彩</string>
     <string name="setting_auto">自动</string>

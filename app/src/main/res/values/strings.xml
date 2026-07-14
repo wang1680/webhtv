@@ -758,6 +758,15 @@
     <string name="setting_incognito">Incognito mode</string>
     <string name="setting_drive_check">Drive link check</string>
     <string name="setting_audio_source">Audio source config</string>
+    <string name="setting_site_name">Site names and groups</string>
+    <string name="setting_site_name_summary">%1$d customized</string>
+    <string name="site_name_custom">Custom name</string>
+    <string name="site_name_original">Original: %1$s</string>
+    <string name="site_name_key">Key: %1$s</string>
+    <string name="site_name_group_hint">Use [tag] in the custom name to create groups</string>
+    <string name="site_name_empty">No sites available</string>
+    <string name="site_name_reset_title">Reset custom site names?</string>
+    <string name="site_name_reset_message">All custom names and groups for the current interface will be removed.</string>
     <string name="setting_short_drama_source">Short drama source config</string>
     <string name="setting_theme_color">Theme color</string>
     <string name="setting_auto">Auto</string>

@@ -734,6 +734,15 @@
     <string name="setting_incognito">無痕模式</string>
     <string name="setting_drive_check">網盤檢測</string>
     <string name="setting_audio_source">音訊源配置</string>
+    <string name="setting_site_name">站源名稱與分組</string>
+    <string name="setting_site_name_summary">已自訂 %1$d 個</string>
+    <string name="site_name_custom">自訂名稱</string>
+    <string name="site_name_original">原始名稱：%1$s</string>
+    <string name="site_name_key">站源 Key：%1$s</string>
+    <string name="site_name_group_hint">在自訂名稱中使用 [標籤] 建立分組</string>
+    <string name="site_name_empty">目前介面暫無可用站源</string>
+    <string name="site_name_reset_title">重設自訂站源名稱？</string>
+    <string name="site_name_reset_message">將清除目前介面的全部自訂名稱和分組。</string>
     <string name="setting_short_drama_source">短劇源配置</string>
     <string name="setting_theme_color">主題色彩</string>
     <string name="setting_auto">自動</string>

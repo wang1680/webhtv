@@ -9924,7 +9924,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private String getSiteName() {
         Site site = getCurrentSite();
-        return site == null ? getKeyText() : site.getName();
+        return site == null ? getKeyText() : site.getDisplayName();
     }
 
     private String getHistoryKey() {
