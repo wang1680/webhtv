@@ -4183,6 +4183,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (episodes != null) {
             for (TmdbEpisode episode : episodes) tmdbEpisodes.put(episode.getNumber(), episode);
         }
+        android.util.Log.d("EPPOS", "bindSeasonEpisodes tmdbSeason=" + tmdbSeason + " listSize=" + (episodes == null ? -1 : episodes.size()) + " mapKeys=" + tmdbEpisodes.keySet());
         bindTmdbEpisodes(sourceEpisodes, tmdbSeason);
         bindSeasonTmdbMedia(tmdbSeason);
         fetchSeasonIfNeeded(tmdbSeason);
