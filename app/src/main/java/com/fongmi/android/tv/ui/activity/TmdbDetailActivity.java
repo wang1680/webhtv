@@ -624,6 +624,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
             @Override
             public void onItemLongClick(View anchor, Episode episode, int episodeNumber) {
+                anchor.setPressed(false);
                 showTmdbEpisodeDetail(episode, episodeNumber);
             }
         });
@@ -4634,17 +4635,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void showTmdbEpisodeDetail(Episode episode, int episodeNumber) {
-        // 对话框关闭后刷新界面，防止按钮失效
+        // 对话框关闭后完整重渲染剧集列表，防止焦点状态紊乱导致按钮失效
         android.content.DialogInterface.OnDismissListener dismissListener = d -> {
             if (binding == null || binding.episodeContainer == null) return;
-            // RecyclerView 可能仍在恢复布局，下一帧再刷新
+            // RecyclerView 可能仍在恢复布局，下一帧再完整重渲染（参考原生增强的 render 机制）
             binding.episodeContainer.post(() -> {
-                if (episodeAdapter != null) {
-                    episodeAdapter.refreshDisplaySettings(binding.episodeContainer);
-                }
-                // 刷新分组按钮和其他控件状态
-                updateEpisodeViewModeButton();
-                updateEpisodeFileNameButton();
+                // 完整重建列表 + 分组按钮（类似原生增强 render[0].run()）
+                rerenderEpisodeViewportOnly(false, true, true);
             });
         };
 
@@ -7142,6 +7139,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
             @Override
             public void onItemLongClick(View anchor, Episode episode, int episodeNumber) {
+                anchor.setPressed(false);
                 showTmdbEpisodeDetail(episode, episodeNumber);
             }
         });
