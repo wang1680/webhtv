@@ -2448,13 +2448,19 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             try {
                 List<TmdbItem> items = searchTmdbItems(query, fallback);
                 runOnAliveUi(() -> {
-                    if (generation != loadGeneration || dialogGeneration != tmdbDialogGeneration) return;
+                    if (generation != loadGeneration || dialogGeneration != tmdbDialogGeneration) {
+                        binding.loading.setVisibility(View.GONE);
+                        return;
+                    }
                     binding.loading.setVisibility(View.GONE);
                     showTmdbMatchDialog(items, false);
                 });
             } catch (Throwable e) {
                 runOnAliveUi(() -> {
-                    if (generation != loadGeneration || dialogGeneration != tmdbDialogGeneration) return;
+                    if (generation != loadGeneration || dialogGeneration != tmdbDialogGeneration) {
+                        binding.loading.setVisibility(View.GONE);
+                        return;
+                    }
                     binding.loading.setVisibility(View.GONE);
                     Notify.show(TextUtils.isEmpty(e.getMessage()) ? getString(R.string.detail_tmdb_empty) : e.getMessage());
                 });
@@ -2647,7 +2653,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             try {
                 TmdbBundle bundle = loadTmdbBundle(item);
                 runOnAliveUi(() -> {
-                    if (generation != loadGeneration || applyGeneration != tmdbApplyGeneration || vod == null) return;
+                    if (generation != loadGeneration || applyGeneration != tmdbApplyGeneration || vod == null) {
+                        // guard 失败时也要隐藏 loading，否则覆盖层会阻挡所有界面交互
+                        binding.loading.setVisibility(View.GONE);
+                        return;
+                    }
                     binding.loading.setVisibility(View.GONE);
                     applyTmdbBundle(bundle);
                     saveTmdbMatch(bundle.item());
@@ -2659,7 +2669,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 });
             } catch (Throwable e) {
                 runOnAliveUi(() -> {
-                    if (generation != loadGeneration || applyGeneration != tmdbApplyGeneration) return;
+                    if (generation != loadGeneration || applyGeneration != tmdbApplyGeneration) {
+                        binding.loading.setVisibility(View.GONE);
+                        return;
+                    }
                     binding.loading.setVisibility(View.GONE);
                     Notify.show(TextUtils.isEmpty(e.getMessage()) ? getString(R.string.detail_tmdb_empty) : e.getMessage());
                 });
@@ -4621,9 +4634,24 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void showTmdbEpisodeDetail(Episode episode, int episodeNumber) {
+        // 对话框关闭后刷新界面，防止按钮失效
+        android.content.DialogInterface.OnDismissListener dismissListener = d -> {
+            if (binding == null || binding.episodeContainer == null) return;
+            // RecyclerView 可能仍在恢复布局，下一帧再刷新
+            binding.episodeContainer.post(() -> {
+                if (episodeAdapter != null) {
+                    episodeAdapter.refreshDisplaySettings(binding.episodeContainer);
+                }
+                // 刷新分组按钮和其他控件状态
+                updateEpisodeViewModeButton();
+                updateEpisodeFileNameButton();
+            });
+        };
+
         // 电影场景：直接展示影片详情
         if (matchedTmdbItem != null && matchedTmdbItem.isMovie()) {
-            showMovieDialog(episode);
+            // 电影场景复用 EpisodeDetailDialog（leanback/mobile 都有实现）
+            com.fongmi.android.tv.ui.dialog.EpisodeDetailDialog.show(this, episode, null, null, null, dismissListener);
             return;
         }
         // 剧集场景：原有逻辑
@@ -4645,14 +4673,23 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 List<String> photos = tmdbService.episodePhotos(detail, config);
                 List<TmdbPerson> guests = tmdbService.episodeGuests(detail, config);
                 runOnAliveUi(() -> {
-                    if (!isTmdbRequestCurrent(generation, item) || detailGeneration != tmdbEpisodeDetailGeneration) return;
+                    if (!isTmdbRequestCurrent(generation, item) || detailGeneration != tmdbEpisodeDetailGeneration) {
+                        // guard 失败时也要隐藏 loading，否则覆盖层会阻挡所有界面交互
+                        binding.loading.setVisibility(View.GONE);
+                        return;
+                    }
                     binding.loading.setVisibility(View.GONE);
                     if (displaySeasonNumber != selectedSeasonNumber) return;
-                    showTmdbEpisodeDialog(episode, episodeNumber, detail, photos, guests);
+                    // 复用 EpisodeDetailDialog，传入已拉取的 photos/guests 避免重复 API 请求
+                    com.fongmi.android.tv.ui.dialog.EpisodeDetailDialog.show(this, episode, getSite(), photos, guests, dismissListener);
                 });
             } catch (Throwable e) {
                 runOnAliveUi(() -> {
-                    if (!isTmdbRequestCurrent(generation, item) || detailGeneration != tmdbEpisodeDetailGeneration) return;
+                    if (!isTmdbRequestCurrent(generation, item) || detailGeneration != tmdbEpisodeDetailGeneration) {
+                        // guard 失败时也要隐藏 loading
+                        binding.loading.setVisibility(View.GONE);
+                        return;
+                    }
                     binding.loading.setVisibility(View.GONE);
                     if (displaySeasonNumber != selectedSeasonNumber) return;
                     Notify.show(TextUtils.isEmpty(e.getMessage()) ? getString(R.string.detail_tmdb_empty) : e.getMessage());
