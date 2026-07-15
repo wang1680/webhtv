@@ -3470,7 +3470,28 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private List<EpisodeRangePolicy.Range> buildCardEpisodeRanges(List<Episode> episodes, Episode selected) {
-        return EpisodeRangePolicy.build(episodes.size(), episodes.indexOf(selected), episodeReverse, episodeCardPageMaxSize());
+        List<EpisodeRangePolicy.Range> ranges = EpisodeRangePolicy.build(episodes.size(), episodes.indexOf(selected), episodeReverse, episodeCardPageMaxSize());
+        // 修正分组范围标签：用实际集号而非列表索引
+        List<Episode> allEpisodes = selectedFlag == null ? null : selectedFlag.getEpisodes();
+        if (allEpisodes != null && !allEpisodes.isEmpty()) {
+            Map<Episode, Integer> numbers = episodeNumbers(episodes, allEpisodes);
+            List<EpisodeRangePolicy.Range> correctedRanges = new ArrayList<>();
+            for (EpisodeRangePolicy.Range range : ranges) {
+                List<Episode> rangeEpisodes = EpisodeRangePolicy.slice(episodes, range);
+                if (rangeEpisodes.isEmpty()) {
+                    correctedRanges.add(range);
+                    continue;
+                }
+                Episode first = rangeEpisodes.get(0);
+                Episode last = rangeEpisodes.get(rangeEpisodes.size() - 1);
+                int firstNumber = numbers.getOrDefault(first, range.start() + 1);
+                int lastNumber = numbers.getOrDefault(last, range.end());
+                String correctedLabel = firstNumber == lastNumber ? String.valueOf(firstNumber) : firstNumber + "-" + lastNumber;
+                correctedRanges.add(new EpisodeRangePolicy.Range(correctedLabel, range.start(), range.end(), range.selected()));
+            }
+            return correctedRanges;
+        }
+        return ranges;
     }
 
     private int episodeCardPageMaxSize() {
@@ -4805,6 +4826,20 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         dialogBinding.guestList.setVisibility(guests.isEmpty() ? View.GONE : View.VISIBLE);
         dialogBinding.close.setOnClickListener(view -> dialog.dismiss());
         setButton(dialogBinding.close, colors.control, colors.line, colors.primary);
+
+        // 对话框关闭后刷新界面，防止按钮失效
+        dialog.setOnDismissListener(d -> {
+            if (binding == null || binding.episodeContainer == null) return;
+            // RecyclerView 可能仍在恢复布局，下一帧再刷新
+            binding.episodeContainer.post(() -> {
+                if (episodeAdapter != null) {
+                    episodeAdapter.refreshDisplaySettings(binding.episodeContainer);
+                }
+                // 刷新分组按钮和其他控件状态
+                updateEpisodeViewModeButton();
+                updateEpisodeFileNameButton();
+            });
+        });
 
         dialog.show();
         dialogBinding.close.post(dialogBinding.close::requestFocus);
