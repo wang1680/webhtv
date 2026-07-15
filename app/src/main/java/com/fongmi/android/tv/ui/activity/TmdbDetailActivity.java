@@ -3487,6 +3487,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 int firstNumber = numbers.getOrDefault(first, range.start() + 1);
                 int lastNumber = numbers.getOrDefault(last, range.end());
                 String correctedLabel = firstNumber == lastNumber ? String.valueOf(firstNumber) : firstNumber + "-" + lastNumber;
+                // DEBUG: 输出原始 label 和修正后的 label
+                App.post(() -> Notify.show(String.format("分组修正: %s → %s", range.label(), correctedLabel)));
                 correctedRanges.add(new EpisodeRangePolicy.Range(correctedLabel, range.start(), range.end(), range.selected()));
             }
             return correctedRanges;
@@ -4830,6 +4832,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         // 对话框关闭后刷新界面，防止按钮失效
         dialog.setOnDismissListener(d -> {
             if (binding == null || binding.episodeContainer == null) return;
+            // DEBUG: 添加 Toast 确认修复代码已执行
+            Notify.show("详情对话框已关闭，正在刷新界面");
             // RecyclerView 可能仍在恢复布局，下一帧再刷新
             binding.episodeContainer.post(() -> {
                 if (episodeAdapter != null) {
