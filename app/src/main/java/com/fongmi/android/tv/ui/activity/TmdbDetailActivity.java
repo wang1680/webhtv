@@ -2,6 +2,7 @@ package com.fongmi.android.tv.ui.activity;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
@@ -50,6 +51,7 @@ import androidx.media3.ui.PlayerView;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.Constant;
@@ -77,6 +79,11 @@ import com.fongmi.android.tv.databinding.ActivityTmdbDetailBinding;
 import com.fongmi.android.tv.databinding.DialogTmdbEpisodeBinding;
 import com.fongmi.android.tv.db.AppDatabase;
 import com.fongmi.android.tv.event.RefreshEvent;
+import com.fongmi.android.tv.ui.detail.DetailModeHost;
+import com.fongmi.android.tv.ui.detail.EnhancedDetailController;
+import com.fongmi.android.tv.ui.detail.FusionDetailController;
+import com.fongmi.android.tv.ui.detail.PlayerDetailController;
+import com.fongmi.android.tv.ui.detail.TmdbDetailModeController;
 import com.fongmi.android.tv.ui.host.TmdbDetailHost;
 import com.fongmi.android.tv.playback.PlaybackOrientation;
 import com.fongmi.android.tv.player.IntroSkipPlayback;
@@ -250,6 +257,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private ActivityTmdbDetailBinding binding;
     @androidx.annotation.Keep
     private ActivityTmdbDetailBinding mBinding;
+    private TmdbDetailModeController modeController;
     private Vod vod;
     private String sourceVodName;
     private History history;
@@ -482,6 +490,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         applyDetailEdgeToEdge();
         applySystemBarInsets();
         initPage();
+        initModeController();
         setLoadingOnlyBeforeDefaultPlayback(shouldUseLoadingOnlyBeforeDefaultPlayback());
         loadContent(null);
     }
@@ -593,14 +602,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.keep.setText(R.string.keep);
         lightTheme = resolveLightTheme();
         updateThemeModeButtonLabels();
-        binding.playerPanel.setVisibility(isFusionMode() ? View.VISIBLE : View.GONE);
-        binding.heroSpacer.setVisibility(isFusionMode() ? View.GONE : View.VISIBLE);
         binding.keepTop.setVisibility(View.GONE);
         binding.rematchTop.setVisibility(View.GONE);
         binding.headerBar.setVisibility(Util.isMobile() ? View.VISIBLE : View.GONE);
         updateDetailThemeButtonVisibility();
-        binding.fusionActions.setVisibility(isFusionMode() ? View.VISIBLE : View.GONE);
-        binding.detailActions.setVisibility(isFusionMode() ? View.GONE : View.VISIBLE);
         applyDetailTemplate();
         initFusionPlayer();
         binding.episodeEmpty.setText(R.string.detail_source_episode_empty);
@@ -669,6 +674,32 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.personalAiList.setNestedScrollingEnabled(false);
         binding.personalAiList.setAdapter(personalAiAdapter);
         applyDetailTheme();
+    }
+
+    private void initModeController() {
+        // Phase 3: 三种模式全部接入 Controller（准备删除旧逻辑）
+        DetailModeHost host = new DetailModeHost() {
+            @Override
+            public Context context() {
+                return TmdbDetailActivity.this;
+            }
+
+            @Override
+            public ViewBinding binding() {
+                return binding;
+            }
+        };
+
+        if (isFusionMode()) {
+            modeController = new FusionDetailController(host);
+        } else if (isPlayerMode()) {
+            modeController = new PlayerDetailController(host);
+        } else {
+            modeController = new EnhancedDetailController(host);
+        }
+
+        modeController.bind();
+        modeController.applyInitialLayout();
     }
 
     private void setupOverviewInteraction() {
@@ -8496,6 +8527,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             stopPlayback();
         }
         if (inlinePlayerUi != null) inlinePlayerUi.release();
+        if (modeController != null) modeController.release();
         DanmakuApi.cancel();
         super.onDestroy();
     }
