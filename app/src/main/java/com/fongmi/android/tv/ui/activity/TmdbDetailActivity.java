@@ -322,6 +322,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private boolean inlineStartPositionApplied;
     private boolean inlineFirstReady;
     private boolean inlineButtonsReordered;
+    private View mNightModeOverlay;
+    private int mNightModeLevel = PlayerSetting.NIGHT_MODE_OFF;
     private boolean inlinePiPLayout;
     private boolean inlinePiPLayoutRequested;
     private boolean inlinePiPSourceFrozen;
@@ -1009,6 +1011,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailControlView(R.id.cast, View.class).setOnClickListener(guarded(this::onInlineCast));
         detailControlView(R.id.info, View.class).setOnClickListener(guarded(this::onInlineInfo));
         detailControlView(R.id.keep, View.class).setOnClickListener(view -> onKeep());
+        detailControlView(R.id.nightMode, View.class).setOnClickListener(guarded(this::toggleNightMode));
         detailControlView(R.id.setting, View.class).setOnClickListener(guarded(this::showInlineControlDialog));
         detailControlView(R.id.danmaku, View.class).setOnClickListener(guarded(this::toggleInlineDanmaku));
         detailControlView(R.id.lock, View.class).setOnClickListener(guarded(this::toggleInlineLock));
@@ -1041,6 +1044,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailActionView(R.id.episodes, View.class).setOnClickListener(guarded(this::showInlineEpisodes));
         setupMobileInlineParse();
         detailControlRoot.setOnTouchListener(this::onInlineControlTouch);
+        mNightModeLevel = PlayerSetting.getNightModeLevel();
+        setNightMode();
     }
 
     private void setupMobileInlineParse() {
@@ -1299,6 +1304,60 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (progress < 35) binding.gestureBrightIcon.setImageResource(R.drawable.ic_widget_bright_low);
         else if (progress < 70) binding.gestureBrightIcon.setImageResource(R.drawable.ic_widget_bright_medium);
         else binding.gestureBrightIcon.setImageResource(R.drawable.ic_widget_bright_high);
+    }
+
+    private void toggleNightMode() {
+        mNightModeLevel = (mNightModeLevel + 1) % 4;
+        PlayerSetting.putNightModeLevel(mNightModeLevel);
+        setNightMode();
+    }
+
+    private void setNightMode() {
+        if (binding == null || binding.playerPanel == null) return;
+        if (detailControlRoot != null) {
+            ImageView nightIcon = detailControlView(R.id.nightMode, ImageView.class);
+            if (nightIcon != null) {
+                switch (mNightModeLevel) {
+                    case PlayerSetting.NIGHT_MODE_OFF:
+                        nightIcon.setImageResource(R.drawable.ic_control_night_mode_off);
+                        break;
+                    case PlayerSetting.NIGHT_MODE_LOW:
+                        nightIcon.setImageResource(R.drawable.ic_control_night_mode_low);
+                        break;
+                    case PlayerSetting.NIGHT_MODE_MEDIUM:
+                        nightIcon.setImageResource(R.drawable.ic_control_night_mode_medium);
+                        break;
+                    case PlayerSetting.NIGHT_MODE_HIGH:
+                        nightIcon.setImageResource(R.drawable.ic_control_night_mode_high);
+                        break;
+                }
+            }
+        }
+        if (mNightModeLevel == PlayerSetting.NIGHT_MODE_OFF) {
+            if (mNightModeOverlay != null) {
+                binding.playerPanel.removeView(mNightModeOverlay);
+                mNightModeOverlay = null;
+            }
+            return;
+        }
+        if (mNightModeOverlay == null) {
+            mNightModeOverlay = new View(this);
+            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+            );
+            mNightModeOverlay.setLayoutParams(params);
+            mNightModeOverlay.setClickable(false);
+            mNightModeOverlay.setFocusable(false);
+            binding.playerPanel.addView(mNightModeOverlay);
+        }
+        int alpha = switch (mNightModeLevel) {
+            case PlayerSetting.NIGHT_MODE_LOW -> (int) (255 * 0.3f);
+            case PlayerSetting.NIGHT_MODE_MEDIUM -> (int) (255 * 0.5f);
+            case PlayerSetting.NIGHT_MODE_HIGH -> (int) (255 * 0.7f);
+            default -> 0;
+        };
+        mNightModeOverlay.setBackgroundColor(Color.argb(alpha, 0, 0, 0));
     }
 
     @Override
@@ -7765,6 +7824,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (surface != null) surface.requestLayout();
         binding.danmaku.requestLayout();
         binding.scroll.requestLayout();
+        setNightMode();
     }
 
     private void scheduleInlinePlayerPanelRestoreAfterOverlay() {
