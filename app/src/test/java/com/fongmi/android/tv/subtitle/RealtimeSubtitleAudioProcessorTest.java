@@ -58,6 +58,35 @@ public class RealtimeSubtitleAudioProcessorTest {
     }
 
     @Test
+    public void outputSurvivesDecoderInputBufferReuse() throws Exception {
+        RealtimeSubtitleAudioProcessor processor = new RealtimeSubtitleAudioProcessor(new RealtimeSubtitleAudioProcessor.Listener() {
+            @Override
+            public boolean isListening() {
+                return false;
+            }
+
+            @Override
+            public void onAudio(float[] samples, int sampleRate) {
+            }
+
+            @Override
+            public void onFlush() {
+            }
+        });
+        processor.configure(new AudioProcessor.AudioFormat(48000, 2, C.ENCODING_PCM_16BIT));
+        processor.flush(AudioProcessor.StreamMetadata.DEFAULT);
+        ByteBuffer input = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder());
+        input.putInt(0x12345678).flip();
+
+        processor.queueInput(input);
+        ByteBuffer output = processor.getOutput().order(ByteOrder.nativeOrder());
+        input.clear();
+        input.putInt(0x76543210).flip();
+
+        assertEquals(0x12345678, output.getInt());
+    }
+
+    @Test
     public void resampleUsesLinearInterpolation() {
         float[] output = RealtimeSubtitleAudioProcessor.resample(new float[]{0f, 1f, 0f}, 3, 6);
 

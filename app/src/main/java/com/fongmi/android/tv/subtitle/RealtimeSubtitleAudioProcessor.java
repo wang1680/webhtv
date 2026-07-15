@@ -19,6 +19,7 @@ public final class RealtimeSubtitleAudioProcessor implements AudioProcessor {
     private final Listener listener;
     private AudioFormat pendingFormat = AudioFormat.NOT_SET;
     private AudioFormat inputFormat = AudioFormat.NOT_SET;
+    private ByteBuffer buffer = EMPTY_BUFFER;
     private ByteBuffer outputBuffer = EMPTY_BUFFER;
     private boolean inputEnded;
 
@@ -45,8 +46,11 @@ public final class RealtimeSubtitleAudioProcessor implements AudioProcessor {
             float[] samples = toMono(inputBuffer, inputFormat.channelCount, inputFormat.encoding == C.ENCODING_PCM_FLOAT ? 4 : 2);
             if (samples.length > 0) listener.onAudio(samples, inputFormat.sampleRate);
         }
-        outputBuffer = inputBuffer.slice().order(ByteOrder.nativeOrder());
-        inputBuffer.position(inputBuffer.limit());
+        int size = inputBuffer.remaining();
+        if (buffer.capacity() < size) buffer = ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder());
+        else buffer.clear();
+        buffer.put(inputBuffer).flip();
+        outputBuffer = buffer;
     }
 
     @Override
@@ -78,6 +82,7 @@ public final class RealtimeSubtitleAudioProcessor implements AudioProcessor {
     public void reset() {
         pendingFormat = AudioFormat.NOT_SET;
         inputFormat = AudioFormat.NOT_SET;
+        buffer = EMPTY_BUFFER;
         outputBuffer = EMPTY_BUFFER;
         inputEnded = false;
         listener.onFlush();

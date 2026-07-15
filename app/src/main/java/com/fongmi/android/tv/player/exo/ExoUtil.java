@@ -469,16 +469,17 @@ public class ExoUtil {
     }
 
     private static AudioSink buildAudioSink(Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams, boolean realtimePipeline) {
-        if (!realtimePipeline) {
+        RealtimeSubtitleController controller = realtimePipeline ? RealtimeSubtitleController.get() : null;
+        boolean lookahead = controller != null && controller.isAudioPipelineRequested();
+        if (!lookahead) {
+            if (controller != null) controller.createAudioPipeline(false);
             DefaultAudioSink.Builder builder = new DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams);
             if (!PlayerSetting.isAudioPassThrough(PlayerSetting.EXO)) builder.setAudioOutputProvider(new AudioTrackAudioOutputProvider.Builder(null).build());
             return builder.build();
         }
-        RealtimeSubtitleController controller = RealtimeSubtitleController.get();
-        boolean lookahead = controller.isAudioPipelineRequested();
-        RealtimeSubtitleController.AudioPipeline realtime = controller.createAudioPipeline(lookahead);
+        RealtimeSubtitleController.AudioPipeline realtime = controller.createAudioPipeline(true);
         DefaultAudioSink.Builder builder = new DefaultAudioSink.Builder(context)
                 .setEnableFloatOutput(enableFloatOutput)
                 .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
