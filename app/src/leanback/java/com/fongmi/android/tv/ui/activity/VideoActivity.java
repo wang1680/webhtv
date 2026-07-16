@@ -3800,8 +3800,15 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         boolean id = !item.getId().isEmpty();
         boolean pic = !item.getPic().isEmpty();
         boolean name = !item.getName().isEmpty();
-        if (id) getIntent().putExtra("id", item.getId());
-        if (id) mHistory.replace(getHistoryKey());
+        boolean keyChanged = false;
+        if (id) {
+            getIntent().putExtra("id", item.getId());
+            if (mHistory != null) {
+                String nextKey = getHistoryKey();
+                keyChanged = !TextUtils.equals(mHistory.getKey(), nextKey);
+                if (keyChanged) mHistory.replace(nextKey);
+            }
+        }
         if (name) mHistory.setVodName(item.getName());
         if (name) mBinding.name.setText(item.getName());
         // 原生增强：TMDB 富集完成后回写题材/地区/演员/主创到 History（enrichVod 已填充 item），仅补空字段
@@ -3810,7 +3817,8 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         mBinding.widget.title.setText(getPlaybackControlTitle());
         if (pic) setArtwork(item.getPic());
         if (pic || name) setMetadata();
-        if (pic || name) syncHistory();
+        // key 迁移后必须写回，避免 replace 删旧 key 后未 save 导致历史消失
+        if (keyChanged || pic || name) syncHistory();
         if (pic || name) updateKeep();
         if (id) updateNavigationKey();
         if (name) setPartAdapter();
