@@ -4114,7 +4114,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             int index = indices.getOrDefault(episode, -1);
             if (index < 0 && allEpisodes != null) index = allEpisodes.indexOf(episode);
             EpisodePosition position = episodePosition(episode, allEpisodes, index);
-            numbers.put(episode, position.number() > 0 ? position.number() : i + 1);
+            int finalNumber = position.number() > 0 ? position.number() : i + 1;
+            numbers.put(episode, finalNumber);
         }
         return numbers;
     }
@@ -4197,7 +4198,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             EpisodePosition position = episodePosition(episode, sourceEpisodes, index);
             if (position.season() == tmdbSeason) {
                 TmdbEpisode tmdbEpisode = tmdbEpisodes.get(position.number());
-                episode.setTmdbEpisode(TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode) ? tmdbEpisode : null);
+                episode.setTmdbEpisode(TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode, position.number()) ? tmdbEpisode : null);
             }
         }
     }
@@ -7349,27 +7350,48 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private EpisodePosition episodePosition(Episode episode, List<Episode> episodes, int index) {
         int sourceNumber = sourceEpisodeNumber(episode);
-        if (usesSingleTmdbSeasonEpisodeData(episodes)) return new EpisodePosition(firstSeasonNumber(matchedTmdbDetail), linearEpisodeNumber(sourceNumber, index));
+        String epName = episode == null ? "null" : episode.getName();
+        if (usesSingleTmdbSeasonEpisodeData(episodes)) {
+            EpisodePosition p = new EpisodePosition(firstSeasonNumber(matchedTmdbDetail), linearEpisodeNumber(sourceNumber, index));
+            android.util.Log.d("EPPOS", "[" + epName + "] idx=" + index + " src=" + sourceNumber + " branch=singleTmdbSeason -> s" + p.season() + "e" + p.number());
+            return p;
+        }
         int sourceSeason = sourceSeasonNumber(episode);
         if (useSourceEpisodeNumber(sourceNumber, sourceSeason)) {
             int season = seasonNumbers.contains(sourceSeason) ? sourceSeason : selectedSeasonNumber;
             if (season < 0 && seasonNumbers.size() == 1) season = seasonNumbers.get(0);
-            return new EpisodePosition(season, seasonNumbers.size() <= 1 ? linearEpisodeNumber(sourceNumber, index) : sourceNumber);
+            EpisodePosition p = new EpisodePosition(season, seasonNumbers.size() <= 1 ? linearEpisodeNumber(sourceNumber, index) : sourceNumber);
+            android.util.Log.d("EPPOS", "[" + epName + "] idx=" + index + " src=" + sourceNumber + " branch=useSourceNumber -> s" + p.season() + "e" + p.number());
+            return p;
         }
         if (index < 0) return new EpisodePosition(selectedSeasonNumber, -1);
-        if (seasonNumbers.size() <= 1 || selectedSeasonNumber < 0) return new EpisodePosition(selectedSeasonNumber, linearEpisodeNumber(sourceNumber, index));
+        if (seasonNumbers.size() <= 1 || selectedSeasonNumber < 0) {
+            EpisodePosition p = new EpisodePosition(selectedSeasonNumber, linearEpisodeNumber(sourceNumber, index));
+            android.util.Log.d("EPPOS", "[" + epName + "] idx=" + index + " src=" + sourceNumber + " branch=singleSeasonLinear -> s" + p.season() + "e" + p.number());
+            return p;
+        }
         int titleSeason = sourceTitleSeasonNumber();
-        if (!hasExplicitSeasonNumbers(episodes) && seasonNumbers.contains(titleSeason)) return new EpisodePosition(titleSeason, index + 1);
-        if (!EpisodeSeasonPolicy.canSliceBySeasonCounts(episodes.size(), seasonNumbers, seasonEpisodeCounts)) return new EpisodePosition(selectedSeasonNumber, index + 1);
+        if (!hasExplicitSeasonNumbers(episodes) && seasonNumbers.contains(titleSeason)) {
+            android.util.Log.d("EPPOS", "[" + epName + "] idx=" + index + " src=" + sourceNumber + " branch=titleSeasonIndexPlus1 -> s" + titleSeason + "e" + (index + 1));
+            return new EpisodePosition(titleSeason, index + 1);
+        }
+        if (!EpisodeSeasonPolicy.canSliceBySeasonCounts(episodes.size(), seasonNumbers, seasonEpisodeCounts)) {
+            android.util.Log.d("EPPOS", "[" + epName + "] idx=" + index + " src=" + sourceNumber + " branch=noSliceIndexPlus1 -> s" + selectedSeasonNumber + "e" + (index + 1));
+            return new EpisodePosition(selectedSeasonNumber, index + 1);
+        }
         int start = 0;
         for (int i = 0; i < seasonNumbers.size(); i++) {
             Integer season = seasonNumbers.get(i);
             int count = Math.max(0, seasonEpisodeCounts.getOrDefault(season, 0));
             if (count <= 0) continue;
             int end = i == seasonNumbers.size() - 1 ? episodes.size() : Math.min(episodes.size(), start + count);
-            if (index >= start && index < end) return new EpisodePosition(season, index - start + 1);
+            if (index >= start && index < end) {
+                android.util.Log.d("EPPOS", "[" + epName + "] idx=" + index + " src=" + sourceNumber + " branch=sliceBySeason -> s" + season + "e" + (index - start + 1));
+                return new EpisodePosition(season, index - start + 1);
+            }
             start += count;
         }
+        android.util.Log.d("EPPOS", "[" + epName + "] idx=" + index + " src=" + sourceNumber + " branch=fallbackIndexPlus1 -> s" + selectedSeasonNumber + "e" + (index + 1));
         return new EpisodePosition(selectedSeasonNumber, index + 1);
     }
 
