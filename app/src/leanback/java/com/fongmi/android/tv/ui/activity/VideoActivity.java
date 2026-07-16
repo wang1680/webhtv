@@ -1727,8 +1727,8 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         mLyricsSearchSeq++;
         mLyricsRefreshSeq++;
         dismissLyricsResultDialog();
-        if (mLyrics != null) mLyrics.release();
-        if (mKaraoke != null) mKaraoke.release();
+        clearLyrics();
+        clearKaraokeState();
         if (service() != null) {
             player().reset();
             player().stop();
@@ -1946,6 +1946,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
 
     private void setText(Vod item) {
         mBinding.content.setTag(item.getContent());
+        setDetailLyrics(item.getContent());
         setText(mBinding.year, R.string.detail_year, item.getYear());
         setText(mBinding.area, R.string.detail_area, item.getArea());
         setText(mBinding.type, R.string.detail_type, item.getTypeName());
@@ -1953,6 +1954,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         setText(mBinding.director, R.string.detail_director, item.getDirector());
         setText(mBinding.actor, R.string.detail_actor, item.getActor());
         setText(mBinding.remark, 0, item.getRemarks());
+        updateAudioStageText();
     }
 
     private void setText(TextView view, int resId, String text) {
@@ -2011,8 +2013,17 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         mBinding.widget.title.setText(getPlaybackControlTitle(episode));
         playerStartTime = System.currentTimeMillis();
         beginPlayHealth();
-        SpiderDebug.log("video-flow", "player start key=%s flag=%s episode=%s url=%s", getKey(), flag.getFlag(), episode.getName(), episode.getUrl());
-        mViewModel.playerContent(getKey(), flag.getFlag(), episode.getUrl());
+        String playFlag = getEpisodePlayFlag(flag, episode);
+        String previousEpisodeKey = Objects.toString(mPlaybackEpisodeKey, "");
+        mPlaybackEpisodeKey = audioQueueEpisodeKey(episode);
+        mSkipKaraokeTrackAutoLoad = isMusicLike() && !TextUtils.isEmpty(previousEpisodeKey) && !TextUtils.equals(previousEpisodeKey, mPlaybackEpisodeKey);
+        SpiderDebug.log("video-flow", "player start key=%s flag=%s episode=%s url=%s", getKey(), playFlag, episode.getName(), episode.getUrl());
+        mInlineLyrics = getEpisodeInlineLyrics(episode);
+        applyPlaybackArtwork(episode);
+        clearLyrics();
+        clearKaraokeState();
+        if (shouldUseImmersiveAudio()) setAudioStageVisible(true);
+        mViewModel.playerContent(getKey(), playFlag, episode.getUrl());
         mBinding.widget.title.setSelected(true);
         updateHistory(episode);
         showProgress();
@@ -2039,7 +2050,12 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         setUseParse(result.shouldUseParse());
         setQualityVisible(result.getUrl().isMulti());
         if (result.hasArtwork() && !shouldKeepPushArtwork()) setArtwork(result.getArtwork());
-        if (result.hasDesc()) mBinding.content.setTag(result.getDesc());
+        else applyPlaybackArtwork(getPlaybackEpisode());
+        if (result.hasDesc()) {
+            mBinding.content.setTag(result.getDesc());
+            setPlaybackLyrics(result.getDesc());
+        }
+        applyAudioQueueMetadata(getPlaybackEpisode());
         if (result.hasPosition()) mHistory.setPosition(result.getPosition());
         mBinding.control.parse.setVisibility(isUseParse() ? View.VISIBLE : View.GONE);
         if (redirectToContentHandler(result)) return;
@@ -3911,6 +3927,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
 
     @Override
     protected void onTracksChanged() {
+        refreshLyrics();
         setTrackVisible();
         mClock.setCallback(this);
     }
@@ -3926,6 +3943,8 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         subtitlePlaybackSession.stop(this);
         Track.delete(player().getKey());
         mClock.setCallback(null);
+        clearLyrics();
+        clearKaraokeState();
         player().resetTrack();
         player().reset();
         player().stop();
@@ -3947,8 +3966,10 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
                 showProgress();
                 break;
             case Player.STATE_READY:
+                mKaraokeResultShown = false;
                 recordPlayHealth(true, "");
                 showPlaybackContent();
+                refreshLyrics();
                 player().reset();
                 applyShortDramaMode();
                 requestIntroSkipPlan();
@@ -3963,6 +3984,8 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
 
     @Override
     protected void onPlayingChanged(boolean isPlaying) {
+        syncKaraokePosition();
+        checkAudioPlayImg(isPlaying);
         if (isPlaying) {
             hideCenter();
         } else if (isPaused()) {
@@ -4011,6 +4034,9 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         long position, duration;
         mHistory.setCreateTime(time);
         updatePlaybackHistoryPosition();
+        syncKaraokePosition();
+        if (mLyrics != null) mLyrics.update(player());
+        if (mKaraoke != null) mKaraoke.update(player(), mLyrics == null ? null : mLyrics.getLines());
         position = mHistory.getPosition();
         duration = mHistory.getDuration();
         android.util.Log.d("VideoActivity", "onTimeChanged: position=" + position + " duration=" + duration + " canSave=" + mHistory.canSave());
@@ -5729,6 +5755,11 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
 
     @Override
     protected void onDestroy() {
+        mLyricsSearchSeq++;
+        mLyricsRefreshSeq++;
+        dismissLyricsResultDialog();
+        if (mLyrics != null) mLyrics.release();
+        if (mKaraoke != null) mKaraoke.release();
         subtitlePlaybackSession.stop(this);
         mPlayerUi.release();
         saveHistory(true);

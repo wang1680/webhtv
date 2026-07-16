@@ -326,7 +326,7 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
-    public void inlinePlayerPersistentDisplayUsesPlayerOsdOnTvAndLegacyPanelOnMobile() throws Exception {
+    public void inlinePlayerPersistentDisplayUsesUnifiedPlayerOsd() throws Exception {
         Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String controller = readJava("com", "fongmi", "android", "tv", "ui", "player", "VodPlayerUiController.java");
@@ -334,22 +334,27 @@ public class TmdbDetailActivityLayoutTest {
         int end = source.indexOf("private void setButtonEnabled", method);
         String body = method >= 0 && end > method ? source.substring(method, end) : "";
         int initOsd = controller.indexOf("this.osd = new PlayerOsdController(");
+        int suppressPersistent = source.indexOf("public boolean suppressPersistentOsd()");
+        int suppressPersistentEnd = source.indexOf("@Override", suppressPersistent + 1);
+        String suppressPersistentBody = suppressPersistent >= 0 && suppressPersistentEnd > suppressPersistent
+                ? source.substring(suppressPersistent, suppressPersistentEnd) : "";
+        int showControls = source.indexOf("private void showInlineControls(boolean show, boolean focus)");
+        int hideControls = source.indexOf("private void hideInlineControls()", showControls);
+        int hideDisplay = source.indexOf("private void hideInlineDisplayPanel()", hideControls);
+        String showControlsBody = showControls >= 0 && hideControls > showControls ? source.substring(showControls, hideControls) : "";
+        String hideControlsBody = hideControls >= 0 && hideDisplay > hideControls ? source.substring(hideControls, hideDisplay) : "";
 
         assertTrue(sourcePath + " is missing updateInlineDisplayPanel", method >= 0);
-        assertTrue("mobile inline playback must suppress PlayerOsdController persistent corner labels to avoid duplicate display",
+        assertTrue("inline playback should delegate persistent display policy to the shared PlayerOsdController",
                 initOsd >= 0
                         && controller.indexOf("this.osd.setPersistentSuppressed(host.suppressPersistentOsd());", initOsd) > initOsd
-                        && source.contains("public boolean suppressPersistentOsd()")
-                        && source.contains("return Util.isMobile();"));
-        assertTrue("TV inline playback should clear the legacy panel and let PlayerOsdController render persistent OSD",
-                body.contains("if (!Util.isMobile()) {") && body.contains("hideInlineDisplayPanel();") && body.contains("return;"));
-        assertTrue("mobile inline playback should keep the legacy display panel for persistent screen display",
-                body.contains("PlayerSetting.isDisplayTime()")
-                        && body.contains("Traffic.setSpeed(binding.playerDisplayTraffic)")
-                        && body.contains("binding.playerDisplayTopLeft.setVisibility")
-                        && body.contains("binding.playerDisplayBottomProgress.setVisibility")
-                        && body.contains("binding.playerDisplayMini.setVisibility"));
-        assertTrue("mobile legacy display text should be tinted before being shown", body.contains("tintInlineDisplay();"));
+                        && suppressPersistentBody.contains("return false;"));
+        assertTrue("inline controls should suppress persistent OSD only while the controls overlay is visible",
+                showControlsBody.contains("inlineOsd.setSuppressed(true);")
+                        && hideControlsBody.contains("inlineOsd.setSuppressed(false);"));
+        assertTrue("the retired legacy display panel must not render alongside the shared OSD",
+                !body.contains("binding.playerDisplay")
+                        && !body.contains("Traffic.setSpeed"));
     }
 
     @Test
@@ -1621,7 +1626,7 @@ public class TmdbDetailActivityLayoutTest {
         assertTrue("detail episodes should bind matched TMDB objects back onto source Episode items for playback cards and dialogs",
                 bindBody.contains("bindTmdbEpisodes(sourceEpisodes, tmdbSeason);")
                         && activity.contains("TmdbEpisode tmdbEpisode = tmdbEpisodes.get(position.number());")
-                        && activity.contains("episode.setTmdbEpisode(TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode) ? tmdbEpisode : null);"));
+                        && activity.contains("episode.setTmdbEpisode(TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode, position.number()) ? tmdbEpisode : null);"));
         assertTrue("season fetch completion should refresh against the active TMDB data season, not only the selected source season",
                 fetchBody.contains("seasonNumber == tmdbEpisodeDataSeason(selectedFlag == null ? null : selectedFlag.getEpisodes())"));
         assertTrue("stale split-season TMDB caches should trigger a one-shot fresh first-season probe for long single-season shows",
@@ -1727,10 +1732,11 @@ public class TmdbDetailActivityLayoutTest {
                         && activity.contains("binding.playerPanel.post(() -> {")
                         && activity.contains("binding.root.postDelayed(() -> {")
                         && activity.contains("}, 180);"));
-        assertTrue("leanback detail-player fullscreen Back must close playback back to the detail page, while fusion keeps embedded exit",
-                backFromFullscreenBody.contains("if (Util.isLeanback() && isPlayerMode())")
+        assertTrue("detail-player fullscreen Back must close playback back to the detail page on TV and mobile, while fusion keeps embedded exit",
+                backFromFullscreenBody.contains("if (isPlayerMode())")
                         && backFromFullscreenBody.indexOf("exitInlineFullscreen();") < backFromFullscreenBody.indexOf("closeDetailFullscreenPlayer();")
                         && backFromFullscreenBody.contains("return;")
+                        && !backFromFullscreenBody.contains("Util.isLeanback() && isPlayerMode()")
                         && !backFromFullscreenBody.contains("finishPlaybackToHome();")
                         && !backFromFullscreenBody.contains("Setting.isPlayBackToDetail()")
                         && focusBody.contains("if (!isInlinePlayerMode()) return;")
