@@ -3191,13 +3191,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void showTopInfo() {
-        // OSD 启用时，不显示 widget.top（避免与 OSD 的 topLeft/topRight 重影）
-        if (PlayerSetting.isOsdEnabled()) {
-            mBinding.widget.top.setVisibility(View.GONE);
-        } else {
-            mBinding.widget.top.setVisibility(View.VISIBLE);
-            mBinding.widget.size.setText(player().getSizeText());
-        }
+        // 控制栏显示时，统一由 OSD 显示标题（即使用户关闭了 OSD 设置）
+        // 所以这里始终隐藏 widget.top，避免与 OSD 重复显示
+        mBinding.widget.top.setVisibility(View.GONE);
     }
 
     private void hideInfo() {
