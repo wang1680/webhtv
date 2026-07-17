@@ -26,8 +26,8 @@
     },
     "ffmpeg": {
       "repo": "https://github.com/FFmpeg/FFmpeg.git",
-      "commit": "894da5ca7d742e4429ffb2af534fcda0103ef593",
-      "version": "8.0.1"
+      "commit": "8ae0b34901ba60a802f183ee75a250a9fc3e09a5",
+      "version": "8.0.3"
     },
     "freetype2": {
       "repo": "https://github.com/freetype/freetype.git",
@@ -65,12 +65,22 @@
       "version": "7.371.0",
       "submodules": true
     },
+    "nghttp2": {
+      "url": "https://github.com/nghttp2/nghttp2/releases/download/v1.69.0/nghttp2-1.69.0.tar.gz",
+      "sha256": "c866b7477cbb7512ab6863a685027adbb1bb8da8fc3bab7429ed43d3281d5aa9",
+      "version": "1.69.0"
+    },
+    "curl": {
+      "url": "https://github.com/curl/curl/releases/download/curl-8_21_0/curl-8.21.0.tar.gz",
+      "sha256": "d9b327997999045a24cda50f3983e69e51c516bd8be6ef9842fc7f99135e33bb",
+      "version": "8.21.0"
+    },
     "mpv": {
       "repo": "https://github.com/mpv-player/mpv.git",
       "commit": "94335ab87ab225ca3e36e0faeac831639d3e1d4e",
       "version": "0.41.0-878-g94335ab87",
       "describe_tag": "v0.41.0",
-      "history_depth": 600
+      "history_depth": 1200
     }
   }
 }
