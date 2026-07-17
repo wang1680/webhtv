@@ -225,6 +225,9 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     protected void onSurfaceAttached() {
     }
 
+    protected void onFirstFrameRendered() {
+    }
+
     protected void onSeekStarted() {
     }
 
@@ -379,23 +382,30 @@ getSeekView().setSeekListener(this::onSeekStarted);
     }
 
     private void attachSurface() {
+        attachSurface(true);
+    }
+
+    private void attachSurface(boolean restoreExoShutter) {
         if (mService == null) return;
         int targetRender = getRender();
         logSurfaceState("attach start target=" + targetRender);
-        syncShutter(true);
+        if (restoreExoShutter) syncShutter(true);
+        else hideVideoShutter();
         if (render != targetRender) {
             if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-flow", "switch render from=%d to=%d", render, targetRender);
             if (getExoView().getPlayer() != null) getExoView().setPlayer(null);
             getExoView().setRender(targetRender);
             render = targetRender;
-            syncShutter(true);
+            if (restoreExoShutter) syncShutter(true);
+            else hideVideoShutter();
             logSurfaceState("attach after setRender target=" + targetRender);
         }
         if (getExoView().getPlayer() == null) {
             getExoView().setPlayer(player().getPlayer());
             logSurfaceState("attach after setPlayer");
             syncVideoSurfaceSize(null);
-            syncShutter();
+            if (restoreExoShutter) syncShutter();
+            else hideVideoShutter();
             if (player().isNativePlayer()) getExoView().post(this::syncShutter);
         }
         onSurfaceAttached();
@@ -470,6 +480,12 @@ getSeekView().setSeekListener(this::onSeekStarted);
         }
     }
 
+    private void hideVideoShutter() {
+        View shutter = getExoView().findViewById(androidx.media3.ui.R.id.exo_shutter);
+        getExoView().setShutterBackgroundColor(Color.TRANSPARENT);
+        if (shutter != null) shutter.setVisibility(View.GONE);
+    }
+
     private void detachSurface() {
         getExoView().setPlayer(null);
     }
@@ -482,6 +498,19 @@ getSeekView().setSeekListener(this::onSeekStarted);
         getExoView().setRender(temporaryRender);
         getExoView().setRender(targetRender);
         render = -1;
+    }
+
+    protected void reattachVideoSurfaceAfterReparent() {
+        if (mService == null) return;
+        PlayerView view = getExoView();
+        view.setKeepContentOnPlayerReset(true);
+        hideVideoShutter();
+        detachSurface();
+        boolean posted = view.post(() -> {
+            if (mService != null && !isFinishing() && !isDestroyed()) attachSurface(false);
+            view.setKeepContentOnPlayerReset(false);
+        });
+        if (!posted) view.setKeepContentOnPlayerReset(false);
     }
 
     protected void setRender() {
@@ -665,6 +694,11 @@ public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
         logSurfaceState("onVideoSizeChanged size=" + size.width + "x" + size.height + " ratio=" + size.pixelWidthHeightRatio);
         syncVideoSurfaceSize(size);
         onSizeChanged(size);
+    }
+
+    @Override
+    public void onRenderedFirstFrame() {
+        if (isOwner()) onFirstFrameRendered();
     }
 
     @Override
