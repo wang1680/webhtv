@@ -63,7 +63,7 @@ public final class ExoPerformanceSetting {
     }
 
     public static int getStartBufferMs() {
-        return normalizeStart(Prefers.getInt(KEY_START_BUFFER_MS, 1_500));
+        return normalizeStart(Prefers.getInt(KEY_START_BUFFER_MS, startBufferForPreset(PlaybackPerformanceSetting.PROFILE_RECOMMENDED)));
     }
 
     public static void putStartBufferMs(int value) {
@@ -114,7 +114,7 @@ public final class ExoPerformanceSetting {
     public static void applyRecommended() {
         Prefers.put(KEY_CODEC_QUEUE_MODE, CODEC_QUEUE_AUTO);
         Prefers.put(KEY_FRAME_RATE_MODE, FRAME_RATE_SEAMLESS);
-        Prefers.put(KEY_START_BUFFER_MS, 1_500);
+        applyStartBufferPreset(PlaybackPerformanceSetting.PROFILE_RECOMMENDED);
         applyRebufferPreset(PlaybackPerformanceSetting.PROFILE_RECOMMENDED);
         applyPrioritizeTimePreset(PlaybackPerformanceSetting.PROFILE_RECOMMENDED);
     }
@@ -122,7 +122,7 @@ public final class ExoPerformanceSetting {
     public static void applyCompatible() {
         Prefers.put(KEY_CODEC_QUEUE_MODE, CODEC_QUEUE_SYNC);
         Prefers.put(KEY_FRAME_RATE_MODE, FRAME_RATE_OFF);
-        Prefers.put(KEY_START_BUFFER_MS, 2_000);
+        applyStartBufferPreset(PlaybackPerformanceSetting.PROFILE_COMPATIBLE);
         applyRebufferPreset(PlaybackPerformanceSetting.PROFILE_COMPATIBLE);
         applyPrioritizeTimePreset(PlaybackPerformanceSetting.PROFILE_COMPATIBLE);
     }
@@ -130,9 +130,21 @@ public final class ExoPerformanceSetting {
     public static void applyLightweight() {
         Prefers.put(KEY_CODEC_QUEUE_MODE, CODEC_QUEUE_AUTO);
         Prefers.put(KEY_FRAME_RATE_MODE, FRAME_RATE_SEAMLESS);
-        Prefers.put(KEY_START_BUFFER_MS, 1_000);
+        applyStartBufferPreset(PlaybackPerformanceSetting.PROFILE_LIGHTWEIGHT);
         applyRebufferPreset(PlaybackPerformanceSetting.PROFILE_LIGHTWEIGHT);
         applyPrioritizeTimePreset(PlaybackPerformanceSetting.PROFILE_LIGHTWEIGHT);
+    }
+
+    static void applyStartBufferPreset(int profile) {
+        Prefers.put(KEY_START_BUFFER_MS, startBufferForPreset(profile));
+    }
+
+    static int startBufferForPreset(int profile) {
+        return switch (profile) {
+            case PlaybackPerformanceSetting.PROFILE_COMPATIBLE -> 2_000;
+            case PlaybackPerformanceSetting.PROFILE_LIGHTWEIGHT -> 1_000;
+            default -> 1_500;
+        };
     }
 
     static void applyRebufferPreset(int profile) {
