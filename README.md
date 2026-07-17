@@ -217,7 +217,19 @@ scripts/build_mpv_native.sh --abi all --install
 # 按需执行：scripts/build_mpv_player_jni.sh
 ```
 
-脚本读取 `third_party/mpv-native-lock.json`，自动下载固定 commit、应用 MPV 光盘控制补丁、构建依赖、修改 ELF 依赖名、strip 并校验。当前 lock 与两套已提交 assets 一致，可复现正式 native 组合；普通 Gradle 和 GitHub Actions 不会调用该脚本，直接复用仓库已提交的 `.so`。完整排查记录见本地 `plans/MPV原生依赖升级与Android崩溃排查记录.md`。
+脚本读取 `third_party/mpv-native-lock.json`，自动下载固定 commit、应用 MPV 光盘控制补丁、构建依赖、修改 ELF 依赖名、strip 并校验。当前 lock 与两套已提交 assets 一致，可复现正式 native 组合；普通 Gradle 和 GitHub Actions 不会调用该脚本，直接复用仓库已提交的 `.so`。Android Release Action 会在 Gradle 打包前运行 `scripts/verify_mpv_native_assets.sh --require-elf`，检查两套 assets 的文件集合、ABI、版本字符串、HTTP/2/光盘补丁标记、`SONAME` 和 `DT_NEEDED`，但不会现场重编 MPV。完整排查记录见本地 `plans/MPV原生依赖升级与Android崩溃排查记录.md`。
+
+只校验当前仓库已经提交的 MPV native assets：
+
+```bash
+bash scripts/verify_mpv_native_assets.sh
+```
+
+发布或 native 提交前应要求完整 ELF 校验；Linux 可使用系统 `readelf`，macOS 可使用 NDK 中的 `llvm-readelf`：
+
+```bash
+bash scripts/verify_mpv_native_assets.sh --require-elf
+```
 
 只重建 App JNI 桥接库 `libplayer.so`：
 
@@ -361,6 +373,7 @@ keyPassword=your_key_password
 - `failed to find target with hash string 'android-37'`：未安装 Android SDK Platform 37。
 - `NDK clang++ not found under .../ndk/28.2.13676358`：未安装 NDK 28.2.13676358，或 `ANDROID_NDK_HOME` 指向错误。
 - `Missing MPV asset directory`：MPV assets 缺失或 ABI 目录名不匹配，确认 `app/src/arm64_v8a/assets/mpv-libs/arm64-v8a` 和 `app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a` 存在。
+- `missing llvm-readelf/readelf`：运行完整 native assets 校验时缺少 ELF 工具；Linux 安装 `binutils`，macOS 安装 NDK 28.2.13676358 或设置 `ANDROID_NDK_HOME`。
 - 运行后提示 `dlopen failed`、`libplayer.so` 或 `libmpv.so` 相关错误：先确认对应 ABI 的整套 MPV/FFmpeg `.so` 已打包，并用 NDK `llvm-readelf -d` 检查 `SONAME`/`DT_NEEDED`。只有 JNI 或 client API 变化才运行 `scripts/build_mpv_player_jni.sh`；该脚本不能修复不配套的 `libmpv.so`、FFmpeg 或 libplacebo。
 - `Could not resolve ...`：依赖下载失败，检查网络或设置代理后重新执行 Gradle。
 - `Permission denied: ./gradlew`：本仓库文档统一使用 `bash gradlew`，不依赖可执行位。
