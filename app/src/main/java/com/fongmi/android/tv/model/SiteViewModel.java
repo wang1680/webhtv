@@ -12,6 +12,8 @@ import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.exception.ExtractException;
 import com.fongmi.android.tv.player.karaoke.KaraokeResult;
+import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.setting.SiteBlockSetting;
 import com.fongmi.android.tv.setting.SiteHealthStore;
 import com.fongmi.android.tv.utils.Task;
 import com.google.common.util.concurrent.FluentFuture;
@@ -136,6 +138,7 @@ public class SiteViewModel extends ViewModel {
 
     public void searchContent(List<Site> sites, String keyword, boolean quick) {
         int epoch = stopSearch();
+        Task.applySearchThread(Setting.getSearchThread());
         List<Site> tasks = new ArrayList<>();
         for (Site site : sites) {
             if (quick && !site.isQuickSearch()) continue;
@@ -146,7 +149,7 @@ public class SiteViewModel extends ViewModel {
         searchProgress.postValue(SearchProgress.start(total));
         for (Site site : tasks) {
             long start = System.currentTimeMillis();
-            FluentFuture<Result> future = FluentFuture.from(Task.largeExecutor().submit(SearchTask.create(site, keyword, quick))).withTimeout(Constant.TIMEOUT_SEARCH, TimeUnit.MILLISECONDS, Task.scheduler());
+            FluentFuture<Result> future = FluentFuture.from(Task.searchPoolExecutor().submit(SearchTask.create(site, keyword, quick))).withTimeout(Constant.TIMEOUT_SEARCH, TimeUnit.MILLISECONDS, Task.scheduler());
             searchFuture.add(future);
             future.addCallback(Task.callback(
                     result -> {

@@ -114,6 +114,26 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         this.parse = activity.inlineControlDialogUseParse();
         this.listener = new Listener() {
             @Override
+            public ActivityVideoBinding getControlBinding() {
+                return null;
+            }
+
+            @Override
+            public PlayerManager getControlPlayer() {
+                return player;
+            }
+
+            @Override
+            public History getControlHistory() {
+                return history;
+            }
+
+            @Override
+            public boolean isControlParseEnabled() {
+                return parse;
+            }
+
+            @Override
             public void onScale(int tag) {
                 activity.inlineControlDialogScale(tag);
             }

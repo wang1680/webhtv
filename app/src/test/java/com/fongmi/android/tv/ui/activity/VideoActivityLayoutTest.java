@@ -1233,6 +1233,26 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void updateVodOnlyReplacesHistoryWhenKeyChangesAndAlwaysSyncsAfterReplace() throws Exception {
+        for (Path root : List.of(findMobileJavaPath(), findLeanbackJavaPath())) {
+            Path sourcePath = root.resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+            String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+            int method = source.indexOf("private void updateVod(Vod item)");
+            int end = source.indexOf("\n    private ", method + 1);
+            String body = method >= 0 && end > method ? source.substring(method, end) : "";
+
+            assertTrue(sourcePath + " is missing updateVod", method >= 0);
+            assertTrue(sourcePath + " must only replace history when key actually changes",
+                    body.contains("keyChanged = !TextUtils.equals(mHistory.getKey(), nextKey)")
+                            && body.contains("if (keyChanged) mHistory.replace(nextKey)"));
+            assertFalse(sourcePath + " must not unconditionally replace history on every id update",
+                    body.contains("if (id) mHistory.replace(getHistoryKey())"));
+            assertTrue(sourcePath + " must sync history after key migration even without pic/name",
+                    body.contains("if (keyChanged || pic || name) syncHistory()"));
+        }
+    }
+
+    @Test
     public void mobileVideoDirectTmdbCarriesDetailThemeIntoPlayback() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
