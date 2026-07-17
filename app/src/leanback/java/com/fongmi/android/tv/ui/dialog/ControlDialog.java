@@ -382,7 +382,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     }
 
     private void setImmersiveAudioVisible() {
-        binding.immersiveAudio.setVisibility(LyricsController.isAudioOnly(player) ? View.VISIBLE : View.GONE);
+        binding.immersiveAudio.setVisibility(LyricsController.isAudioContent(player) ? View.VISIBLE : View.GONE);
     }
 
     @Override
