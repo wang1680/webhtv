@@ -88,7 +88,8 @@ public class PreCache implements Player.Listener {
 
     @Override
     public void onPlaybackStateChanged(int state) {
-        if (state == Player.STATE_READY && playable) check();
+        if (state == Player.STATE_BUFFERING) stopCurrentTask();
+        else if (state == Player.STATE_READY && playable) check();
         else if (isStopped(state)) cancel();
     }
 
@@ -153,6 +154,12 @@ public class PreCache implements Player.Listener {
 
     private void cancel() {
         if (handler != null) handler.removeCallbacks(task);
+    }
+
+    private void stopCurrentTask() {
+        cancel();
+        if (helper != null) helper.stop();
+        lastStartMs = C.TIME_UNSET;
     }
 
     private PreCacheHelper createHelper(MediaItem mediaItem) {
