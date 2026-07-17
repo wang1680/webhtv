@@ -887,10 +887,12 @@ private int mAudioBackgroundRandomNonce;
     protected void onServiceConnected() {
         player().setDanmakuController(mBinding.exo.getDanmakuController());
         player().setDanmakuEnabled(DanmakuSetting.isShow());
+        syncDesktopLyricsAudioContent();
         setPlayerKernel();
         setDecode();
         setLut();
         checkLand();
+        if (consumePendingPlaybackResult()) return;
         checkId();
     }
 
@@ -925,6 +927,7 @@ private int mAudioBackgroundRandomNonce;
     protected void initView(Bundle savedInstanceState) {
         mTmdbDetailTimeout = this::showTmdbDetailFallback;
         super.initView(savedInstanceState);
+        mRestoringConfigurationPlayback = savedInstanceState != null;
         ViewCompat.setOnApplyWindowInsetsListener(mBinding.getRoot(), (v, insets) -> setStatusBar(insets));
         mKeyDown = CustomKeyDown.create(this, mBinding.exo);
         mFrameParams = mBinding.video.getLayoutParams();
@@ -1509,10 +1512,10 @@ private int mAudioBackgroundRandomNonce;
         updateNavigationKey();
         subtitlePlaybackSession.stop(this);
         mLyricsSearchSeq++;
-        mLyricsSearchSeq++;
+        cancelKaraokePitchGeneration(false);
         dismissLyricsResultDialog();
-        if (mLyrics != null) mLyrics.release();
-        if (mKaraoke != null) mKaraoke.release();
+        clearLyrics();
+        clearKaraokeState();
         if (service() != null) {
             player().reset();
             player().stop();
@@ -1549,6 +1552,10 @@ private int mAudioBackgroundRandomNonce;
     }
 
     private void setDetail(Vod item) {
+        if (service() == null) {
+            mPendingDetailVod = item;
+            return;
+        }
         mVod = item;
         item.checkPic(getPic());
         item.checkName(getName());
@@ -1619,6 +1626,7 @@ private int mAudioBackgroundRandomNonce;
     }
 
     private void setText(Vod item) {
+        setDetailLyrics(item.getContent());
         if (shouldWaitForTmdbDetailReveal()) {
             applyFusionNativeTextColors();
             return;
@@ -1636,12 +1644,12 @@ private int mAudioBackgroundRandomNonce;
             setText(mBinding.remark, 0, item.getRemarks());
             setOther(mBinding.other, item);
             setText(mBinding.content, 0, item.getContent());
-        setDetailLyrics(item.getContent());
         } else {
             applyTmdbTabletVideoLayoutIfNeeded();
             bindTmdbTabletTopSummary(item);
         }
         applyFusionNativeTextColors();
+        updateAudioStageText();
     }
 
     private boolean shouldUseTmdbTabletWideLayout() {
@@ -1822,8 +1830,17 @@ private int mAudioBackgroundRandomNonce;
         mBinding.control.title.setText(getPlaybackControlTitle(episode));
         playerStartTime = System.currentTimeMillis();
         beginPlayHealth();
-        SpiderDebug.log("video-flow", "player start key=%s flag=%s episode=%s url=%s", getKey(), flag.getFlag(), episode.getName(), episode.getUrl());
-        mViewModel.playerContent(getKey(), flag.getFlag(), episode.getUrl());
+        String playFlag = getEpisodePlayFlag(flag, episode);
+        String previousEpisodeKey = Objects.toString(mPlaybackEpisodeKey, "");
+        mPlaybackEpisodeKey = audioQueueEpisodeKey(episode);
+        mSkipKaraokeTrackAutoLoad = isMusicLike() && !TextUtils.isEmpty(previousEpisodeKey) && !TextUtils.equals(previousEpisodeKey, mPlaybackEpisodeKey);
+        SpiderDebug.log("video-flow", "player start key=%s flag=%s episode=%s url=%s", getKey(), playFlag, episode.getName(), episode.getUrl());
+        mInlineLyrics = getEpisodeInlineLyrics(episode);
+        applyPlaybackArtwork(episode);
+        clearLyrics();
+        clearKaraokeState();
+        if (shouldUseImmersiveAudio()) setAudioStageVisible(true);
+        mViewModel.playerContent(getKey(), playFlag, episode.getUrl());
         mBinding.control.title.setSelected(true);
         updateHistory(episode);
         showProgress();
@@ -1831,6 +1848,10 @@ private int mAudioBackgroundRandomNonce;
 
     private void setPlayer(Result result) {
         if (isFinishing() || isDestroyed()) return;
+        if (service() == null) {
+            mPendingPlayerResult = result;
+            return;
+        }
         SpiderDebug.log("video-flow", "player finish cost=%dms useParse=%s multi=%s msg=%s", System.currentTimeMillis() - playerStartTime, result.shouldUseParse(), result.getUrl().isMulti(), result.getMsg());
         mQualityAdapter.addAll(result);
         mQualityAdapter.setPosition(mQualityAdapter.getPosition());
@@ -1838,11 +1859,13 @@ private int mAudioBackgroundRandomNonce;
         mBinding.swipeLayout.setRefreshing(false);
         setQualityVisible(result.getUrl().isMulti());
         if (result.hasArtwork() && !shouldKeepPushArtwork()) setArtwork(result.getArtwork());
+        else applyPlaybackArtwork(getPlaybackEpisode());
         if (result.hasPosition()) mHistory.setPosition(result.getPosition());
         if (result.hasDesc()) {
             setText(mBinding.content, 0, result.getDesc());
             setPlaybackLyrics(result.getDesc());
         }
+        applyAudioQueueMetadata(getPlaybackEpisode());
         mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() ? View.VISIBLE : View.GONE);
         if (redirectToAudioIfNeeded(result)) return;
         List<Danmaku> siteDanmakus = result.getDanmaku();
@@ -1907,8 +1930,11 @@ private int mAudioBackgroundRandomNonce;
     @Override
     public void onItemClick(Episode item) {
         if (shouldEnterFullscreen(item)) return;
-        mFlagAdapter.toggle(item);
-        setEpisodeAdapter(getFlag().getEpisodes());
+        syncCurrentAudioPlaylistMetadata();
+        Flag flag = getFlag();
+        if (mFlagAdapter != null) mFlagAdapter.toggle(item);
+        if (flag != null) setEpisodeAdapter(flag.getEpisodes());
+        applyAudioQueueMetadata(item);
         if (isFullscreen()) Notify.show(getString(R.string.play_ready, item.getName()));
         onRefresh();
     }
@@ -3256,12 +3282,17 @@ private int mAudioBackgroundRandomNonce;
     private void checkFlag(Vod item) {
         boolean empty = item.getFlags().isEmpty();
         mBinding.flag.setVisibility(empty ? View.GONE : View.VISIBLE);
+        boolean preservePlayback = mRestoringConfigurationPlayback && service() != null && !player().isEmpty();
         if (empty) {
-            startFlow();
+            if (!preservePlayback) startFlow();
+        } else if (preservePlayback) {
+            restoreFlagSelectionWithoutPlayback();
         } else {
             onItemClick(mHistory.getFlag());
             if (mHistory.isRevSort()) reverseEpisode(true);
         }
+        if (preservePlayback) SpiderDebug.log("karaoke-result", "configuration restore preserved playback key=%s episode=%s", player().getKey(), mHistory.getVodRemarks());
+        mRestoringConfigurationPlayback = false;
     }
 
     private void checkHistory(Vod item) {
@@ -3641,13 +3672,18 @@ private int mAudioBackgroundRandomNonce;
     @Override
     protected void onTracksChanged() {
         updateAudioOnlyState();
+        suppressPiPForAudio();
+        refreshLyrics();
         setTrackVisible();
         mClock.setCallback(this);
     }
 
     private void updateAudioOnlyState() {
         if (service() == null) return;
-        setAudioOnly(player().haveTrack(C.TRACK_TYPE_AUDIO) && !player().haveTrack(C.TRACK_TYPE_VIDEO));
+        setAudioOnly(LyricsController.isAudioOnly(player()));
+        syncDesktopLyricsAudioContent();
+        setAudioStageVisible(shouldUseImmersiveAudio());
+        setKaraokeActionState();
     }
 
     @Override
@@ -3662,6 +3698,8 @@ private int mAudioBackgroundRandomNonce;
         mBinding.swipeLayout.setEnabled(true);
         Track.delete(player().getKey());
         mClock.setCallback(null);
+        clearLyrics();
+        clearKaraokeState();
         player().resetTrack();
         player().reset();
         player().stop();
@@ -3693,10 +3731,12 @@ private int mAudioBackgroundRandomNonce;
                 showProgress();
                 break;
             case Player.STATE_READY:
+                if (mPendingKaraokeResult == null) mKaraokeResultShown = false;
                 recordPlayHealth(true, "");
                 showPlaybackContent();
                 boolean pendingResumeSeekApplied = applyPendingResumeSeek();
                 checkControl();
+                refreshLyrics();
                 player().reset();
                 applyShortDramaMode();
                 requestIntroSkipPlan();
@@ -3711,12 +3751,16 @@ private int mAudioBackgroundRandomNonce;
 
     @Override
     protected void onPlayingChanged(boolean isPlaying) {
+        syncLyricsPlaybackState(isPlaying);
+        syncKaraokePosition();
         if (isPlaying) {
-            mPiP.update(this, true);
+            if (!suppressPiPForAudio()) mPiP.update(this, true);
             mBinding.control.play.setImageResource(androidx.media3.ui.R.drawable.exo_icon_pause);
+            checkAudioPlayImg(true);
         } else if (isPaused()) {
-            mPiP.update(this, false);
+            if (!suppressPiPForAudio()) mPiP.update(this, false);
             mBinding.control.play.setImageResource(androidx.media3.ui.R.drawable.exo_icon_play);
+            checkAudioPlayImg(false);
         }
     }
 
@@ -3767,6 +3811,10 @@ private int mAudioBackgroundRandomNonce;
         long position, duration;
         mHistory.setCreateTime(time);
         updatePlaybackHistoryPosition();
+        syncCurrentAudioPlaylistMetadata();
+        syncKaraokePosition();
+        if (mLyrics != null) mLyrics.update(player());
+        if (mKaraoke != null) mKaraoke.update(player(), mLyrics == null ? null : mLyrics.getLines());
         position = mHistory.getPosition();
         duration = mHistory.getDuration();
         android.util.Log.d("VideoActivity", "onTimeChanged: position=" + position + " duration=" + duration + " canSave=" + mHistory.canSave());
@@ -5179,6 +5227,10 @@ private int mAudioBackgroundRandomNonce;
     protected void onResume() {
         super.onResume();
         restoreContextWall();
+        if (mAudioStageVisible) restorePlaybackArtwork();
+        if (mAudioStageVisible) applyAudioBackground();
+        syncLyricsPlaybackState();
+        syncKaraokePosition();
     }
 
     private void finishIfPipClosed() {
@@ -5192,6 +5244,11 @@ private int mAudioBackgroundRandomNonce;
     @Override
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        if (shouldRecreateAudioStageForOrientation(newConfig)) {
+            setAudioOnly(true);
+            recreate();
+            return;
+        }
         if (isAutoRotate() && isPort() && newConfig.orientation == Configuration.ORIENTATION_PORTRAIT && !isRotate() && !isLock()) exitFullscreen();
         if (isAutoRotate() && isPort() && newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) enterFullscreen();
         if (!isFullscreen()) {
@@ -5217,9 +5274,11 @@ private int mAudioBackgroundRandomNonce;
         android.util.Log.d("VideoActivity", "onStart: calling mClock.stop().start()");
         mClock.stop().start();
         mPlayerUi.onStart();
-        if (service() != null) refreshLyrics();
         setAudioOnly(false);
         setStop(false);
+        if (service() != null) refreshLyrics();
+        syncLyricsPlaybackState();
+        syncKaraokePosition();
     }
 
     @Override
@@ -5254,6 +5313,16 @@ private int mAudioBackgroundRandomNonce;
 
     @Override
     protected void onDestroy() {
+        dismissKaraokeResultDialogForRecreation();
+        mLyricsSearchSeq++;
+        cancelKaraokePitchGeneration(false);
+        dismissLyricsResultDialog();
+        stopAudioCoverRotation();
+        if (mLyrics != null) {
+            mLyrics.setListener(null);
+            mLyrics.release();
+        }
+        if (mKaraoke != null) mKaraoke.release();
         subtitlePlaybackSession.stop(this);
         mPlayerUi.release();
         saveHistory(true);
