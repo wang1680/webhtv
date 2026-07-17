@@ -7604,6 +7604,11 @@ private void completeKaraokeResult(int action) {
         return isUseParse();
     }
 
+    @Override
+    public boolean isControlAudioContent() {
+        return isAudioOnly() || isMusicLike();
+    }
+
 private boolean onChooseLong() {
         onChoose();
         return true;
