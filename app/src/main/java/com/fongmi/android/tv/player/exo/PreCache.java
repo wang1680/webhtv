@@ -26,22 +26,18 @@ public class PreCache implements Player.Listener {
     private static final long BUFFER_GAP_MS = 1250;
     private static final int STEP_DIV = 4;
 
-    private final Runnable task;
-
     private ExecutorService executor;
     private PreCacheHelper helper;
     private Handler handler;
     private HandlerThread worker;
     private Player player;
+    private Runnable scheduledTask;
     private int threads;
+    private long generation;
     private long lastStartMs;
     private long seekStartMs;
     private boolean playable;
     private boolean waitingForSafeBuffer;
-
-    public PreCache() {
-        task = this::check;
-    }
 
     public void start(Player player, MediaItem mediaItem) {
         stop();
@@ -58,7 +54,7 @@ public class PreCache implements Player.Listener {
     }
 
     public void stop() {
-        cancel();
+        stopCurrentTask();
         if (player != null) player.removeListener(this);
         if (helper != null) helper.release(false);
         handler = null;
@@ -120,14 +116,19 @@ public class PreCache implements Player.Listener {
     @Override
     public void onPositionDiscontinuity(@NonNull Player.PositionInfo oldPosition, @NonNull Player.PositionInfo newPosition, int reason) {
         if (!isSeek(reason) || helper == null) return;
-        helper.stop();
+        stopCurrentTask();
         markSeek(newPosition.positionMs);
         check();
     }
 
     private void check() {
+        check(generation);
+    }
+
+    private void check(long expectedGeneration) {
+        if (expectedGeneration != generation) return;
         cancel();
-        if (update()) schedule();
+        if (update()) schedule(expectedGeneration);
     }
 
     private boolean update() {
@@ -159,15 +160,19 @@ public class PreCache implements Player.Listener {
         return true;
     }
 
-    private void schedule() {
-        if (handler != null) handler.postDelayed(task, TICK_MS);
+    private void schedule(long expectedGeneration) {
+        if (handler == null || expectedGeneration != generation) return;
+        scheduledTask = () -> check(expectedGeneration);
+        handler.postDelayed(scheduledTask, TICK_MS);
     }
 
     private void cancel() {
-        if (handler != null) handler.removeCallbacks(task);
+        if (handler != null && scheduledTask != null) handler.removeCallbacks(scheduledTask);
+        scheduledTask = null;
     }
 
     private void stopCurrentTask() {
+        generation++;
         cancel();
         if (helper != null) helper.stop();
         lastStartMs = C.TIME_UNSET;
