@@ -26,7 +26,6 @@ import com.fongmi.android.tv.bean.Parse;
 import com.fongmi.android.tv.databinding.ActivityVideoBinding;
 import com.fongmi.android.tv.databinding.DialogControlBinding;
 import com.fongmi.android.tv.player.PlayerManager;
-import com.fongmi.android.tv.player.lyrics.LyricsController;
 import com.fongmi.android.tv.player.lut.LutPreset;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
@@ -334,7 +333,9 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     }
 
     private void setImmersiveAudioVisible() {
-        binding.immersiveAudio.setVisibility(LyricsController.isAudioContent(player) ? View.VISIBLE : View.GONE);
+        FragmentActivity activity = getActivity();
+        boolean visible = activity instanceof Listener listener && listener.isControlAudioContent();
+        binding.immersiveAudio.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     @Override
@@ -426,6 +427,8 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         History getControlHistory();
 
         boolean isControlParseEnabled();
+
+        boolean isControlAudioContent();
 
         void onScale(int tag);
 

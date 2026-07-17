@@ -5652,6 +5652,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         onDanmaku();
     }
 
+    @Override
+    public boolean isControlAudioContent() {
+        return isAudioOnly() || isMusicLike();
+    }
+
     public void onKaraokeModeChanged() {
         mBinding.control.action.karaoke.setSelected(false);
         mBinding.audioKaraokeAction.setSelected(false);
