@@ -5716,6 +5716,13 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     }
 
     @Override
+    protected void onResume() {
+        // TV 歌曲舞台自动判断已暂时关闭，首帧绘制前清除任何恢复出来的可见状态。
+        setAudioStageVisible(false);
+        super.onResume();
+    }
+
+    @Override
     protected void onStart() {
         super.onStart();
         mClock.stop().start();
@@ -5988,6 +5995,7 @@ private void disableLeanbackDesktopLyrics() {
     }
 
 private void setupAudioStageOverlay() {
+        mBinding.audioStage.setSaveFromParentEnabled(false);
         ViewGroup parent = (ViewGroup) mBinding.audioStage.getParent();
         if (parent != null) parent.removeView(mBinding.audioStage);
         RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
@@ -5995,6 +6003,9 @@ private void setupAudioStageOverlay() {
         params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
         ((ViewGroup) mBinding.getRoot()).addView(mBinding.audioStage, params);
         mBinding.audioStage.bringToFront();
+        // TV 歌曲舞台自动判断已暂时关闭，重挂 overlay 时也必须保持隐藏。
+        mAudioStageVisible = false;
+        mBinding.audioStage.setVisibility(View.GONE);
     }
 
 private void setupAudioStageFocusFeedback() {
@@ -7418,11 +7429,11 @@ private void refreshLyrics() {
     }
 
 private void refreshLyricsNow() {
+        boolean audioContent = shouldUseImmersiveAudio();
+        setAudioStageVisible(audioContent);
         if (mLyrics == null || service() == null) return;
         int seq = ++mLyricsRefreshSeq;
         setAudioOnly(LyricsController.isAudioOnly(player()));
-        boolean audioContent = shouldUseImmersiveAudio();
-        setAudioStageVisible(audioContent);
         if (!audioContent) {
             mLyrics.refresh(player(), false);
             scheduleRefreshKaraoke(seq, false, 0);
@@ -7454,6 +7465,8 @@ private void scheduleRefreshKaraoke(int seq, boolean audioContent, long delayMs)
 private void setAudioStageVisible(boolean visible) {
         visible = visible && PlayerSetting.isImmersiveAudioMode();
         if (visible) ensureImmersiveAudioControllers();
+        // Android may restore the View visibility independently of this cached flag.
+        mBinding.audioStage.setVisibility(visible ? View.VISIBLE : View.GONE);
         if (mAudioStageVisible == visible) {
             syncAudioStageSurface(visible);
             updateAudioStageText();
@@ -7462,7 +7475,6 @@ private void setAudioStageVisible(boolean visible) {
         }
         mAudioStageVisible = visible;
         if (!visible) mAudioLightEffectAnimated = false;
-        mBinding.audioStage.setVisibility(visible ? View.VISIBLE : View.GONE);
         if (visible) {
             mBinding.audioStage.bringToFront();
             hideProgress();
@@ -7481,8 +7493,10 @@ private void setAudioStageVisible(boolean visible) {
         if (visible) mBinding.audioStage.post(this::focusAudioStageDefault);
     }
 
-private boolean shouldUseImmersiveAudio() {
-        return PlayerSetting.isImmersiveAudioMode() && (isAudioOnly() || isMusicLike());
+    private boolean shouldUseImmersiveAudio() {
+        // 暂时关闭 TV 歌曲舞台的自动判断，避免普通视频被错误切换为歌曲模式。
+        // 后续只能由播放入口传入明确的媒体类型后恢复，不能再依赖名称或轨道发布时序猜测。
+        return false;
     }
 
 private void syncAudioStageSurface(boolean visible) {
