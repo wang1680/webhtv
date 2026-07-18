@@ -114,8 +114,7 @@ public class Util {
             if (TextUtils.isEmpty(text)) return -1;
 
             // 预处理：移除常见干扰信息
-            // 文件名常用下划线分隔集号与画质（如 85_4K），先统一为空格以便复用画质过滤规则。
-            String processed = preprocessEpisodeText(text.replace('_', ' '));
+            String processed = preprocessEpisodeText(text);
 
             // 1. 独立纯数字检测（如播放器传来的 "17" 或 "03"）
             String trimmed = processed.trim();
@@ -181,8 +180,8 @@ public class Util {
 
         // 移除常见的画质、编码信息
         processed = processed
-                .replaceAll("\\b(?:2160|1080|720|480)[pP]\\b", " ")
-                .replaceAll("\\b(?:4K|2K|HD|SD|FHD|UHD)\\b", " ")
+                .replaceAll("(?i)(?<![a-z0-9])(?:2160|1080|720|480)p(?![a-z0-9])", " ")
+                .replaceAll("(?i)(?<![a-z0-9])(?:4K|2K|HD|SD|FHD|UHD)(?![a-z0-9])", " ")
                 .replaceAll("\\b(?:x264|x265|H264|H265|AVC|HEVC)\\b", " ")
                 .replaceAll("\\b(?:AAC|AC3|DTS|FLAC)\\b", " ")
                 .replaceAll("\\b(?:WEB[-._\\s]*DL|BluRay|BDRip|REMUX|HDTV)\\b", " ");

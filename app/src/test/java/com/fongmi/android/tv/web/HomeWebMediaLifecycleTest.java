@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class HomeWebMediaLifecycleTest {
@@ -31,6 +32,29 @@ public class HomeWebMediaLifecycleTest {
         assertNativeRoutePausesMedia(source, "private String playVod(JsonObject payload)", "private String playVodInline(JsonObject payload)");
         assertNativeRoutePausesMedia(source, "private String playVodInline(JsonObject payload)", "private String preloadArtwork(JsonObject payload)");
         assertNativeRoutePausesMedia(source, "private String playPan(JsonObject payload)", "private String stripPush(String url)");
+    }
+
+    @Test
+    public void nativePlaybackLaunchStateRejectsDestroyedAndDuplicateCallbacks() {
+        HomeWebController.NativePlaybackLaunchState state = new HomeWebController.NativePlaybackLaunchState();
+        HomeWebController.NativePlaybackLaunchState cancelled = new HomeWebController.NativePlaybackLaunchState();
+
+        assertTrue(state.tryLaunch(false, false, false));
+        assertFalse(state.tryLaunch(false, false, false));
+        cancelled.cancel();
+        assertFalse(cancelled.tryLaunch(false, false, false));
+        assertFalse(new HomeWebController.NativePlaybackLaunchState().tryLaunch(true, false, false));
+        assertFalse(new HomeWebController.NativePlaybackLaunchState().tryLaunch(false, true, false));
+        assertFalse(new HomeWebController.NativePlaybackLaunchState().tryLaunch(false, false, true));
+    }
+
+    @Test
+    public void controllerDestroyCancelsPendingNativePlaybackBeforeWebViewDestroy() throws Exception {
+        String source = readMainSource("HomeWebController.java");
+        String destroy = methodBody(source, "public void destroy()", "private void consumeExtensionReload()");
+
+        assertTrue(ordered(destroy, "destroyed = true;", "cancelPendingNativePlaybacks();"));
+        assertTrue(ordered(destroy, "cancelPendingNativePlaybacks();", "webView.destroy();"));
     }
 
     private static void assertNativeRoutePausesMedia(String source, String start, String end) {

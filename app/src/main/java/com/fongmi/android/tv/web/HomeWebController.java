@@ -80,6 +80,7 @@ public class HomeWebController {
     private final Listener listener;
     private final Activity activity;
     private final Set<String> injectedExtensions;
+    private final Set<PendingNativePlayback> pendingNativePlaybacks;
     private final Runnable extensionReloadRunnable;
     private final boolean debugTools;
     private WebView webView;
@@ -101,6 +102,7 @@ public class HomeWebController {
     private int loadTimeoutRecoveries;
     private boolean sdkReady;
     private boolean paused;
+    private boolean destroyed;
 
     public HomeWebController(Activity activity, WebView webView, Listener listener) {
         this(activity, webView, listener, false);
@@ -113,6 +115,7 @@ public class HomeWebController {
         this.debugTools = debugTools;
         this.density = activity.getResources().getDisplayMetrics().density;
         this.injectedExtensions = new HashSet<>();
+        this.pendingNativePlaybacks = new HashSet<>();
         this.extensionReloadRunnable = this::consumeExtensionReload;
         active = this;
         init();
@@ -452,36 +455,80 @@ public class HomeWebController {
     }
 
     public void prepareNativePlayback(Runnable launch) {
-        if (launch == null) return;
+        if (launch == null || destroyed) return;
         if (webView == null) {
-            launch.run();
+            if (!activity.isFinishing() && !activity.isDestroyed()) launch.run();
             return;
         }
-        AtomicBoolean launched = new AtomicBoolean();
-        Runnable launchOnce = () -> {
-            if (activity.isFinishing() || activity.isDestroyed() || !launched.compareAndSet(false, true)) return;
-            launch.run();
-        };
-        webView.postDelayed(launchOnce, MEDIA_PAUSE_LAUNCH_TIMEOUT_MS);
+        WebView target = webView;
+        PendingNativePlayback pending = new PendingNativePlayback(launch);
+        pendingNativePlaybacks.add(pending);
+        target.postDelayed(pending, MEDIA_PAUSE_LAUNCH_TIMEOUT_MS);
         try {
-            webView.evaluateJavascript(PAUSE_PAGE_MEDIA_SCRIPT, ignored -> {
-                webView.removeCallbacks(launchOnce);
-                launchOnce.run();
+            target.evaluateJavascript(PAUSE_PAGE_MEDIA_SCRIPT, ignored -> {
+                target.removeCallbacks(pending);
+                pending.run();
             });
         } catch (Throwable e) {
             SpiderDebug.log("webhome-inline", "prepare native playback media pause failed: %s", e.getMessage());
-            webView.removeCallbacks(launchOnce);
-            launchOnce.run();
+            target.removeCallbacks(pending);
+            pending.run();
         }
     }
 
     public void destroy() {
+        if (destroyed) return;
+        destroyed = true;
+        cancelPendingNativePlaybacks();
         removeDocumentStartScripts();
         rawAdapter = null;
         webView.stopLoading();
         webView.destroy();
         if (debugTools) WebView.setWebContentsDebuggingEnabled(false);
         if (active == this) active = null;
+    }
+
+    private void cancelPendingNativePlaybacks() {
+        for (PendingNativePlayback pending : new HashSet<>(pendingNativePlaybacks)) {
+            pending.cancel();
+            webView.removeCallbacks(pending);
+        }
+        pendingNativePlaybacks.clear();
+    }
+
+    private final class PendingNativePlayback implements Runnable {
+
+        private final NativePlaybackLaunchState state;
+        private final Runnable launch;
+
+        private PendingNativePlayback(Runnable launch) {
+            this.state = new NativePlaybackLaunchState();
+            this.launch = launch;
+        }
+
+        @Override
+        public void run() {
+            pendingNativePlaybacks.remove(this);
+            if (!state.tryLaunch(destroyed, activity.isFinishing(), activity.isDestroyed())) return;
+            launch.run();
+        }
+
+        private void cancel() {
+            state.cancel();
+        }
+    }
+
+    static final class NativePlaybackLaunchState {
+
+        private final AtomicBoolean completed = new AtomicBoolean();
+
+        boolean tryLaunch(boolean controllerDestroyed, boolean activityFinishing, boolean activityDestroyed) {
+            return !controllerDestroyed && !activityFinishing && !activityDestroyed && completed.compareAndSet(false, true);
+        }
+
+        void cancel() {
+            completed.set(true);
+        }
     }
 
     private void consumeExtensionReload() {
