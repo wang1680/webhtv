@@ -615,6 +615,11 @@ private int mAudioBackgroundRandomNonce;
     }
 
     public static void startDirect(Activity activity, String key, String id, String name, String pic, String mark) {
+        startDirect(activity, key, id, name, pic, mark, null, null, null);
+    }
+
+    public static void startDirect(Activity activity, String key, String id, String name, String pic, String mark,
+            String playFlag, String playEpisodeName, String playEpisodeUrl) {
         if (AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
         Intent intent = new Intent(activity, VideoActivity.class);
         intent.putExtra("collect", false);
@@ -623,6 +628,7 @@ private int mAudioBackgroundRandomNonce;
         intent.putExtra("pic", pic);
         intent.putExtra("key", key);
         intent.putExtra("id", id);
+        putIntentPlaybackSelection(intent, playFlag, playEpisodeName, playEpisodeUrl);
         activity.startActivity(intent);
     }
 
@@ -3445,11 +3451,9 @@ private int mAudioBackgroundRandomNonce;
     }
 
     private void saveHistory(boolean exit) {
-        android.util.Log.d("VideoActivity", "saveHistory: exit=" + exit + " mHistory=" + (mHistory != null) +
-            " canSave=" + (mHistory != null ? mHistory.canSave() : "null") +
-            " incognito=" + Setting.isIncognito());
         if (mHistory == null || Setting.isIncognito()) return;
-        if (service() != null && isOwner()) {
+        boolean hasPlayback = service() != null && isOwner() && !player().isEmpty();
+        if (hasPlayback) {
             // 保存当前集的播放位置到缓存
             if (!TextUtils.isEmpty(mHistory.getVodRemarks())) {
                 EpisodePositionCache.get().put(
@@ -3465,12 +3469,10 @@ private int mAudioBackgroundRandomNonce;
             mHistory.setCreateTime(System.currentTimeMillis());
         }
         if (exit && service() != null) PlaybackEventCollector.get().onStop(player());
-        if (!mHistory.canSave()) return;
+        if (!mHistory.canSave() && !hasPlayback) return;
         History history = mHistory.copy();
         Task.execute(() -> {
-            if (history.getDuration() > 0) history.merge().save();
-            else history.save();
-            android.util.Log.d("VideoActivity", "saveHistory: saved! key=" + history.getKey());
+            history.save();
             // 持久化集数位置缓存
             EpisodePositionCache.get().save();
             if (exit) RefreshEvent.history();

@@ -1949,6 +1949,37 @@ public class VideoActivityLayoutTest {
                 source.indexOf("mBinding.videoContextScrim.setVisibility(View.VISIBLE)", method) > method);
     }
 
+    @Test
+    public void mobileHistoryEntryPassesExactPlaybackSelection() throws Exception {
+        Path historyPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "HistoryActivity.java"));
+        Path videoPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String history = new String(Files.readAllBytes(historyPath), StandardCharsets.UTF_8);
+        String video = new String(Files.readAllBytes(videoPath), StandardCharsets.UTF_8);
+        String compactHistory = history.replaceAll("\\s+", " ");
+
+        assertTrue("history clicks must pass flag, episode title, and episode url to direct playback",
+                compactHistory.contains("VideoActivity.startDirect(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks(), item.getVodFlag(), item.getVodRemarks(), item.getEpisodeUrl())"));
+        assertTrue("direct playback must preserve the requested episode selection in the intent",
+                video.contains("putIntentPlaybackSelection(intent, playFlag, playEpisodeName, playEpisodeUrl);"));
+    }
+
+    @Test
+    public void mobileSaveHistoryKeepsRecordWithoutMergeDeletingSource() throws Exception {
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int method = source.indexOf("private void saveHistory(boolean exit)");
+        int end = source.indexOf("private void syncHistory()", method);
+        String body = method >= 0 && end > method ? source.substring(method, end) : "";
+
+        assertTrue(sourcePath + " is missing saveHistory(boolean)", method >= 0);
+        assertTrue("saveHistory must treat an attached non-empty owner player as played content",
+                body.contains("boolean hasPlayback = service() != null && isOwner() && !player().isEmpty();"));
+        assertTrue("saveHistory must persist played content even before progress advances past zero",
+                body.contains("if (!mHistory.canSave() && !hasPlayback) return;"));
+        assertFalse("mobile playback save must not merge-delete existing history entries",
+                body.contains("history.merge().save()"));
+    }
+
     private static void assertNoPrematurePlaybackReveal(Path sourcePath, String source) {
         int playing = source.indexOf("protected void onPlayingChanged(boolean isPlaying)");
         int playingEnd = source.indexOf("protected void onSizeChanged", playing);
