@@ -5424,6 +5424,11 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         this.useParse = useParse;
     }
 
+    @Override
+    public boolean isControlAudioContent() {
+        return isAudioOnly() || isMusicLike();
+    }
+
     private View getFocus1() {
         return mFocus1 == null || mFocus1.getVisibility() != View.VISIBLE ? mBinding.video : mFocus1;
     }
