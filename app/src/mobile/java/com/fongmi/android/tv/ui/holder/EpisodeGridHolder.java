@@ -18,6 +18,7 @@ import com.fongmi.android.tv.ui.adapter.EpisodeAdapter;
 import com.fongmi.android.tv.ui.base.BaseEpisodeHolder;
 import com.fongmi.android.tv.ui.dialog.EpisodeDetailDialog;
 import com.fongmi.android.tv.ui.helper.EpisodeCardPolicy;
+import com.fongmi.android.tv.ui.helper.TmdbEpisodeMatcher;
 import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 
@@ -55,7 +56,13 @@ public class EpisodeGridHolder extends BaseEpisodeHolder {
     @Override
     public void initView(Episode item) {
         updateLayout();
+        // 使用集号匹配 TMDB 数据，而不是直接使用 item.getTmdbEpisode()
+        int position = getBindingAdapterPosition();
+        int episodeNumber = item.getNumber() > 0 ? item.getNumber() : position + 1;
         TmdbEpisode episode = item.getTmdbEpisode();
+        if (!TmdbEpisodeMatcher.shouldApply(item, episode, episodeNumber)) {
+            episode = null;
+        }
         if (EpisodeCardPolicy.shouldShowCard(useTmdbCard, episode != null, !TextUtils.isEmpty(fallbackStillUrl))) bindCard(item, episode);
         else bindText(item);
     }

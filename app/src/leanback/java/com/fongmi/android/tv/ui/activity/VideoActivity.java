@@ -1313,15 +1313,18 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         mVod = item;
         mFastTmdbPlaybackStarted = true;
         mFastTmdbFullDetailBound = false;
+        takeFastTmdbDetailCache();
         prepareFastTmdbPlaybackItem(item);
+        traceDetailText(mBinding.name, getFastTmdbPlaybackInitialName(item));
         mBinding.name.setText(getFastTmdbPlaybackInitialName(item));
         mBinding.widget.title.setText(getFastTmdbPlaybackInitialTitle(item));
         mBinding.widget.title.setSelected(true);
+        setText(item);
+        hydrateFastTmdbPlaybackDetail(item);
         mBinding.video.requestFocus();
         showProgress();
         showFastTmdbPlaybackContent();
         SpiderDebug.log("video-flow", "fast tmdb playback reveal cost=%dms key=%s episode=%s", System.currentTimeMillis() - start, getKey(), getIntentPlaybackEpisodeName());
-        mBinding.getRoot().post(() -> hydrateFastTmdbPlaybackDetail(item));
         if (shouldWaitForPlaybackService()) {
             queueFastTmdbPlaybackUntilServiceReady(item);
             return true;
@@ -1364,8 +1367,15 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         }
         mFastPlaybackFlag = flag;
         mFastPlaybackEpisode = episode;
-        mBinding.name.setText(item.getName());
-        mBinding.widget.title.setText(getPlaybackControlTitle(episode));
+        if (!TextUtils.equals(mBinding.name.getText(), item.getName())) {
+            traceDetailText(mBinding.name, item.getName());
+            mBinding.name.setText(item.getName());
+        }
+        CharSequence playbackTitle = getPlaybackControlTitle(episode);
+        if (!TextUtils.equals(mBinding.widget.title.getText(), playbackTitle)) {
+            traceDetailText(mBinding.widget.title, playbackTitle);
+            mBinding.widget.title.setText(playbackTitle);
+        }
         playerStartTime = System.currentTimeMillis();
         beginPlayHealth();
         prepareFastTmdbPlaybackHistory(item, flag, episode);
@@ -1381,6 +1391,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         mBinding.getRoot().postDelayed(() -> {
             if (isFinishing() || isDestroyed()) return;
             long start = System.currentTimeMillis();
+            prepareFastTmdbPlaybackItem(item);
             setDetail(Result.vod(item));
             SpiderDebug.log("video-flow", "fast tmdb full detail bind cost=%dms key=%s id=%s name=%s", System.currentTimeMillis() - start, getKey(), getId(), item.getName());
         }, TMDB_CACHED_DETAIL_APPLY_DELAY_MS);
@@ -1390,6 +1401,11 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         item.checkPic(firstNonEmpty(getPic(), getTmdbVodPic()));
         item.checkName(getName());
         item.checkContent(firstNonEmpty(item.getContent(), getTmdbVodContent(), getContent()));
+        setIfEmpty(item.getYear(), getTmdbVodYear(), item::setYear);
+        setIfEmpty(item.getArea(), getTmdbVodArea(), item::setArea);
+        setIfEmpty(item.getTypeName(), getTmdbVodType(), item::setTypeName);
+        setIfEmpty(item.getDirector(), getTmdbVodDirector(), item::setDirector);
+        setIfEmpty(item.getActor(), getTmdbVodActor(), item::setActor);
     }
 
     private void hydrateFastTmdbPlaybackDetail(Vod item) {
@@ -1407,12 +1423,19 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
                 mBinding.tmdbOverview.setSingleLine(false);
                 mBinding.tmdbOverview.setHorizontallyScrolling(false);
                 mBinding.tmdbOverview.setMaxLines(Integer.MAX_VALUE);
-                mBinding.tmdbOverview.setText(getString(R.string.detail_content, content));
+                CharSequence overview = getString(R.string.detail_content, content);
+                if (!TextUtils.equals(mBinding.tmdbOverview.getText(), overview)) {
+                    traceDetailText(mBinding.tmdbOverview, overview);
+                    mBinding.tmdbOverview.setText(overview);
+                }
                 mBinding.tmdbOverview.setVisibility(View.VISIBLE);
                 mBinding.tmdbOverview.post(this::updateTmdbOverviewButton);
             }
         }
-        if (!TextUtils.isEmpty(item.getName())) mBinding.name.setText(item.getName());
+        if (!TextUtils.isEmpty(item.getName()) && !TextUtils.equals(mBinding.name.getText(), item.getName())) {
+            traceDetailText(mBinding.name, item.getName());
+            mBinding.name.setText(item.getName());
+        }
         if (!TextUtils.isEmpty(wall)) setContextWall(wall);
         if (mHistory != null) {
             if (!TextUtils.isEmpty(item.getName())) mHistory.setVodName(item.getName());
@@ -1432,6 +1455,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     private boolean applyFastTmdbDetailCache(Vod item) {
         TmdbDetailCache.Entry cached = takeFastTmdbDetailCache();
         if (cached == null || item == null) return false;
+        mFastTmdbDetailCache = cached;
         JsonObject detail = cached.getDetail();
         String overview = cachedTmdbOverview(detail);
         if (!TextUtils.isEmpty(overview) && (TextUtils.isEmpty(item.getContent()) || overview.length() > item.getContent().length())) {
@@ -1445,12 +1469,16 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     }
 
     private String cachedFastTmdbBackdrop() {
-        return cachedFastTmdbBackdrop(takeFastTmdbDetailCache());
+        return cachedFastTmdbBackdrop(mFastTmdbDetailCache);
     }
 
     private String cachedFastTmdbBackdrop(TmdbDetailCache.Entry cached) {
         if (cached == null) return "";
         return firstNonEmpty(cachedTmdbImage(cached.getDetail(), "backdrop_path", true), cached.getItem() == null ? "" : cached.getItem().getBackdropUrl());
+    }
+
+    private void setIfEmpty(String current, String value, java.util.function.Consumer<String> setter) {
+        if (TextUtils.isEmpty(current) && !TextUtils.isEmpty(value)) setter.accept(value);
     }
 
     private String cachedFastTmdbPoster(TmdbDetailCache.Entry cached) {
@@ -1799,8 +1827,8 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         if (mTmdbUIAdapter != null && mTmdbUIAdapter.isReady()) {
             com.fongmi.android.tv.bean.TmdbItem tmdbItem = getTmdbItem();
             if (tmdbItem != null) {
-                SpiderDebug.log("tmdb-tv", "direct load vodTitle=%s tmdbTitle=%s tmdbId=%d media=%s", item.getName(), tmdbItem.getTitle(), tmdbItem.getTmdbId(), tmdbItem.getMediaType());
-                mTmdbUIAdapter.load(tmdbItem, item);
+                SpiderDebug.log("tmdb-tv", "direct load vodTitle=%s tmdbTitle=%s tmdbId=%d media=%s cache=%s", item.getName(), tmdbItem.getTitle(), tmdbItem.getTmdbId(), tmdbItem.getMediaType(), mFastTmdbDetailCache != null);
+                mTmdbUIAdapter.load(tmdbItem, item, mFastTmdbDetailCache);
             } else {
                 mTmdbUIAdapter.autoMatch(item.getName(), item);
             }
@@ -1959,10 +1987,25 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
 
     private void setText(TextView view, int resId, String text) {
         if (TextUtils.isEmpty(text) && !TextUtils.isEmpty(view.getText())) return;
-        view.setText(Sniffer.buildClickable(resId > 0 ? getString(resId, text) : text, this::clickableSpan), TextView.BufferType.SPANNABLE);
+        String value = resId > 0 ? getString(resId, text) : text;
         view.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
+        if (TextUtils.equals(view.getText(), value)) return;
+        traceDetailText(view, value);
+        view.setText(Sniffer.buildClickable(value, this::clickableSpan), TextView.BufferType.SPANNABLE);
         view.setLinkTextColor(MDColor.YELLOW_500);
         CustomMovement.bind(view);
+    }
+
+    private void traceDetailText(TextView view, CharSequence value) {
+        String id;
+        try {
+            id = getResources().getResourceEntryName(view.getId());
+        } catch (Throwable ignored) {
+            id = String.valueOf(view.getId());
+        }
+        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+        String caller = stack.length > 4 ? stack[4].getMethodName() + ":" + stack[4].getLineNumber() : "unknown";
+        android.util.Log.d("DetailTextTrace", id + " | " + caller + " | " + view.getText() + " -> " + value);
     }
 
     private ClickableSpan clickableSpan(Result result) {
@@ -3828,11 +3871,15 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
             }
         }
         if (name) mHistory.setVodName(item.getName());
-        if (name) mBinding.name.setText(item.getName());
+        if (name && !TextUtils.equals(mBinding.name.getText(), item.getName())) {
+            traceDetailText(mBinding.name, item.getName());
+            mBinding.name.setText(item.getName());
+        }
         // 原生增强：TMDB 富集完成后回写题材/地区/演员/主创到 History（enrichVod 已填充 item），仅补空字段
         if (mHistory != null) mHistory.enrichMeta(item.getTypeName(), item.getArea(), item.getActor(), item.getDirector(), item.getYear());
         updateFlag(getFlag(), item.getFlags());
-        mBinding.widget.title.setText(getPlaybackControlTitle());
+        CharSequence playbackTitle = getPlaybackControlTitle();
+        if (!TextUtils.equals(mBinding.widget.title.getText(), playbackTitle)) mBinding.widget.title.setText(playbackTitle);
         if (pic) setArtwork(item.getPic());
         if (pic || name) setMetadata();
         // key 迁移后必须写回，避免 replace 删旧 key 后未 save 导致历史消失

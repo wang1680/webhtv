@@ -225,6 +225,35 @@ public class TmdbUIAdapterTest {
     }
 
     @Test
+    public void leanbackDirectTmdbPlaybackReusesCachedDetailForMetadataBind() throws Exception {
+        Path videoPath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        Path adapterPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "TmdbUIAdapter.java"));
+        String video = new String(Files.readAllBytes(videoPath), StandardCharsets.UTF_8);
+        String adapter = new String(Files.readAllBytes(adapterPath), StandardCharsets.UTF_8);
+        int setDetail = video.indexOf("private void setDetail(Vod item)");
+        int load = video.indexOf("mTmdbUIAdapter.load(tmdbItem, item, mFastTmdbDetailCache);", setDetail);
+        int prepare = video.indexOf("private void prepareFastTmdbPlaybackItem(Vod item)");
+        int metadata = video.indexOf("setIfEmpty(item.getYear(), getTmdbVodYear(), item::setYear)", prepare);
+        int fastStart = video.indexOf("private boolean tryStartFastTmdbPlayback(Vod item)");
+        int initialText = video.indexOf("setText(item);", fastStart);
+        int reveal = video.indexOf("showFastTmdbPlaybackContent();", initialText);
+        int equality = video.indexOf("if (TextUtils.equals(view.getText(), value)) return;", video.indexOf("private void setText(TextView view"));
+        int cachedLoad = adapter.indexOf("public void load(TmdbItem item, Vod vod, TmdbDetailCache.Entry cached)");
+        int syncCache = adapter.indexOf("loadDetailSync(vod, cached.getItem(), cached.getDetail(), cached.getCast(), generation)", cachedLoad);
+
+        assertTrue("leanback full detail binding should reuse the TMDB cache already consumed by fast playback",
+                setDetail >= 0 && load > setDetail);
+        assertTrue("fast playback should seed all right-side metadata from the detail-page payload before the full bind",
+                prepare >= 0 && metadata > prepare);
+        assertTrue("the complete right-side text should be bound before the playback page becomes visible",
+                fastStart >= 0 && initialText > fastStart && reveal > initialText);
+        assertTrue("later cache enrichment should not assign identical text again",
+                equality >= 0);
+        assertTrue("TMDB adapter should accept the already consumed detail cache instead of fetching again",
+                cachedLoad >= 0 && syncCache > cachedLoad);
+    }
+
+    @Test
     public void leanbackDirectTmdbPlaybackHydratesSynopsisWithoutFullDetailBind() throws Exception {
         Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
@@ -232,11 +261,12 @@ public class TmdbUIAdapterTest {
         int prepareItem = source.indexOf("prepareFastTmdbPlaybackItem(item);", startPending);
         int player = source.indexOf("mViewModel.playerContent(getKey(), flag.getFlag(), episode.getUrl());", prepareItem);
         int postHydrate = source.indexOf("mBinding.getRoot().post(() -> hydrateFastTmdbPlaybackDetail(item));", player);
+        int initialHydrate = source.indexOf("hydrateFastTmdbPlaybackDetail(item);", source.indexOf("private boolean tryStartFastTmdbPlayback(Vod item)"));
         int hydrate = source.indexOf("private void hydrateFastTmdbPlaybackDetail(Vod item)");
         int hydrateEnd = source.indexOf("private String firstNonEmpty", hydrate);
         String hydrateBody = source.substring(hydrate, hydrateEnd);
 
-        assertTrue(sourcePath + " is missing direct TMDB playback summary hydration", startPending >= 0 && prepareItem > startPending && player > prepareItem && postHydrate > player);
+        assertTrue(sourcePath + " is missing direct TMDB playback summary hydration", startPending >= 0 && prepareItem > startPending && player > prepareItem && (initialHydrate >= 0 || postHydrate > player));
         assertTrue("direct TMDB playback should hydrate the synopsis from source detail or TMDB intent cache",
                 hydrateBody.contains("applyFastTmdbDetailCache(item)")
                         && hydrateBody.contains("getTmdbVodContent()")
@@ -248,7 +278,8 @@ public class TmdbUIAdapterTest {
         assertTrue("direct TMDB playback should restore the visible TMDB overview without rebuilding detail adapters",
                 hydrateBody.contains("mBinding.tmdbOverview.setSingleLine(false);")
                         && hydrateBody.contains("mBinding.tmdbOverview.setHorizontallyScrolling(false);")
-                        && hydrateBody.contains("mBinding.tmdbOverview.setText(getString(R.string.detail_content, content));"));
+                        && hydrateBody.contains("CharSequence overview = getString(R.string.detail_content, content);")
+                        && hydrateBody.contains("mBinding.tmdbOverview.setText(overview)"));
         assertTrue("direct TMDB playback should restore the cached backdrop as the playback page background",
                 hydrateBody.contains("String wall = firstNonEmpty(cachedFastTmdbBackdrop(), getWallPic(), mHistory == null ? \"\" : mHistory.getWallPic());")
                         && hydrateBody.contains("if (!TextUtils.isEmpty(wall)) setContextWall(wall);")
