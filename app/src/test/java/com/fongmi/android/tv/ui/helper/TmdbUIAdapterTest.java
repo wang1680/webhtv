@@ -254,6 +254,29 @@ public class TmdbUIAdapterTest {
     }
 
     @Test
+    public void leanbackDirectTmdbPlaybackKeepsDetailPageTextStableDuringTmdbBind() throws Exception {
+        Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int apply = source.indexOf("private void applyTmdbDetailFields()");
+        int applyEnd = source.indexOf("private void updateTmdbOverviewButton()", apply);
+        String applyBody = source.substring(apply, applyEnd);
+        int directGuard = applyBody.indexOf("if (isIntentTmdbPlayback())");
+        int directReturn = applyBody.indexOf("return;", directGuard);
+        int suppress = applyBody.indexOf("suppressTmdbNativeTextFields();");
+        int hideSynopsisButton = applyBody.indexOf("mBinding.content.setVisibility(View.GONE);");
+        int replaceWithOverview = applyBody.indexOf("mBinding.tmdbOverview.setVisibility(View.VISIBLE);");
+        int suppressMethod = source.indexOf("private void suppressTmdbNativeTextFields()");
+        int suppressEnd = source.indexOf("\n    }", suppressMethod);
+        String suppressBody = source.substring(suppressMethod, suppressEnd);
+
+        assertTrue("direct colorful-detail playback must exit before TMDB replaces the native right panel",
+                apply >= 0 && directGuard > 0 && directReturn > directGuard
+                        && suppress > directReturn && hideSynopsisButton > directReturn && replaceWithOverview > directReturn);
+        assertTrue("all asynchronous TMDB completion paths must preserve the native right panel for direct playback",
+                suppressBody.contains("if (isIntentTmdbPlayback()) return;"));
+    }
+
+    @Test
     public void leanbackDirectTmdbPlaybackHydratesSynopsisWithoutFullDetailBind() throws Exception {
         Path sourcePath = findFlavorJavaPath("leanback").resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
@@ -275,8 +298,9 @@ public class TmdbUIAdapterTest {
                 source.contains("TmdbDetailCache.take(getIntent().getStringExtra(TmdbDetailCache.EXTRA_KEY), getTmdbItem())")
                         && source.contains("cachedTmdbOverview(detail)")
                         && source.contains("cachedTmdbOverviewForLanguage(translations, \"zh-CN\")"));
-        assertTrue("direct TMDB playback should restore the visible TMDB overview without rebuilding detail adapters",
-                hydrateBody.contains("mBinding.tmdbOverview.setSingleLine(false);")
+        assertTrue("fast hydration must keep direct colorful-detail playback on the native right-panel layout",
+                hydrateBody.contains("if (isTmdbMode() && !isIntentTmdbPlayback())")
+                        && hydrateBody.contains("mBinding.tmdbOverview.setSingleLine(false);")
                         && hydrateBody.contains("mBinding.tmdbOverview.setHorizontallyScrolling(false);")
                         && hydrateBody.contains("CharSequence overview = getString(R.string.detail_content, content);")
                         && hydrateBody.contains("mBinding.tmdbOverview.setText(overview)"));

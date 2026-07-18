@@ -1315,7 +1315,6 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         mFastTmdbFullDetailBound = false;
         takeFastTmdbDetailCache();
         prepareFastTmdbPlaybackItem(item);
-        traceDetailText(mBinding.name, getFastTmdbPlaybackInitialName(item));
         mBinding.name.setText(getFastTmdbPlaybackInitialName(item));
         mBinding.widget.title.setText(getFastTmdbPlaybackInitialTitle(item));
         mBinding.widget.title.setSelected(true);
@@ -1368,12 +1367,10 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         mFastPlaybackFlag = flag;
         mFastPlaybackEpisode = episode;
         if (!TextUtils.equals(mBinding.name.getText(), item.getName())) {
-            traceDetailText(mBinding.name, item.getName());
             mBinding.name.setText(item.getName());
         }
         CharSequence playbackTitle = getPlaybackControlTitle(episode);
         if (!TextUtils.equals(mBinding.widget.title.getText(), playbackTitle)) {
-            traceDetailText(mBinding.widget.title, playbackTitle);
             mBinding.widget.title.setText(playbackTitle);
         }
         playerStartTime = System.currentTimeMillis();
@@ -1418,14 +1415,13 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         if (!TextUtils.isEmpty(content)) {
             item.setContent(content);
             mBinding.content.setTag(content);
-            if (isTmdbMode()) {
+            if (isTmdbMode() && !isIntentTmdbPlayback()) {
                 suppressTmdbNativeTextFields();
                 mBinding.tmdbOverview.setSingleLine(false);
                 mBinding.tmdbOverview.setHorizontallyScrolling(false);
                 mBinding.tmdbOverview.setMaxLines(Integer.MAX_VALUE);
                 CharSequence overview = getString(R.string.detail_content, content);
                 if (!TextUtils.equals(mBinding.tmdbOverview.getText(), overview)) {
-                    traceDetailText(mBinding.tmdbOverview, overview);
                     mBinding.tmdbOverview.setText(overview);
                 }
                 mBinding.tmdbOverview.setVisibility(View.VISIBLE);
@@ -1433,7 +1429,6 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
             }
         }
         if (!TextUtils.isEmpty(item.getName()) && !TextUtils.equals(mBinding.name.getText(), item.getName())) {
-            traceDetailText(mBinding.name, item.getName());
             mBinding.name.setText(item.getName());
         }
         if (!TextUtils.isEmpty(wall)) setContextWall(wall);
@@ -1892,10 +1887,16 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     }
 
     private void applyTmdbDetailFields() {
+        setTmdbRematchVisible(true);
+        // 炫彩详情已经在播放页显示前带入完整文本，异步 TMDB 完成时不要再切换右侧布局。
+        if (isIntentTmdbPlayback()) {
+            mBinding.video.setNextFocusRightId(R.id.content);
+            return;
+        }
+
         // 去掉集数、演员、导演；简介按钮默认隐藏（仅简介显示不全时再显示）
         suppressTmdbNativeTextFields();
         mBinding.content.setVisibility(View.GONE);
-        setTmdbRematchVisible(true);
 
         // 年份、地区、类型取 TMDB
         if (mTmdbUIAdapter != null) {
@@ -1907,17 +1908,19 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
             if (!TextUtils.isEmpty(genres)) setText(mBinding.type, R.string.detail_type, genres);
         }
 
-        // 简介移到站源行下方显示（内容来自已 enrich 的 content tag）
+        // 简介移到站源行下方显示；内容相同时不重置 maxLines，避免播放页再次布局闪动。
         Object desc = mBinding.content.getTag();
         String overview = desc == null ? "" : desc.toString();
         if (!TextUtils.isEmpty(overview)) {
-            mBinding.tmdbOverview.setSingleLine(false);
-            mBinding.tmdbOverview.setHorizontallyScrolling(false);
-            mBinding.tmdbOverview.setMaxLines(Integer.MAX_VALUE);
-            mBinding.tmdbOverview.setText(getString(R.string.detail_content, overview));
+            CharSequence overviewText = getString(R.string.detail_content, overview);
+            if (!TextUtils.equals(mBinding.tmdbOverview.getText(), overviewText)) {
+                mBinding.tmdbOverview.setSingleLine(false);
+                mBinding.tmdbOverview.setHorizontallyScrolling(false);
+                mBinding.tmdbOverview.setMaxLines(Integer.MAX_VALUE);
+                mBinding.tmdbOverview.setText(overviewText);
+                mBinding.tmdbOverview.post(this::updateTmdbOverviewButton);
+            }
             mBinding.tmdbOverview.setVisibility(View.VISIBLE);
-            // 布局完成后检测是否截断，截断则显示简介按钮
-            mBinding.tmdbOverview.post(this::updateTmdbOverviewButton);
         } else {
             mBinding.tmdbOverview.setVisibility(View.GONE);
         }
@@ -1990,22 +1993,9 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         String value = resId > 0 ? getString(resId, text) : text;
         view.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
         if (TextUtils.equals(view.getText(), value)) return;
-        traceDetailText(view, value);
         view.setText(Sniffer.buildClickable(value, this::clickableSpan), TextView.BufferType.SPANNABLE);
         view.setLinkTextColor(MDColor.YELLOW_500);
         CustomMovement.bind(view);
-    }
-
-    private void traceDetailText(TextView view, CharSequence value) {
-        String id;
-        try {
-            id = getResources().getResourceEntryName(view.getId());
-        } catch (Throwable ignored) {
-            id = String.valueOf(view.getId());
-        }
-        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-        String caller = stack.length > 4 ? stack[4].getMethodName() + ":" + stack[4].getLineNumber() : "unknown";
-        android.util.Log.d("DetailTextTrace", id + " | " + caller + " | " + view.getText() + " -> " + value);
     }
 
     private ClickableSpan clickableSpan(Result result) {
@@ -3872,7 +3862,6 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         }
         if (name) mHistory.setVodName(item.getName());
         if (name && !TextUtils.equals(mBinding.name.getText(), item.getName())) {
-            traceDetailText(mBinding.name, item.getName());
             mBinding.name.setText(item.getName());
         }
         // 原生增强：TMDB 富集完成后回写题材/地区/演员/主创到 History（enrichVod 已填充 item），仅补空字段
@@ -3897,6 +3886,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     }
 
     private void suppressTmdbNativeTextFields() {
+        if (isIntentTmdbPlayback()) return;
         mBinding.remark.setVisibility(View.GONE);
         mBinding.actor.setVisibility(View.GONE);
         mBinding.director.setVisibility(View.GONE);
