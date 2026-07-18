@@ -12,7 +12,7 @@ final class ExoLoadControlPolicy {
 
     static BufferDurations resolve(int profile, int bufferLevel) {
         return switch (profile) {
-            case PlaybackPerformanceSetting.PROFILE_RECOMMENDED -> new BufferDurations(30_000, 60_000);
+            case PlaybackPerformanceSetting.PROFILE_RECOMMENDED, PlaybackPerformanceSetting.PROFILE_AUTO -> new BufferDurations(30_000, 60_000);
             case PlaybackPerformanceSetting.PROFILE_COMPATIBLE -> new BufferDurations(20_000, 60_000);
             case PlaybackPerformanceSetting.PROFILE_LIGHTWEIGHT -> new BufferDurations(15_000, 30_000);
             default -> custom(bufferLevel);

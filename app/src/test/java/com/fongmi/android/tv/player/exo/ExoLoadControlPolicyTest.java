@@ -11,6 +11,7 @@ public class ExoLoadControlPolicyTest {
     @Test
     public void fixedProfilesUseAuditedBufferDurations() {
         assertDurations(PlaybackPerformanceSetting.PROFILE_RECOMMENDED, 30_000, 60_000);
+        assertDurations(PlaybackPerformanceSetting.PROFILE_AUTO, 30_000, 60_000);
         assertDurations(PlaybackPerformanceSetting.PROFILE_COMPATIBLE, 20_000, 60_000);
         assertDurations(PlaybackPerformanceSetting.PROFILE_LIGHTWEIGHT, 15_000, 30_000);
     }

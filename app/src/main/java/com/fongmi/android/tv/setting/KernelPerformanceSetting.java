@@ -175,7 +175,7 @@ public final class KernelPerformanceSetting {
     }
 
     static void applyPreloadPreset(int kernel, int profile) {
-        if (profile == PlaybackPerformanceSetting.PROFILE_RECOMMENDED) {
+        if (profile == PlaybackPerformanceSetting.PROFILE_RECOMMENDED || profile == PlaybackPerformanceSetting.PROFILE_AUTO) {
             putPreload(kernel, true);
             putPreloadSizeMb(kernel, 512);
         } else {
@@ -208,7 +208,7 @@ public final class KernelPerformanceSetting {
     }
 
     static int exoBufferBytesOptionForPreset(int profile) {
-        return profile == PlaybackPerformanceSetting.PROFILE_RECOMMENDED ? 2 : 1;
+        return profile == PlaybackPerformanceSetting.PROFILE_RECOMMENDED || profile == PlaybackPerformanceSetting.PROFILE_AUTO ? 2 : 1;
     }
 
     private static synchronized void ensureMigrated() {

@@ -18,6 +18,7 @@ import com.fongmi.android.tv.player.exo.ExoUtil;
 import com.fongmi.android.tv.player.exo.PlaybackAnalyticsListener;
 import com.fongmi.android.tv.player.exo.PreCache;
 import com.fongmi.android.tv.player.exo.TrackUtil;
+import com.fongmi.android.tv.setting.ExoPerformanceSetting;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.github.catvod.crawler.SpiderDebug;
 
@@ -54,12 +55,14 @@ public class ExoPlayerEngine implements PlayerEngine {
     @Override
     public void release() {
         preCache.release();
+        PlaybackAnalyticsListener.finishSession(player.getCurrentPosition());
         player.release();
     }
 
     @Override
     public Player rebuild(Player.Listener listener) {
         preCache.stop();
+        PlaybackAnalyticsListener.finishSession(player.getCurrentPosition());
         player.release();
         SpiderDebug.log("player-engine", "rebuild decode=%d", decode);
         return player = ExoUtil.buildPlayer(decode, listener);
@@ -135,6 +138,7 @@ public class ExoPlayerEngine implements PlayerEngine {
     @Override
     public void stop() {
         preCache.stop();
+        PlaybackAnalyticsListener.finishSession(player.getCurrentPosition());
         player.stop();
     }
 
@@ -242,7 +246,8 @@ public class ExoPlayerEngine implements PlayerEngine {
     private void startInternal(long position, boolean playWhenReady) {
         this.playWhenReady = playWhenReady;
         SpiderDebug.log("player-engine", "prepare position=%d decode=%d format=%s originalFormat=%s play=%s", position, decode, activeFormat, spec.getFormat(), playWhenReady);
-        PlaybackAnalyticsListener.reset();
+        PlaybackAnalyticsListener.finishSession(player.getCurrentPosition());
+        ExoPerformanceSetting.beginAutoSession();
         if (!playWhenReady) player.pause();
         MediaItem item = ExoUtil.getMediaItem(spec.copyWithFormat(activeFormat), decode);
         player.setMediaItem(item, position);

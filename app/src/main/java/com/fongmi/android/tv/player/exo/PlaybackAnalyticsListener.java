@@ -13,6 +13,7 @@ import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime;
 import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer;
 
+import com.fongmi.android.tv.setting.ExoPerformanceSetting;
 import com.github.catvod.crawler.SpiderDebug;
 
 public class PlaybackAnalyticsListener implements AnalyticsListener {
@@ -32,6 +33,17 @@ public class PlaybackAnalyticsListener implements AnalyticsListener {
         totalDroppedFrames = 0;
         lastBandwidthLogMs = 0;
         loading = false;
+    }
+
+    public static void finishSession(long finalPositionMs) {
+        Snapshot finished = snapshot;
+        if (finished.everReady()) {
+            long rebufferTotalMs = finished.rebufferTotalMs();
+            if (finished.rebufferStartMs() > 0) rebufferTotalMs += Math.max(0, SystemClock.elapsedRealtime() - finished.rebufferStartMs());
+            long mediaBitrate = ExoPlaybackDiagnostics.combinedBitrate(finished.videoFormat(), finished.audioFormat());
+            ExoPerformanceSetting.recordAutoSession(finished.rebufferCount(), rebufferTotalMs, Math.max(finished.positionMs(), finalPositionMs), mediaBitrate, finished.bandwidthEstimate());
+        }
+        reset();
     }
 
     @Override

@@ -9,6 +9,7 @@ public class ExoStartBufferPolicyTest {
     @Test
     public void recommendedProfileKeepsFastStartThreshold() {
         assertEquals(1_500, ExoPerformanceSetting.startBufferForPreset(PlaybackPerformanceSetting.PROFILE_RECOMMENDED));
+        assertEquals(1_500, ExoPerformanceSetting.startBufferForPreset(PlaybackPerformanceSetting.PROFILE_AUTO));
     }
 
     @Test

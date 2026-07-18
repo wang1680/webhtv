@@ -2,6 +2,7 @@ package com.fongmi.android.tv.player.exo;
 
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.SystemClock;
 
 import androidx.annotation.NonNull;
 import androidx.media3.common.C;
@@ -12,12 +13,14 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.exoplayer.source.preload.PreCacheHelper;
 
 import com.fongmi.android.tv.player.PlaybackRoute;
+import com.fongmi.android.tv.setting.PlaybackPerformanceSetting;
 import com.fongmi.android.tv.setting.PreloadSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class PreCache implements Player.Listener {
 
@@ -27,7 +30,7 @@ public class PreCache implements Player.Listener {
     private static final long BUFFER_GAP_MS = 1250;
     private static final int STEP_DIV = 4;
 
-    private ExecutorService executor;
+    private ThreadPoolExecutor executor;
     private PreCacheHelper helper;
     private Handler handler;
     private HandlerThread worker;
@@ -40,6 +43,7 @@ public class PreCache implements Player.Listener {
     private long seekStartMs;
     private boolean playable;
     private BufferGate bufferGate;
+    private AutoPreloadPolicy autoPolicy;
     private DiagnosticState diagnosticState = DiagnosticState.STOPPED;
 
     public void start(Player player, MediaItem mediaItem) {
@@ -49,6 +53,7 @@ public class PreCache implements Player.Listener {
         this.player = player;
         this.handler = new Handler(player.getApplicationLooper());
         this.route = PlaybackRoute.classify(mediaItem.localConfiguration.uri.toString());
+        this.autoPolicy = PlaybackPerformanceSetting.isAuto(PlayerSetting.EXO) ? new AutoPreloadPolicy() : null;
         this.helper = createHelper(mediaItem);
         clearSeek();
         lastStartMs = C.TIME_UNSET;
@@ -72,6 +77,7 @@ public class PreCache implements Player.Listener {
         helper = null;
         player = null;
         route = null;
+        autoPolicy = null;
         clearSeek();
         lastStartMs = C.TIME_UNSET;
         playable = false;
@@ -81,7 +87,7 @@ public class PreCache implements Player.Listener {
 
     public void release() {
         stop();
-        ExecutorService retiringExecutor = executor;
+        ThreadPoolExecutor retiringExecutor = executor;
         HandlerThread retiringWorker = worker;
         executor = null;
         worker = null;
@@ -102,6 +108,7 @@ public class PreCache implements Player.Listener {
     @Override
     public void onPlaybackStateChanged(int state) {
         if (state == Player.STATE_BUFFERING) {
+            if (autoPolicy != null) autoPolicy.disrupt(SystemClock.elapsedRealtime());
             if (playable) bufferGate = BufferGate.RECOVERY;
             diagnostic(DiagnosticState.CANCELLED_BUFFERING, "cancel reason=buffering generation=%d position=%d buffered=%d loading=%s", generation, player.getCurrentPosition(), player.getTotalBufferedDuration(), player.isLoading());
             stopCurrentTask();
@@ -134,6 +141,7 @@ public class PreCache implements Player.Listener {
     public void onPositionDiscontinuity(@NonNull Player.PositionInfo oldPosition, @NonNull Player.PositionInfo newPosition, int reason) {
         if (!isSeek(reason) || helper == null) return;
         diagnostic(DiagnosticState.CANCELLED_SEEK, "cancel reason=seek generation=%d oldPosition=%d newPosition=%d", generation, oldPosition.positionMs, newPosition.positionMs);
+        if (autoPolicy != null) autoPolicy.disrupt(SystemClock.elapsedRealtime());
         stopCurrentTask();
         markSeek(newPosition.positionMs);
         if (playable) bufferGate = BufferGate.RECOVERY;
@@ -177,8 +185,14 @@ public class PreCache implements Player.Listener {
             stop();
             return false;
         }
+        AutoPreloadPolicy.Decision autoDecision = getAutoDecision();
+        if (autoDecision != null && !autoDecision.enabled()) {
+            diagnostic(DiagnosticState.PAUSED_AUTO, "pause reason=auto generation=%d route=%s mode=%s position=%d buffered=%d bandwidth=%d bitrate=%d", generation, route, autoDecision.mode(), player.getCurrentPosition(), player.getTotalBufferedDuration(), PlaybackAnalyticsListener.getSnapshot().bandwidthEstimate(), getSelectedBitrate());
+            return true;
+        }
+        if (autoDecision != null) setEffectiveThreads(autoDecision.threads());
         long startMs = getStart();
-        long lengthMs = getLength(startMs);
+        long lengthMs = getLength(startMs, autoDecision == null ? PreloadSetting.getPreloadDurationMs(PlayerSetting.EXO) : autoDecision.durationMs());
         if (lengthMs <= 0) {
             diagnostic(DiagnosticState.NO_RANGE, "skip reason=noRange generation=%d startMs=%d durationMs=%d", generation, startMs, player.getDuration());
             clearSeek();
@@ -272,11 +286,11 @@ public class PreCache implements Player.Listener {
         return state == Player.STATE_ENDED || state == Player.STATE_IDLE;
     }
 
-    private long getLength(long startMs) {
+    private long getLength(long startMs, long durationTargetMs) {
         long durationMs = player.getDuration();
         if (durationMs <= 0) return 0;
         long remainingMs = Math.max(0, durationMs - startMs);
-        return PreCachePolicy.preloadLengthMs(PreloadSetting.getPreloadDurationMs(PlayerSetting.EXO), remainingMs, getSelectedBitrate(), MediaSourceFactory.getCacheCapacityBytes());
+        return PreCachePolicy.preloadLengthMs(durationTargetMs, remainingMs, getSelectedBitrate(), MediaSourceFactory.getCacheCapacityBytes());
     }
 
     private long getStep() {
@@ -298,21 +312,46 @@ public class PreCache implements Player.Listener {
     private Executor getExecutor() {
         int requested = PreloadSetting.getPreloadThreads(PlayerSetting.EXO);
         int count = route == null ? requested : route.effectivePreloadThreads(requested);
-        if (executor != null && threads == count) return executor;
+        if (autoPolicy != null) count = route == null ? AutoPreloadPolicy.NORMAL_THREADS : route.effectivePreloadThreads(AutoPreloadPolicy.NORMAL_THREADS);
+        if (executor != null) {
+            setEffectiveThreads(count);
+            return executor;
+        }
         retireExecutor();
         threads = count;
-        return executor = Executors.newFixedThreadPool(count);
+        return executor = new ThreadPoolExecutor(count, count, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+    }
+
+    private AutoPreloadPolicy.Decision getAutoDecision() {
+        if (autoPolicy == null) return null;
+        PlaybackAnalyticsListener.Snapshot snapshot = PlaybackAnalyticsListener.getSnapshot();
+        return autoPolicy.evaluate(SystemClock.elapsedRealtime(), route, player.getTotalBufferedDuration(), getSelectedBitrate(), snapshot.bandwidthEstimate(), snapshot.rebufferCount(), player.isLoading());
+    }
+
+    private void setEffectiveThreads(int requested) {
+        if (executor == null) return;
+        int count = route == null ? requested : route.effectivePreloadThreads(requested);
+        if (count == threads) return;
+        if (count > threads) {
+            executor.setMaximumPoolSize(count);
+            executor.setCorePoolSize(count);
+        } else {
+            executor.setCorePoolSize(count);
+            executor.setMaximumPoolSize(count);
+        }
+        threads = count;
+        ExoPlaybackDiagnostics.logPreload("auto mode threads=%d route=%s generation=%d", threads, route, generation);
     }
 
     private void retireExecutor() {
         if (executor == null) return;
-        ExecutorService retiringExecutor = executor;
+        ThreadPoolExecutor retiringExecutor = executor;
         executor = null;
         if (worker == null) shutdownExecutor(retiringExecutor);
         else new Handler(worker.getLooper()).post(() -> shutdownExecutor(retiringExecutor));
     }
 
-    private void shutdownExecutor(ExecutorService target) {
+    private void shutdownExecutor(ThreadPoolExecutor target) {
         if (target == null) return;
         target.shutdownNow();
     }
@@ -353,6 +392,7 @@ public class PreCache implements Player.Listener {
         CANCELLED_BUFFERING,
         CANCELLED_SEEK,
         NO_RANGE,
+        PAUSED_AUTO,
         SKIPPED
     }
 }

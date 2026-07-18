@@ -17,6 +17,9 @@ public final class ExoPerformanceSetting {
     private static final String KEY_START_BUFFER_MS = "perf_exo_start_buffer_ms";
     private static final String KEY_REBUFFER_MS = "perf_exo_rebuffer_ms";
     private static final String KEY_PRIORITIZE_TIME = "perf_exo_prioritize_time";
+    private static final String KEY_AUTO_REBUFFER_MS = "perf_exo_auto_rebuffer_ms";
+    private static final String KEY_AUTO_CLEAN_STREAK = "perf_exo_auto_clean_streak";
+    private static volatile int autoSessionRebufferMs = AutoRebufferPolicy.DEFAULT_REBUFFER_MS;
 
     private ExoPerformanceSetting() {
     }
@@ -82,6 +85,7 @@ public final class ExoPerformanceSetting {
     }
 
     public static int getRebufferMs() {
+        if (PlaybackPerformanceSetting.isAuto(PlayerSetting.EXO)) return AutoRebufferPolicy.normalize(autoSessionRebufferMs);
         return normalizeRebuffer(Prefers.getInt(KEY_REBUFFER_MS, rebufferForPreset(PlaybackPerformanceSetting.PROFILE_RECOMMENDED)));
     }
 
@@ -117,6 +121,40 @@ public final class ExoPerformanceSetting {
         applyStartBufferPreset(PlaybackPerformanceSetting.PROFILE_RECOMMENDED);
         applyRebufferPreset(PlaybackPerformanceSetting.PROFILE_RECOMMENDED);
         applyPrioritizeTimePreset(PlaybackPerformanceSetting.PROFILE_RECOMMENDED);
+    }
+
+    public static void applyAuto() {
+        Prefers.put(KEY_CODEC_QUEUE_MODE, CODEC_QUEUE_AUTO);
+        Prefers.put(KEY_FRAME_RATE_MODE, FRAME_RATE_SEAMLESS);
+        applyStartBufferPreset(PlaybackPerformanceSetting.PROFILE_AUTO);
+        applyRebufferPreset(PlaybackPerformanceSetting.PROFILE_AUTO);
+        applyPrioritizeTimePreset(PlaybackPerformanceSetting.PROFILE_AUTO);
+        resetAutoAdaptiveValues();
+    }
+
+    public static void recordAutoSession(int rebufferCount, long rebufferTotalMs, long positionMs, long mediaBitrate, long bandwidthEstimate) {
+        if (!PlaybackPerformanceSetting.isAuto(PlayerSetting.EXO)) return;
+        AutoRebufferPolicy.Result result = AutoRebufferPolicy.resolve(getAutoRebufferMs(), Prefers.getInt(KEY_AUTO_CLEAN_STREAK), rebufferCount, rebufferTotalMs, positionMs, mediaBitrate, bandwidthEstimate);
+        Prefers.put(KEY_AUTO_REBUFFER_MS, result.rebufferMs());
+        Prefers.put(KEY_AUTO_CLEAN_STREAK, result.cleanStreak());
+    }
+
+    public static void beginAutoSession() {
+        autoSessionRebufferMs = getAutoRebufferMs();
+    }
+
+    public static int getAutoSessionRebufferMs() {
+        return AutoRebufferPolicy.normalize(autoSessionRebufferMs);
+    }
+
+    static int getAutoRebufferMs() {
+        return AutoRebufferPolicy.normalize(Prefers.getInt(KEY_AUTO_REBUFFER_MS, AutoRebufferPolicy.DEFAULT_REBUFFER_MS));
+    }
+
+    private static void resetAutoAdaptiveValues() {
+        Prefers.put(KEY_AUTO_REBUFFER_MS, AutoRebufferPolicy.DEFAULT_REBUFFER_MS);
+        Prefers.put(KEY_AUTO_CLEAN_STREAK, 0);
+        autoSessionRebufferMs = AutoRebufferPolicy.DEFAULT_REBUFFER_MS;
     }
 
     public static void applyCompatible() {

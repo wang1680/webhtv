@@ -19,6 +19,7 @@ public class ExoSizePriorityPolicyTest {
         assertTrue(PlaybackPerformanceSetting.shouldMigrateExoSizePriority(PlaybackPerformanceSetting.PROFILE_RECOMMENDED));
         assertTrue(PlaybackPerformanceSetting.shouldMigrateExoSizePriority(PlaybackPerformanceSetting.PROFILE_COMPATIBLE));
         assertTrue(PlaybackPerformanceSetting.shouldMigrateExoSizePriority(PlaybackPerformanceSetting.PROFILE_LIGHTWEIGHT));
+        assertTrue(PlaybackPerformanceSetting.shouldMigrateExoSizePriority(PlaybackPerformanceSetting.PROFILE_AUTO));
         assertFalse(PlaybackPerformanceSetting.shouldMigrateExoSizePriority(PlaybackPerformanceSetting.PROFILE_CUSTOM));
     }
 }

@@ -77,6 +77,7 @@ final class ExoPlaybackDiagnostics {
 
     private static String profileName(int profile) {
         return switch (profile) {
+            case PlaybackPerformanceSetting.PROFILE_AUTO -> "auto";
             case PlaybackPerformanceSetting.PROFILE_COMPATIBLE -> "compatible";
             case PlaybackPerformanceSetting.PROFILE_LIGHTWEIGHT -> "lightweight";
             case PlaybackPerformanceSetting.PROFILE_CUSTOM -> "custom";

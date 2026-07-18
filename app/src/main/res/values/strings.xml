@@ -810,7 +810,8 @@
     <string name="player_exo_4k_compat">Playback performance</string>
     <string name="player_immersive_audio_mode">Immersive audio mode</string>
     <string name="player_performance">Playback performance</string>
-    <string name="player_performance_recommended">Recommended</string>
+    <string name="player_performance_recommended">Balanced</string>
+    <string name="player_performance_auto">Auto</string>
     <string name="player_performance_compatible">Compatible</string>
     <string name="player_performance_lightweight">Light</string>
     <string name="player_performance_help">Guide</string>

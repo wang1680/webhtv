@@ -792,7 +792,8 @@
     <string name="player_exo_4k_compat">播放效能</string>
     <string name="player_immersive_audio_mode">沉浸音訊模式</string>
     <string name="player_performance">播放效能</string>
-    <string name="player_performance_recommended">推薦</string>
+    <string name="player_performance_recommended">均衡</string>
+    <string name="player_performance_auto">自動</string>
     <string name="player_performance_compatible">相容</string>
     <string name="player_performance_lightweight">輕量</string>
     <string name="player_performance_help">說明</string>

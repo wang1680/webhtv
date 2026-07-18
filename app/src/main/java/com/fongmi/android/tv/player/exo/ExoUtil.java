@@ -25,6 +25,7 @@ import androidx.media3.common.Player;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioSink;
@@ -94,6 +95,7 @@ public class ExoUtil {
     }
 
     public static ExoPlayer buildPlayer(int decode, Player.Listener listener) {
+        if (PlaybackPerformanceSetting.isAuto(PlayerSetting.EXO)) ExoPerformanceSetting.beginAutoSession();
         EnhancedVideoProfile profile = getEnhancedVideoProfile(decode);
         List<EnhancedVideoProfile> profiles = getEnhancedVideoProfiles(decode);
         DefaultTrackSelector trackSelector = buildTrackSelector(decode);
@@ -334,7 +336,7 @@ public class ExoUtil {
         return profile;
     }
 
-    private static DefaultLoadControl buildEnhancedLoadControl() {
+    private static LoadControl buildEnhancedLoadControl() {
         int profile = PlaybackPerformanceSetting.getProfile(PlayerSetting.EXO);
         ExoLoadControlPolicy.BufferDurations durations = getBufferDurations();
         ExoBufferBudget.Budget budget = getBufferBudget();
@@ -343,12 +345,14 @@ public class ExoUtil {
         int backBufferMs = PlayerSetting.getBackBufferMs(PlayerSetting.EXO);
         boolean prioritizeTime = ExoPerformanceSetting.isPrioritizeTime();
         ExoPlaybackDiagnostics.logLoadControl(profile, durations, budget, startBufferMs, rebufferMs, backBufferMs, prioritizeTime);
-        return new DefaultLoadControl.Builder()
-                .setBufferDurationsMs(durations.minBufferMs(), durations.maxBufferMs(), startBufferMs, rebufferMs)
+        boolean auto = profile == PlaybackPerformanceSetting.PROFILE_AUTO;
+        DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
+                .setBufferDurationsMs(durations.minBufferMs(), durations.maxBufferMs(), startBufferMs, auto ? AutoLoadControl.MAX_REBUFFER_MS : rebufferMs)
                 .setTargetBufferBytes(budget.effectiveTargetBytes())
                 .setBackBuffer(backBufferMs, true)
                 .setPrioritizeTimeOverSizeThresholds(prioritizeTime)
                 .build();
+        return auto ? new AutoLoadControl(loadControl) : loadControl;
     }
 
     private static ExoLoadControlPolicy.BufferDurations getBufferDurations() {
