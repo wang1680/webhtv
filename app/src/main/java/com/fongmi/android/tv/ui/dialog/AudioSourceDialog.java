@@ -55,7 +55,7 @@ public class AudioSourceDialog {
 
         // 初始化暂存数据
         AudioConfig config = AudioConfig.objectFrom(Setting.getAudioConfig());
-        tempEnabledRules = new ArrayList<>(config.getEnabledSites());
+        tempEnabledRules = new ArrayList<>(config.isConfigured() ? config.getEnabledSites() : defaultRules());
         updateChipsDisplay();
 
         addBtn.setOnClickListener(v -> addRule(ruleInput));
@@ -84,13 +84,15 @@ public class AudioSourceDialog {
         Setting.putAudioConfig(AudioConfig.objectFrom(json).toJson());
     }
 
+    private static List<String> defaultRules() {
+        return List.of(AudioConfig.defaultRulesText().split(";"));
+    }
+
     private void showSiteManage() {
         List<Site> sites = VodConfig.get().getSites().stream().filter(s -> s != null && !s.isEmpty()).toList();
         if (sites.isEmpty()) return;
 
-        List<String> enabledRules = tempEnabledRules.isEmpty()
-            ? List.of(AudioConfig.defaultRulesText().split(";"))
-            : new ArrayList<>(tempEnabledRules);
+        List<String> enabledRules = new ArrayList<>(tempEnabledRules);
 
         String[] labels = new String[sites.size()];
         boolean[] checked = new boolean[sites.size()];
@@ -182,11 +184,7 @@ public class AudioSourceDialog {
     private void updateChipsDisplay() {
         enabledChips.removeAllViews();
 
-        List<String> enabledRules = tempEnabledRules.isEmpty()
-            ? List.of(AudioConfig.defaultRulesText().split(";"))
-            : tempEnabledRules;
-
-        for (String rule : enabledRules) {
+        for (String rule : tempEnabledRules) {
             if (TextUtils.isEmpty(rule)) continue;
             Chip chip = createChip(rule.trim());
             enabledChips.addView(chip);
@@ -222,6 +220,7 @@ public class AudioSourceDialog {
 
     private void resetToDefault() {
         tempEnabledRules.clear();
+        tempEnabledRules.addAll(defaultRules());
         updateChipsDisplay();
     }
 
