@@ -227,16 +227,13 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
-    public void leanbackImmersiveAudioAutoDetectionIsDisabled() throws Exception {
+    public void leanbackImmersiveAudioModeUsesAudioContentGuard() throws Exception {
         Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String policyBody = methodBody(source, "private boolean shouldUseImmersiveAudio()", "private void syncAudioStageSurface(boolean visible)");
 
-        assertTrue("TV immersive audio auto detection must stay disabled until media type is passed explicitly",
-                policyBody.contains("暂时关闭 TV 歌曲舞台的自动判断")
-                        && policyBody.contains("return false;"));
-        assertFalse("disabled TV auto detection must not guess from tracks or names",
-                policyBody.contains("isAudioOnly()") || policyBody.contains("isMusicLike()"));
+        assertTrue("TV immersive audio must honor the selected mode for audio-only or music-like content",
+                policyBody.contains("return PlayerSetting.isImmersiveAudioMode() && (isAudioOnly() || isMusicLike());"));
     }
 
     @Test

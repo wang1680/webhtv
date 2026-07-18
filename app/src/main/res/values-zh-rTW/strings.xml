@@ -1148,6 +1148,9 @@
     <string name="dialog_audio_site_rules">音訊源規則:關聯站源或關鍵詞,用 ; 分隔。預設:[音];[听]</string>
     <string name="dialog_audio_site_manage">選擇音訊源</string>
     <string name="dialog_audio_site_default">預設 [音]/[听]</string>
+    <string name="dialog_audio_playback_style">音訊播放風格</string>
+    <string name="dialog_audio_playback_style_immersive">沉浸音訊（上游合併版）</string>
+    <string name="dialog_audio_playback_style_built_in">標準音訊（自研版）</string>
     <string name="dialog_short_drama_site_rules">短劇源規則:關聯站源或關鍵詞,用 ; 分隔。預設:[短];短劇</string>
     <string name="dialog_short_drama_site_manage">選擇短劇源</string>
     <string name="dialog_short_drama_site_default">預設 [短]/短劇</string>
