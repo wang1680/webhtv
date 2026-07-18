@@ -115,6 +115,32 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void mobilePlayerGesturesUseVideoViewBoundsAfterFullscreen() throws Exception {
+        List<Path> gestureFiles = Arrays.asList(
+                findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "CustomKeyDown.java")),
+                findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerGesture.java"))
+        );
+
+        for (Path gestureFile : gestureFiles) {
+            String source = new String(Files.readAllBytes(gestureFile), StandardCharsets.UTF_8);
+            assertTrue(gestureFile + " must map raw touch coordinates into the actual player view",
+                    source.contains("videoView.getLocationOnScreen(videoLocation);")
+                            && source.contains("return e.getRawX() - videoLocation[0];")
+                            && source.contains("return e.getRawY() - videoLocation[1];"));
+            assertTrue(gestureFile + " must use the current player view dimensions for gesture regions",
+                    source.contains("private int getVideoWidth()")
+                            && source.contains("videoView.getWidth()")
+                            && source.contains("videoView.getMeasuredWidth()")
+                            && source.contains("private int getVideoHeight()")
+                            && source.contains("videoView.getHeight()")
+                            && source.contains("videoView.getMeasuredHeight()"));
+            assertFalse(gestureFile + " must not use app screen metrics for fullscreen gesture regions",
+                    source.contains("ResUtil.isEdge(App.get()")
+                            || source.contains("ResUtil.getScreenWidth(App.get())"));
+        }
+    }
+
+    @Test
     public void mobileVideoRefreshesDanmakuControlsAfterLateDanmakuLoad() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
