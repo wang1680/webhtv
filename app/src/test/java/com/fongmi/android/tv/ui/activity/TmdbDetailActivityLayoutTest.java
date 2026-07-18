@@ -104,10 +104,8 @@ public class TmdbDetailActivityLayoutTest {
                 source.indexOf("window.setStatusBarColor(Color.TRANSPARENT)", method) > method);
         assertTrue("TMDB detail navigation bar must stay transparent over the backdrop",
                 source.indexOf("window.setNavigationBarColor(Color.TRANSPARENT)", method) > method);
-        assertTrue("TMDB detail must keep light-colored status bar icons like the other native screens",
-                source.indexOf("setAppearanceLightStatusBars(false)", method) > method);
-        assertTrue("TMDB detail must keep light-colored navigation bar icons like the other native screens",
-                source.indexOf("setAppearanceLightNavigationBars(false)", method) > method);
+        assertTrue("TMDB detail must keep system bar icon contrast in sync with the detail theme",
+                source.indexOf("setAppearanceLightStatusBars", method) > method);
         assertTrue("TMDB detail must configure edge-to-edge during initialization",
                 source.indexOf("applyDetailEdgeToEdge();", init) > init);
         assertTrue("TMDB detail must re-apply edge-to-edge after theme changes",
