@@ -635,7 +635,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             @Override
             public void onItemLongClick(View anchor, Episode episode, int episodeNumber) {
                 anchor.setPressed(false);
-                showTmdbEpisodeDetail(episode, episodeNumber);
+                showTmdbEpisodeDetail(episode, episodeNumber, binding.episodeContainer);
             }
         });
         episodeAdapter.setNativeEnhanced(true);
@@ -4651,14 +4651,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         view.setLayoutParams(marginParams);
     }
 
-    private void showTmdbEpisodeDetail(Episode episode, int episodeNumber) {
+    private void showTmdbEpisodeDetail(Episode episode, int episodeNumber, RecyclerView returnRecycler) {
         // 对话框关闭后完整重渲染剧集列表，防止焦点状态紊乱导致按钮失效
         android.content.DialogInterface.OnDismissListener dismissListener = d -> {
-            if (binding == null || binding.episodeContainer == null) return;
+            if (binding == null || binding.episodeContainer == null || returnRecycler == null) return;
             // RecyclerView 可能仍在恢复布局，下一帧再完整重渲染（参考原生增强的 render 机制）
             binding.episodeContainer.post(() -> {
                 // 完整重建列表 + 分组按钮（类似原生增强 render[0].run()）
                 rerenderEpisodeViewportOnly(false, true, true);
+                returnRecycler.post(() -> restoreEpisodeDetailFocus(returnRecycler, episode));
             });
         };
 
@@ -4710,6 +4711,15 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 });
             }
         });
+    }
+
+    private void restoreEpisodeDetailFocus(RecyclerView recycler, Episode episode) {
+        if (recycler == null || episode == null) return;
+        RecyclerView.Adapter<?> adapter = recycler.getAdapter();
+        if (!(adapter instanceof TmdbEpisodeAdapter episodeAdapter)) return;
+        int position = episodeAdapter.getPosition(episode);
+        if (position < 0) return;
+        focusTmdbRecyclerItem(recycler, position);
     }
 
     /**
@@ -7176,7 +7186,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             @Override
             public void onItemLongClick(View anchor, Episode episode, int episodeNumber) {
                 anchor.setPressed(false);
-                showTmdbEpisodeDetail(episode, episodeNumber);
+                showTmdbEpisodeDetail(episode, episodeNumber, recycler);
             }
         });
         adapter.setLight(lightTheme);
