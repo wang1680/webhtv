@@ -1,6 +1,5 @@
 package com.fongmi.android.tv.ui.activity;
 
-import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -156,13 +155,14 @@ final class WebHomeChromeController {
 
     private void applySystemBars() {
         String effectiveMode = effectiveMode();
-        WebHomeChromeOptions effectiveOptions = isActive() ? options : WebHomeChromeOptions.normal();
+        boolean webHomeActive = isActive();
+        WebHomeChromeOptions effectiveOptions = webHomeActive ? options : WebHomeChromeOptions.normal();
         Window window = activity.getWindow();
         window.setStatusBarColor(effectiveOptions.topScrim);
         window.setNavigationBarColor(effectiveOptions.bottomScrim);
         WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, window.getDecorView());
-        controller.setAppearanceLightStatusBars(useDarkIcons(effectiveOptions.statusBarStyle));
-        controller.setAppearanceLightNavigationBars(useDarkIcons(effectiveOptions.navigationBarStyle));
+        controller.setAppearanceLightStatusBars(webHomeActive && useDarkIcons(effectiveOptions.statusBarStyle));
+        controller.setAppearanceLightNavigationBars(webHomeActive && useDarkIcons(effectiveOptions.navigationBarStyle));
         if (WebHomeChrome.IMMERSIVE.equals(effectiveMode)) Util.hideSystemUI(activity);
         else Util.showSystemUI(activity);
     }
@@ -220,9 +220,6 @@ final class WebHomeChromeController {
     }
 
     private boolean useDarkIcons(String style) {
-        if (WebHomeChromeOptions.STYLE_DARK.equals(style)) return true;
-        if (WebHomeChromeOptions.STYLE_LIGHT.equals(style)) return false;
-        int mask = activity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        return mask != Configuration.UI_MODE_NIGHT_YES;
+        return WebHomeChromeOptions.STYLE_DARK.equals(style);
     }
 }
