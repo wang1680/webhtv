@@ -57,6 +57,27 @@ public class AudioPlaybackStyleRoutingTest {
         assertImmersiveAudioDirectLaunch("leanback", leanback);
     }
 
+    @Test
+    public void asynchronousAudioLaunchesUseLifecycleAwareFrameDeferral() throws Exception {
+        String audio = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "AudioActivity.java")));
+        String mobile = read(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String leanback = read(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
+        String launch = read(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "utils", "ActivityLaunch.java")));
+
+        assertTrue("built-in audio playback must defer its async Activity launch",
+                audio.contains("ActivityLaunch.postOnAnimation(activity, () -> start("));
+        assertTrue("mobile immersive audio playback must defer its async Activity launch",
+                mobile.contains("ActivityLaunch.postOnAnimation(activity, () -> startResolvedImmersiveAudio("));
+        assertTrue("leanback immersive audio playback must defer its async Activity launch",
+                leanback.contains("ActivityLaunch.postOnAnimation(activity, () -> startResolvedImmersiveAudio("));
+        assertTrue("shared launch guard must reject finishing and destroyed activities",
+                launch.contains("!activity.isFinishing()") && launch.contains("!activity.isDestroyed()"));
+        assertTrue("shared launch guard must leave the current input dispatch before launching",
+                launch.contains("decor.postOnAnimation("));
+        assertTrue("shared launch guard must recognize the Android ViewGroup cancellation crash",
+                launch.contains("dispatchCancelPendingInputEvents"));
+    }
+
     private static void assertImmersiveAudioDirectLaunch(String variant, String source) {
         assertTrue(variant + " must expose a direct immersive audio site launcher",
                 source.contains("static boolean startImmersiveAudioSite(Activity activity, String key, String id, String name, String pic, String mark)"));

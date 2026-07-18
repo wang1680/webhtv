@@ -48,6 +48,7 @@ import com.fongmi.android.tv.ui.audio.AudioPlaybackResolver;
 import com.fongmi.android.tv.ui.custom.CustomSeekView;
 import com.fongmi.android.tv.ui.custom.CustomWallView;
 import com.fongmi.android.tv.ui.dialog.AudioCommentDialog;
+import com.fongmi.android.tv.utils.ActivityLaunch;
 import com.fongmi.android.tv.utils.AudioUtil;
 import com.fongmi.android.tv.utils.FileUtil;
 import com.fongmi.android.tv.utils.ImgUtil;
@@ -163,7 +164,7 @@ public class AudioActivity extends PlaybackActivity {
                 Vod vod = resolved.getVod();
                 Flag flag = resolved.getFlag();
                 Episode episode = resolved.getEpisode();
-                App.post(() -> start(activity, AudioHistory.buildPlaybackKey(key, id), key, flag.getFlag(), vod.getName(), episode.getDisplayName(), result.hasArtwork() ? result.getArtwork() : vod.getPic(), flag.getEpisodes(), resolved.getIndex(), result, resolved.getTimeout(), result.getHeader()));
+                App.post(() -> ActivityLaunch.postOnAnimation(activity, () -> start(activity, AudioHistory.buildPlaybackKey(key, id), key, flag.getFlag(), vod.getName(), episode.getDisplayName(), result.hasArtwork() ? result.getArtwork() : vod.getPic(), flag.getEpisodes(), resolved.getIndex(), result, resolved.getTimeout(), result.getHeader())));
             } catch (Throwable e) {
                 App.post(() -> Notify.show(TextUtils.isEmpty(e.getMessage()) ? "音频加载失败" : e.getMessage()));
             }

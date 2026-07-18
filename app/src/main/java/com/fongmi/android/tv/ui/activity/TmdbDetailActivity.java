@@ -141,6 +141,7 @@ import com.fongmi.android.tv.ui.helper.TmdbRecommendationRows;
 import com.fongmi.android.tv.ui.player.VodPlayerChrome;
 import com.fongmi.android.tv.ui.player.VodPlayerUiController;
 import com.fongmi.android.tv.ui.player.VodPlayerUiHost;
+import com.fongmi.android.tv.utils.ActivityLaunch;
 import com.fongmi.android.tv.utils.BatteryUtil;
 import com.fongmi.android.tv.utils.Formatters;
 import com.fongmi.android.tv.utils.ImgUtil;
@@ -291,6 +292,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private boolean inlineHttpRefreshAttempted;
     private boolean detailPlayerActive;
     private boolean autoPlayed;
+    private boolean defaultPlaybackLaunchPending;
     private boolean inlineFullscreen;
     private boolean inlineShortDramaMode;
     private boolean inlinePauseInfo;
@@ -4604,12 +4606,18 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void playDefaultPlayback() {
-        long start = System.currentTimeMillis();
-        logTmdbMatch("原生增强播放标题：raw=%s，缓存标题=%s，详情标题=%s，播放标题=%s", getTmdbRawTitle(), matchedTmdbItem == null ? "" : matchedTmdbItem.getTitle(), tmdbDetailTitle(matchedTmdbItem, matchedTmdbDetail), playbackHistoryName());
-        TmdbItem item = playbackTmdbItem();
-        String tmdbDetailCacheKey = TmdbDetailCache.put(item, matchedTmdbDetail, detailCastItems);
-        SpiderDebug.log("tmdb-tv", "play launch prep cost=%dms title=%s", System.currentTimeMillis() - start, playbackHistoryName());
-        VideoActivity.startDirectTmdb(this, getKeyText(), getIdText(), playbackHistoryName(), playbackHistoryPic(), playbackMark(), fastPlaybackEpisodeTitles(), item, playbackTmdbVod(), vod, tmdbDetailCacheKey, playbackFlag(), playbackEpisodeName(), playbackEpisodeUrl());
+        if (defaultPlaybackLaunchPending) return;
+        defaultPlaybackLaunchPending = true;
+        ActivityLaunch.postOnAnimation(this, () -> {
+            defaultPlaybackLaunchPending = false;
+            if (isFinishing() || isDestroyed()) return;
+            long start = System.currentTimeMillis();
+            logTmdbMatch("原生增强播放标题：raw=%s，缓存标题=%s，详情标题=%s，播放标题=%s", getTmdbRawTitle(), matchedTmdbItem == null ? "" : matchedTmdbItem.getTitle(), tmdbDetailTitle(matchedTmdbItem, matchedTmdbDetail), playbackHistoryName());
+            TmdbItem item = playbackTmdbItem();
+            String tmdbDetailCacheKey = TmdbDetailCache.put(item, matchedTmdbDetail, detailCastItems);
+            SpiderDebug.log("tmdb-tv", "play launch prep cost=%dms title=%s", System.currentTimeMillis() - start, playbackHistoryName());
+            VideoActivity.startDirectTmdb(this, getKeyText(), getIdText(), playbackHistoryName(), playbackHistoryPic(), playbackMark(), fastPlaybackEpisodeTitles(), item, playbackTmdbVod(), vod, tmdbDetailCacheKey, playbackFlag(), playbackEpisodeName(), playbackEpisodeUrl());
+        });
     }
 
     private String playbackMark() {

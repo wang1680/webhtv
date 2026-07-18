@@ -202,6 +202,19 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
+    public void defaultDetailPlaybackDefersLaunchUntilAfterCurrentInputDispatch() throws Exception {
+        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        int method = source.indexOf("private void playDefaultPlayback()");
+        int methodEnd = source.indexOf("private ", method + 1);
+        String body = source.substring(method, methodEnd);
+
+        assertTrue("detail playback must reject repeated taps while a launch is pending",
+                body.contains("if (defaultPlaybackLaunchPending) return;"));
+        assertTrue("detail playback must leave the current click/input dispatch before launching VideoActivity",
+                body.contains("ActivityLaunch.postOnAnimation(this, () ->"));
+    }
+
+    @Test
     public void playbackPageHidesThemeActionsWhileEnhancedDetailKeepsThem() throws Exception {
         String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int method = source.indexOf("private void updateDetailThemeButtonVisibility()");
