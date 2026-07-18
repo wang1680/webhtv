@@ -87,7 +87,7 @@ public class EpisodeGridHolder extends BaseEpisodeHolder {
         binding.card.setSelected(item.isSelected());
         bindCardActions(item, binding.getRoot(), binding.card, binding.imageFrame, binding.still, binding.textPanel, binding.cardTitle, binding.overview);
 
-        String cardTitle = EpisodeAdapter.getCardTitle(item);
+        String cardTitle = EpisodeAdapter.getCardTitle(item, episode);
         binding.cardTitle.setText(cardTitle);
         binding.cardTitle.setSelected(item.isSelected());
 

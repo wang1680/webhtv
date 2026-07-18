@@ -65,7 +65,7 @@ public class EpisodeHoriHolder extends BaseEpisodeHolder {
         binding.card.setSelected(item.isSelected());
         bindCardActions(item, binding.getRoot(), binding.card, binding.still, binding.cardTitle, binding.overview);
 
-        String cardTitle = EpisodeAdapter.getCardTitle(item);
+        String cardTitle = EpisodeAdapter.getCardTitle(item, tmdbEpisode);
         binding.cardTitle.setText(cardTitle);
         binding.cardTitle.setSelected(item.isSelected());
 
