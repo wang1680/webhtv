@@ -730,8 +730,10 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         setOption("input-default-bindings", "yes");
         setOption("cache", config.cache() ? "yes" : "no");
         setOption("cache-secs", String.valueOf(config.cacheSeconds()));
-        setOption("cache-pause", "yes");
-        setOption("cache-pause-initial", "no");
+        setOption("cache-pause", MpvStartupBufferPolicy.CACHE_PAUSE);
+        // Baseline for fast startup. mpv.conf can still replace it during init
+        // when the user explicitly selects config priority.
+        setOption("cache-pause-initial", MpvStartupBufferPolicy.CACHE_PAUSE_INITIAL);
         setOption("cache-pause-wait", String.format(Locale.US, "%.3f", config.rebufferMs() / SECONDS_TO_MS));
         setOption("demuxer-thread", "yes");
         setOption("demuxer-seekable-cache", "auto");
@@ -757,7 +759,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         setRuntimeString("save-position-on-quit", "no");
         setRuntimeString("force-window", "no");
         setRuntimeString("idle", "yes");
-        if (config.performanceOptionsPriority()) applyPerformanceOptionOverlay();
+        if (MpvStartupBufferPolicy.shouldApplyPerformanceOverlay(config.performanceOptionsPriority())) applyPerformanceOptionOverlay();
         SpiderDebug.log("mpv", "option priority=%s effective cache maxBytes=%s backBytes=%s cacheSecs=%s readaheadSecs=%s initial=%s rebufferWait=%s", config.performanceOptionsPriority() ? "performance" : "mpv.conf", stringProperty("demuxer-max-bytes", "?"), stringProperty("demuxer-max-back-bytes", "?"), stringProperty("cache-secs", "?"), stringProperty("demuxer-readahead-secs", "?"), stringProperty("cache-pause-initial", "?"), stringProperty("cache-pause-wait", "?"));
     }
 
@@ -772,8 +774,8 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         setRuntimeString("audio-spdif", config.audioSpdif());
         setRuntimeString("cache", config.cache() ? "yes" : "no");
         setRuntimeString("cache-secs", String.valueOf(config.cacheSeconds()));
-        setRuntimeString("cache-pause", "yes");
-        setRuntimeString("cache-pause-initial", "no");
+        setRuntimeString("cache-pause", MpvStartupBufferPolicy.CACHE_PAUSE);
+        setRuntimeString("cache-pause-initial", MpvStartupBufferPolicy.CACHE_PAUSE_INITIAL);
         setRuntimeString("cache-pause-wait", String.format(Locale.US, "%.3f", config.rebufferMs() / SECONDS_TO_MS));
         setRuntimeString("demuxer-thread", "yes");
         setRuntimeString("demuxer-seekable-cache", "auto");
