@@ -758,6 +758,8 @@ public class TmdbUIAdapter {
                     int resolvedNumber = resolveEpisodeNumber(episode, index, usePosition);
                     TmdbEpisode tmdbEp = findEpisodeByNumber(episodes, resolvedNumber);
                     if (tmdbEp == null) continue;
+                    // 验证匹配是否正确，避免无效集号误匹配
+                    if (!TmdbEpisodeMatcher.shouldApply(episode, tmdbEp, resolvedNumber)) continue;
                     if (hasEpisodeMetadataChanged(episode.getTmdbEpisode(), tmdbEp)) changed = true;
                     episode.setTmdbEpisode(tmdbEp);
                     if (!tmdbEp.getTitle().isEmpty()) {
