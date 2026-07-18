@@ -38,6 +38,7 @@ import androidx.media3.common.util.UnstableApi;
 import com.fongmi.android.tv.player.engine.PlayerCacheState;
 import com.fongmi.android.tv.player.iso.IsoSessionManager;
 import com.fongmi.android.tv.player.lut.MpvLutShader;
+import com.fongmi.android.tv.player.mpv.MpvNetworkRecoveryPolicy;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.MpvPerformanceSetting;
 import com.github.catvod.crawler.SpiderDebug;
@@ -669,6 +670,8 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             } else {
                 hlsProxy.clear();
             }
+            MpvNetworkRecoveryPolicy.Decision recovery = MpvNetworkRecoveryPolicy.resolve(currentPlayableUri);
+            SpiderDebug.log("mpv", "network recovery route=%s owner=%s nativeRemote=%s proxyUpstream=%s appOverlay=%s", recovery.route(), recovery.recoveryOwner(), recovery.nativeRemoteRecovery(), recovery.proxyOwnsUpstreamRecovery(), recovery.appReconnectOverlay());
             applyShaderPipeline(true);
             Log.d(TAG, "load scheme=" + safeScheme(currentPlayableUri) + " urlLen=" + (currentPlayableUri == null ? 0 : currentPlayableUri.length()) + " hls=" + currentLikelyHls + " dash=" + currentLikelyDash);
             SpiderDebug.log("mpv", "load scheme=%s urlLen=%d hls=%s dash=%s surface=%s attached=%s hwdec=%s vo=%s gpuContext=%s gpuApi=%s", safeScheme(currentPlayableUri), currentPlayableUri == null ? 0 : currentPlayableUri.length(), currentLikelyHls, currentLikelyDash, surface != null && surface.isValid(), surfaceAttached, config.hwdec(), config.vo(), config.gpuContext(), config.gpuApi());
