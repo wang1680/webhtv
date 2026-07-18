@@ -48,6 +48,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class HomeWebController {
 
@@ -55,6 +56,24 @@ public class HomeWebController {
     private static final int SLOW_KEY_MS = 24;
     private static final long LOAD_TIMEOUT_MS = 15000;
     private static final long EXTENSION_RELOAD_MIN_INTERVAL_MS = 5000;
+    private static final long MEDIA_PAUSE_LAUNCH_TIMEOUT_MS = 250;
+    private static final String PAUSE_PAGE_MEDIA_SCRIPT = """
+            (function() {
+              const pause = function(root) {
+                try {
+                  root.querySelectorAll('video,audio').forEach(function(media) {
+                    try { media.pause(); } catch (ignored) {}
+                  });
+                  root.querySelectorAll('iframe').forEach(function(frame) {
+                    try {
+                      if (frame.contentDocument) pause(frame.contentDocument);
+                    } catch (ignored) {}
+                  });
+                } catch (ignored) {}
+              };
+              pause(document);
+            })();
+            """;
     private static HomeWebController active;
     private static boolean extensionReloadRequested;
 
@@ -389,6 +408,7 @@ public class HomeWebController {
         paused = true;
         pauseAt = System.currentTimeMillis();
         dispatchLifecycle("fmpause", "{time:" + pauseAt + "}");
+        pausePageMedia();
         webView.onPause();
     }
 
@@ -418,8 +438,41 @@ public class HomeWebController {
         App.post(() -> {
             if (!paused) return;
             SpiderDebug.log("webhome-inline", "pause WebView after inline evaluation url=%s", webView.getUrl());
+            pausePageMedia();
             webView.onPause();
         });
+    }
+
+    private void pausePageMedia() {
+        try {
+            webView.evaluateJavascript(PAUSE_PAGE_MEDIA_SCRIPT, null);
+        } catch (Throwable e) {
+            SpiderDebug.log("webhome-inline", "pause page media failed: %s", e.getMessage());
+        }
+    }
+
+    public void prepareNativePlayback(Runnable launch) {
+        if (launch == null) return;
+        if (webView == null) {
+            launch.run();
+            return;
+        }
+        AtomicBoolean launched = new AtomicBoolean();
+        Runnable launchOnce = () -> {
+            if (activity.isFinishing() || activity.isDestroyed() || !launched.compareAndSet(false, true)) return;
+            launch.run();
+        };
+        webView.postDelayed(launchOnce, MEDIA_PAUSE_LAUNCH_TIMEOUT_MS);
+        try {
+            webView.evaluateJavascript(PAUSE_PAGE_MEDIA_SCRIPT, ignored -> {
+                webView.removeCallbacks(launchOnce);
+                launchOnce.run();
+            });
+        } catch (Throwable e) {
+            SpiderDebug.log("webhome-inline", "prepare native playback media pause failed: %s", e.getMessage());
+            webView.removeCallbacks(launchOnce);
+            launchOnce.run();
+        }
     }
 
     public void destroy() {
