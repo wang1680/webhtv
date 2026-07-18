@@ -187,6 +187,74 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void leanbackImmersiveAudioAutoDetectionIsDisabled() throws Exception {
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        String policyBody = methodBody(source, "private boolean shouldUseImmersiveAudio()", "private void syncAudioStageSurface(boolean visible)");
+
+        assertTrue("TV immersive audio auto detection must stay disabled until media type is passed explicitly",
+                policyBody.contains("暂时关闭 TV 歌曲舞台的自动判断")
+                        && policyBody.contains("return false;"));
+        assertFalse("disabled TV auto detection must not guess from tracks or names",
+                policyBody.contains("isAudioOnly()") || policyBody.contains("isMusicLike()"));
+    }
+
+    @Test
+    public void leanbackAudioStageReconcilesRestoredViewVisibility() throws Exception {
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        String visibilityBody = methodBody(source, "private void setAudioStageVisible(boolean visible)", "private boolean shouldUseImmersiveAudio()");
+
+        int reconcileView = visibilityBody.indexOf("mBinding.audioStage.setVisibility(visible ? View.VISIBLE : View.GONE);");
+        int stateFastPath = visibilityBody.indexOf("if (mAudioStageVisible == visible)");
+        assertTrue("TV audio stage must reconcile the real View before trusting its cached visibility flag",
+                reconcileView >= 0 && stateFastPath > reconcileView);
+    }
+
+    @Test
+    public void leanbackDisabledAudioStageHidesBeforeLyricsControllerEarlyReturn() throws Exception {
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        String refreshBody = methodBody(source, "private void refreshLyricsNow()", "private void scheduleRefreshKaraoke");
+
+        int audioContent = refreshBody.indexOf("boolean audioContent = shouldUseImmersiveAudio();");
+        int hideStage = refreshBody.indexOf("setAudioStageVisible(audioContent);");
+        int earlyReturn = refreshBody.indexOf("if (mLyrics == null || service() == null) return;");
+        assertTrue("TV disabled audio stage must be hidden even when lyrics controllers were never initialized",
+                audioContent >= 0 && hideStage > audioContent && earlyReturn > hideStage);
+    }
+
+    @Test
+    public void leanbackAudioStageOverlayStartsHiddenWhileAutoDetectionIsDisabled() throws Exception {
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        String setupBody = methodBody(source, "private void setupAudioStageOverlay()", "private void setupAudioStageFocusFeedback()");
+
+        int reattach = setupBody.indexOf("addView(mBinding.audioStage, params);");
+        int resetState = setupBody.indexOf("mAudioStageVisible = false;");
+        int hideView = setupBody.indexOf("mBinding.audioStage.setVisibility(View.GONE);");
+        assertTrue("TV audio stage overlay must not become visible merely because it was reattached to the root",
+                reattach >= 0 && resetState > reattach && hideView > resetState);
+    }
+
+    @Test
+    public void leanbackDisabledAudioStageStaysHiddenBeforeFirstFrame() throws Exception {
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        Element audioStage = findAndroidId(findLeanbackResPath().resolve(Path.of("layout", "activity_video.xml")).toFile(), "audioStage");
+
+        assertTrue("TV audio stage must opt out of restoring a previously visible overlay",
+                audioStage != null
+                        && "false".equals(audioStage.getAttribute("android:saveEnabled"))
+                        && source.contains("mBinding.audioStage.setSaveFromParentEnabled(false);"));
+        int onResume = source.indexOf("protected void onResume()");
+        int hideStage = source.indexOf("setAudioStageVisible(false);", onResume);
+        int superResume = source.indexOf("super.onResume();", onResume);
+        assertTrue("TV audio stage must be hidden in onResume before Android draws the first frame",
+                onResume >= 0 && hideStage > onResume && superResume > hideStage);
+    }
+
+    @Test
     public void videoPlaybackStartKeepsMergedAudioPreparation() throws Exception {
         assertVideoPlaybackStartKeepsMergedAudioPreparation("TV",
                 findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java")));
