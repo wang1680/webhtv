@@ -112,15 +112,17 @@
                     app:strokeColor="@android:color/transparent" />
             </LinearLayout>
 
-            <!-- 占位：真正的 playerPanel 已提升到 root 层，避免全屏切换时 SurfaceView reparent 导致黑屏 -->
+            <!-- 占位 + 焦点桥梁：真正的 playerPanel 已提升到 root 层，避免全屏切换时 SurfaceView reparent 导致黑屏。
+                 这个 View 在流式布局中占据播放器空间，同时作为可获焦节点，让方向键从周围按钮能导航到播放器区域。 -->
             <View
                 android:id="@+id/playerPanelSpacer"
                 android:layout_width="match_parent"
                 android:layout_height="252dp"
                 android:layout_marginTop="14dp"
                 android:layout_marginBottom="16dp"
-                android:focusable="true"
-                android:nextFocusForward="@id/playerPanel"
+                android:focusable="false"
+                android:focusableInTouchMode="false"
+                android:importantForAccessibility="no"
                 android:visibility="gone" />
 
             <FrameLayout

@@ -314,8 +314,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private final Runnable inlineTransitionFrameTimeout = this::hideInlineTransitionFrame;
     private Result pendingInlineResult;
     private Result currentInlineResult;
-    // 方案 A 重构：playerPanel 已提升到 root 层，全屏切换只调整 LayoutParams，不再 reparent
-    private final Runnable syncPlayerPanelPositionRunnable = this::syncInlinePlayerToSpacer;
+    // playerPanel 已提升到 root 层，全屏切换只调整 LayoutParams，不再 reparent
     private View detailControlRoot;
     private View detailActionRoot;
     private ViewGroup detailActionParent;
@@ -1094,6 +1093,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void setupInlineFocusNavigation() {
         if (Util.isMobile()) return;
+        binding.playerPanelSpacer.setFocusable(true);
+        binding.playerPanelSpacer.setFocusableInTouchMode(false);
         View timeBar = inlineSeek().findViewById(R.id.timeBar);
         if (timeBar != null) {
             timeBar.setNextFocusUpId(R.id.playerFullscreenAction);
@@ -1130,9 +1131,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
         // playerPanelSpacer 作为焦点桥梁：获得焦点时立即转给 playerPanel
         binding.playerPanelSpacer.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus && binding != null && !inlineFullscreen) {
-                binding.playerPanel.requestFocus();
-            }
+            if (hasFocus && !inlineFullscreen) binding.playerPanel.requestFocus();
         });
     }
 
@@ -5492,6 +5491,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setPlayerCard(lightTheme ? ThemeColors.light() : ThemeColors.dark());
         ensureInlineDanmakuController();
         binding.playerPanel.setVisibility(View.VISIBLE);
+        binding.playerPanelSpacer.setVisibility(View.VISIBLE); // spacer 作为焦点桥梁需要可见
         enterInlineFullscreen();
         if (!current) playInline();
     }
@@ -7921,8 +7921,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
      */
     private void applyInlinePlayerEmbeddedLayout() {
         if (binding == null) return;
+        // 融合模式上下 margin (22dp/20dp) 比普通模式 (14dp/16dp) 略大
         int topMarginDp = isFusionMode() ? 22 : 14;
         int bottomMarginDp = isFusionMode() ? 20 : 16;
+        // TV 版左右贴边（margin=0），mobile 版左右留白 16dp
+        int horizontalMarginDp = Util.isLeanback() ? 0 : 16;
         FrameLayout.LayoutParams params;
         ViewGroup.LayoutParams current = binding.playerPanel.getLayoutParams();
         if (current instanceof FrameLayout.LayoutParams framed) params = framed;
@@ -7930,7 +7933,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         params.width = ViewGroup.LayoutParams.MATCH_PARENT;
         params.height = ResUtil.dp2px(252);
         params.gravity = Gravity.TOP | Gravity.START;
-        params.setMargins(ResUtil.dp2px(16), ResUtil.dp2px(topMarginDp), ResUtil.dp2px(16), ResUtil.dp2px(bottomMarginDp));
+        params.setMargins(ResUtil.dp2px(horizontalMarginDp), ResUtil.dp2px(topMarginDp), ResUtil.dp2px(horizontalMarginDp), ResUtil.dp2px(bottomMarginDp));
+        // XML 里的 layout_marginStart/End=16dp 在 RTL 解析时会覆盖 left/right，需显式清零
+        params.setMarginStart(ResUtil.dp2px(horizontalMarginDp));
+        params.setMarginEnd(ResUtil.dp2px(horizontalMarginDp));
         binding.playerPanel.setLayoutParams(params);
         // 内嵌 spacer 顶部对齐时，translationY 由 syncInlinePlayerToSpacer() 依据 spacer 位置更新
         alignInlinePlayerSpacerHeight();
@@ -7947,6 +7953,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         params.height = ViewGroup.LayoutParams.MATCH_PARENT;
         params.gravity = Gravity.TOP | Gravity.START;
         params.setMargins(0, 0, 0, 0);
+        // playerPanel 的 XML 用了 layout_marginStart/End=16dp，setMargins 只改 left/right，
+        // RTL 解析时 start/end 会覆盖 left/right，导致全屏左右残留 16dp 黑边，需显式清零。
+        params.setMarginStart(0);
+        params.setMarginEnd(0);
         binding.playerPanel.setLayoutParams(params);
     }
 
@@ -8138,6 +8148,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerError.setVisibility(View.GONE);
         updateInlineDisplayPanel();
         binding.playerPanel.setVisibility(View.GONE);
+        binding.playerPanelSpacer.setVisibility(View.GONE); // 同步隐藏 spacer
         inlineStarted = false;
         detailPlayerActive = false;
         pendingInlineResult = null;

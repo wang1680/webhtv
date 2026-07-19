@@ -1804,6 +1804,45 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
+    public void fusionPlayerSpacerOnlyAcceptsFocusOnLeanback() throws Exception {
+        String layout = readLayout("activity_tmdb_detail.xml");
+        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        String controller = readJava("com", "fongmi", "android", "tv", "ui", "detail", "FusionDetailController.java");
+
+        int spacerStart = layout.indexOf("android:id=\"@+id/playerPanelSpacer\"");
+        int spacerEnd = layout.indexOf("/>", spacerStart);
+        assertTrue("detail layout must contain playerPanelSpacer", spacerStart >= 0 && spacerEnd > spacerStart);
+        String spacerTag = layout.substring(spacerStart, spacerEnd);
+        assertTrue("transparent spacer must not be a mobile/touch focus target by default",
+                spacerTag.contains("android:focusable=\"false\"")
+                        && spacerTag.contains("android:focusableInTouchMode=\"false\""));
+        assertTrue("transparent spacer must be hidden from accessibility services",
+                spacerTag.contains("android:importantForAccessibility=\"no\""));
+
+        int setupStart = activity.indexOf("private void setupInlineFocusNavigation()");
+        int setupEnd = activity.indexOf("private void setupHorizontalFocusChain()", setupStart);
+        String setupBody = activity.substring(setupStart, setupEnd);
+        int mobileGuard = setupBody.indexOf("if (Util.isMobile()) return;");
+        int enableFocus = setupBody.indexOf("binding.playerPanelSpacer.setFocusable(true);");
+        int disableTouchFocus = setupBody.indexOf("binding.playerPanelSpacer.setFocusableInTouchMode(false);");
+        int focusBridge = setupBody.indexOf("binding.playerPanelSpacer.setOnFocusChangeListener");
+        assertTrue("spacer focus must be enabled only after the mobile guard",
+                mobileGuard >= 0 && enableFocus > mobileGuard);
+        assertTrue("TV spacer must remain outside touch-mode focus and then install the focus bridge",
+                disableTouchFocus > enableFocus && focusBridge > disableTouchFocus);
+        assertTrue("fusion mode must keep the spacer visible so it reserves player space",
+                controller.contains("binding.playerPanelSpacer.setVisibility(View.VISIBLE);"));
+    }
+
+    @Test
+    public void fusionFocusBridgeDoesNotShipTemporaryDebugLogs() throws Exception {
+        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+
+        assertTrue("temporary TmdbDetailFocus logs must be removed before merge",
+                !activity.contains("TmdbDetailFocus"));
+    }
+
+    @Test
     public void nativeEnhancedEpisodeCardsUseUnifiedTvFocusAndPlayingState() throws Exception {
         Path adapterPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "adapter", "TmdbEpisodeAdapter.java"));
         String adapter = new String(Files.readAllBytes(adapterPath), StandardCharsets.UTF_8);
