@@ -19,6 +19,7 @@ import com.fongmi.android.tv.bean.TmdbEpisode;
 import com.fongmi.android.tv.databinding.AdapterEpisodeBinding;
 import com.fongmi.android.tv.databinding.AdapterEpisodeCardBinding;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.ui.helper.TmdbEpisodeMatcher;
 import com.fongmi.android.tv.utils.EpisodeTitleCompact;
 import com.fongmi.android.tv.utils.EpisodeTitleFormatter;
 import com.fongmi.android.tv.utils.ImgUtil;
@@ -292,7 +293,12 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
         AdapterEpisodeCardBinding binding = holder.cardBinding;
         if (binding == null) return;
 
+        // 使用集号匹配 TMDB 数据，而不是直接使用 item.getTmdbEpisode()
+        int episodeNumber = item.getNumber() > 0 ? item.getNumber() : position + 1;
         TmdbEpisode tmdbEpisode = item.getTmdbEpisode();
+        if (!TmdbEpisodeMatcher.shouldApply(item, tmdbEpisode, episodeNumber)) {
+            tmdbEpisode = null;
+        }
         if (tmdbEpisode == null) return;
 
         applyCardSize(binding);

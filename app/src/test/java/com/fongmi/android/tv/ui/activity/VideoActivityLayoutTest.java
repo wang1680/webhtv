@@ -101,6 +101,20 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void mobileVodControlOverlayRoutesBlankTouchesToGestureDetector() throws Exception {
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int initEvent = source.indexOf("protected void initEvent()");
+        int rootTouch = source.indexOf("mBinding.control.getRoot().setOnTouchListener(this::onPlayerControlTouch);", initEvent);
+        int touchHandler = source.indexOf("private boolean onPlayerControlTouch(View view, MotionEvent event)");
+        int gestureDispatch = source.indexOf("return mKeyDown.onTouchEvent(event);", touchHandler);
+
+        assertTrue(sourcePath + " is missing initEvent", initEvent >= 0);
+        assertTrue("the fullscreen control overlay must route blank touches directly to the gesture detector", rootTouch > initEvent);
+        assertTrue("the control-overlay touch handler must dispatch the full gesture sequence", touchHandler >= 0 && gestureDispatch > touchHandler);
+    }
+
+    @Test
     public void mobileVideoRefreshesDanmakuControlsAfterLateDanmakuLoad() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);

@@ -1313,15 +1313,17 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         mVod = item;
         mFastTmdbPlaybackStarted = true;
         mFastTmdbFullDetailBound = false;
+        takeFastTmdbDetailCache();
         prepareFastTmdbPlaybackItem(item);
         mBinding.name.setText(getFastTmdbPlaybackInitialName(item));
         mBinding.widget.title.setText(getFastTmdbPlaybackInitialTitle(item));
         mBinding.widget.title.setSelected(true);
+        setText(item);
+        hydrateFastTmdbPlaybackDetail(item);
         mBinding.video.requestFocus();
         showProgress();
         showFastTmdbPlaybackContent();
         SpiderDebug.log("video-flow", "fast tmdb playback reveal cost=%dms key=%s episode=%s", System.currentTimeMillis() - start, getKey(), getIntentPlaybackEpisodeName());
-        mBinding.getRoot().post(() -> hydrateFastTmdbPlaybackDetail(item));
         if (shouldWaitForPlaybackService()) {
             queueFastTmdbPlaybackUntilServiceReady(item);
             return true;
@@ -1364,8 +1366,13 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         }
         mFastPlaybackFlag = flag;
         mFastPlaybackEpisode = episode;
-        mBinding.name.setText(item.getName());
-        mBinding.widget.title.setText(getPlaybackControlTitle(episode));
+        if (!TextUtils.equals(mBinding.name.getText(), item.getName())) {
+            mBinding.name.setText(item.getName());
+        }
+        CharSequence playbackTitle = getPlaybackControlTitle(episode);
+        if (!TextUtils.equals(mBinding.widget.title.getText(), playbackTitle)) {
+            mBinding.widget.title.setText(playbackTitle);
+        }
         playerStartTime = System.currentTimeMillis();
         beginPlayHealth();
         prepareFastTmdbPlaybackHistory(item, flag, episode);
@@ -1381,6 +1388,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         mBinding.getRoot().postDelayed(() -> {
             if (isFinishing() || isDestroyed()) return;
             long start = System.currentTimeMillis();
+            prepareFastTmdbPlaybackItem(item);
             setDetail(Result.vod(item));
             SpiderDebug.log("video-flow", "fast tmdb full detail bind cost=%dms key=%s id=%s name=%s", System.currentTimeMillis() - start, getKey(), getId(), item.getName());
         }, TMDB_CACHED_DETAIL_APPLY_DELAY_MS);
@@ -1390,6 +1398,11 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         item.checkPic(firstNonEmpty(getPic(), getTmdbVodPic()));
         item.checkName(getName());
         item.checkContent(firstNonEmpty(item.getContent(), getTmdbVodContent(), getContent()));
+        setIfEmpty(item.getYear(), getTmdbVodYear(), item::setYear);
+        setIfEmpty(item.getArea(), getTmdbVodArea(), item::setArea);
+        setIfEmpty(item.getTypeName(), getTmdbVodType(), item::setTypeName);
+        setIfEmpty(item.getDirector(), getTmdbVodDirector(), item::setDirector);
+        setIfEmpty(item.getActor(), getTmdbVodActor(), item::setActor);
     }
 
     private void hydrateFastTmdbPlaybackDetail(Vod item) {
@@ -1402,17 +1415,22 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         if (!TextUtils.isEmpty(content)) {
             item.setContent(content);
             mBinding.content.setTag(content);
-            if (isTmdbMode()) {
+            if (isTmdbMode() && !isIntentTmdbPlayback()) {
                 suppressTmdbNativeTextFields();
                 mBinding.tmdbOverview.setSingleLine(false);
                 mBinding.tmdbOverview.setHorizontallyScrolling(false);
                 mBinding.tmdbOverview.setMaxLines(Integer.MAX_VALUE);
-                mBinding.tmdbOverview.setText(getString(R.string.detail_content, content));
+                CharSequence overview = getString(R.string.detail_content, content);
+                if (!TextUtils.equals(mBinding.tmdbOverview.getText(), overview)) {
+                    mBinding.tmdbOverview.setText(overview);
+                }
                 mBinding.tmdbOverview.setVisibility(View.VISIBLE);
                 mBinding.tmdbOverview.post(this::updateTmdbOverviewButton);
             }
         }
-        if (!TextUtils.isEmpty(item.getName())) mBinding.name.setText(item.getName());
+        if (!TextUtils.isEmpty(item.getName()) && !TextUtils.equals(mBinding.name.getText(), item.getName())) {
+            mBinding.name.setText(item.getName());
+        }
         if (!TextUtils.isEmpty(wall)) setContextWall(wall);
         if (mHistory != null) {
             if (!TextUtils.isEmpty(item.getName())) mHistory.setVodName(item.getName());
@@ -1432,6 +1450,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     private boolean applyFastTmdbDetailCache(Vod item) {
         TmdbDetailCache.Entry cached = takeFastTmdbDetailCache();
         if (cached == null || item == null) return false;
+        mFastTmdbDetailCache = cached;
         JsonObject detail = cached.getDetail();
         String overview = cachedTmdbOverview(detail);
         if (!TextUtils.isEmpty(overview) && (TextUtils.isEmpty(item.getContent()) || overview.length() > item.getContent().length())) {
@@ -1445,12 +1464,16 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     }
 
     private String cachedFastTmdbBackdrop() {
-        return cachedFastTmdbBackdrop(takeFastTmdbDetailCache());
+        return cachedFastTmdbBackdrop(mFastTmdbDetailCache);
     }
 
     private String cachedFastTmdbBackdrop(TmdbDetailCache.Entry cached) {
         if (cached == null) return "";
         return firstNonEmpty(cachedTmdbImage(cached.getDetail(), "backdrop_path", true), cached.getItem() == null ? "" : cached.getItem().getBackdropUrl());
+    }
+
+    private void setIfEmpty(String current, String value, java.util.function.Consumer<String> setter) {
+        if (TextUtils.isEmpty(current) && !TextUtils.isEmpty(value)) setter.accept(value);
     }
 
     private String cachedFastTmdbPoster(TmdbDetailCache.Entry cached) {
@@ -1799,8 +1822,8 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         if (mTmdbUIAdapter != null && mTmdbUIAdapter.isReady()) {
             com.fongmi.android.tv.bean.TmdbItem tmdbItem = getTmdbItem();
             if (tmdbItem != null) {
-                SpiderDebug.log("tmdb-tv", "direct load vodTitle=%s tmdbTitle=%s tmdbId=%d media=%s", item.getName(), tmdbItem.getTitle(), tmdbItem.getTmdbId(), tmdbItem.getMediaType());
-                mTmdbUIAdapter.load(tmdbItem, item);
+                SpiderDebug.log("tmdb-tv", "direct load vodTitle=%s tmdbTitle=%s tmdbId=%d media=%s cache=%s", item.getName(), tmdbItem.getTitle(), tmdbItem.getTmdbId(), tmdbItem.getMediaType(), mFastTmdbDetailCache != null);
+                mTmdbUIAdapter.load(tmdbItem, item, mFastTmdbDetailCache);
             } else {
                 mTmdbUIAdapter.autoMatch(item.getName(), item);
             }
@@ -1864,10 +1887,16 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     }
 
     private void applyTmdbDetailFields() {
+        setTmdbRematchVisible(true);
+        // 炫彩详情已经在播放页显示前带入完整文本，异步 TMDB 完成时不要再切换右侧布局。
+        if (isIntentTmdbPlayback()) {
+            mBinding.video.setNextFocusRightId(R.id.content);
+            return;
+        }
+
         // 去掉集数、演员、导演；简介按钮默认隐藏（仅简介显示不全时再显示）
         suppressTmdbNativeTextFields();
         mBinding.content.setVisibility(View.GONE);
-        setTmdbRematchVisible(true);
 
         // 年份、地区、类型取 TMDB
         if (mTmdbUIAdapter != null) {
@@ -1879,17 +1908,19 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
             if (!TextUtils.isEmpty(genres)) setText(mBinding.type, R.string.detail_type, genres);
         }
 
-        // 简介移到站源行下方显示（内容来自已 enrich 的 content tag）
+        // 简介移到站源行下方显示；内容相同时不重置 maxLines，避免播放页再次布局闪动。
         Object desc = mBinding.content.getTag();
         String overview = desc == null ? "" : desc.toString();
         if (!TextUtils.isEmpty(overview)) {
-            mBinding.tmdbOverview.setSingleLine(false);
-            mBinding.tmdbOverview.setHorizontallyScrolling(false);
-            mBinding.tmdbOverview.setMaxLines(Integer.MAX_VALUE);
-            mBinding.tmdbOverview.setText(getString(R.string.detail_content, overview));
+            CharSequence overviewText = getString(R.string.detail_content, overview);
+            if (!TextUtils.equals(mBinding.tmdbOverview.getText(), overviewText)) {
+                mBinding.tmdbOverview.setSingleLine(false);
+                mBinding.tmdbOverview.setHorizontallyScrolling(false);
+                mBinding.tmdbOverview.setMaxLines(Integer.MAX_VALUE);
+                mBinding.tmdbOverview.setText(overviewText);
+                mBinding.tmdbOverview.post(this::updateTmdbOverviewButton);
+            }
             mBinding.tmdbOverview.setVisibility(View.VISIBLE);
-            // 布局完成后检测是否截断，截断则显示简介按钮
-            mBinding.tmdbOverview.post(this::updateTmdbOverviewButton);
         } else {
             mBinding.tmdbOverview.setVisibility(View.GONE);
         }
@@ -1959,8 +1990,10 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
 
     private void setText(TextView view, int resId, String text) {
         if (TextUtils.isEmpty(text) && !TextUtils.isEmpty(view.getText())) return;
-        view.setText(Sniffer.buildClickable(resId > 0 ? getString(resId, text) : text, this::clickableSpan), TextView.BufferType.SPANNABLE);
+        String value = resId > 0 ? getString(resId, text) : text;
         view.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
+        if (TextUtils.equals(view.getText(), value)) return;
+        view.setText(Sniffer.buildClickable(value, this::clickableSpan), TextView.BufferType.SPANNABLE);
         view.setLinkTextColor(MDColor.YELLOW_500);
         CustomMovement.bind(view);
     }
@@ -3828,11 +3861,14 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
             }
         }
         if (name) mHistory.setVodName(item.getName());
-        if (name) mBinding.name.setText(item.getName());
+        if (name && !TextUtils.equals(mBinding.name.getText(), item.getName())) {
+            mBinding.name.setText(item.getName());
+        }
         // 原生增强：TMDB 富集完成后回写题材/地区/演员/主创到 History（enrichVod 已填充 item），仅补空字段
         if (mHistory != null) mHistory.enrichMeta(item.getTypeName(), item.getArea(), item.getActor(), item.getDirector(), item.getYear());
         updateFlag(getFlag(), item.getFlags());
-        mBinding.widget.title.setText(getPlaybackControlTitle());
+        CharSequence playbackTitle = getPlaybackControlTitle();
+        if (!TextUtils.equals(mBinding.widget.title.getText(), playbackTitle)) mBinding.widget.title.setText(playbackTitle);
         if (pic) setArtwork(item.getPic());
         if (pic || name) setMetadata();
         // key 迁移后必须写回，避免 replace 删旧 key 后未 save 导致历史消失
@@ -3850,6 +3886,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     }
 
     private void suppressTmdbNativeTextFields() {
+        if (isIntentTmdbPlayback()) return;
         mBinding.remark.setVisibility(View.GONE);
         mBinding.actor.setVisibility(View.GONE);
         mBinding.director.setVisibility(View.GONE);

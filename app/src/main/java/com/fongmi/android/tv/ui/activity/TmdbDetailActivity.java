@@ -1433,7 +1433,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private boolean onInlineControlTouch(View view, MotionEvent event) {
         if (isInlineControlsVisible()) touchInlineControls();
-        return false;
+        // 控制层显示时空白区域不会稳定冒泡到 playerPanel，直接继续播放器手势序列。
+        return onInlineTouch(view, event);
     }
 
     private boolean onInlinePanelKey(View view, int keyCode, KeyEvent event) {

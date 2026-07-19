@@ -410,6 +410,19 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
+    public void mobileFusionControlOverlayRoutesBlankTouchesToGestureDetector() throws Exception {
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int touchHandler = source.indexOf("private boolean onInlineControlTouch(View view, MotionEvent event)");
+        int nextMethod = source.indexOf("private boolean onInlinePanelKey", touchHandler);
+        String handlerBody = touchHandler >= 0 && nextMethod > touchHandler ? source.substring(touchHandler, nextMethod) : "";
+
+        assertTrue(sourcePath + " is missing onInlineControlTouch", touchHandler >= 0);
+        assertTrue("the fusion control overlay must forward blank touches to the player gesture detector",
+                handlerBody.contains("return onInlineTouch(view, event);"));
+    }
+
+    @Test
     public void fusionDetailBackdropCropsToFillScreen() throws Exception {
         Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);

@@ -1079,6 +1079,8 @@ private int mAudioBackgroundRandomNonce;
         mBinding.control.action.ending.setOnLongClickListener(view -> onEndingReset());
         mBinding.control.action.opening.setOnLongClickListener(view -> onOpeningReset());
         mBinding.video.setOnTouchListener((view, event) -> mKeyDown.onTouchEvent(event));
+        // 控制层显示时会先于 video 容器接收事件，空白区域必须直接转发给手势检测器。
+        mBinding.control.getRoot().setOnTouchListener(this::onPlayerControlTouch);
         mBinding.control.action.getRoot().setOnTouchListener(this::onActionTouch);
         mBinding.swipeLayout.setOnRefreshListener(this::onSwipeRefresh);
     }
@@ -2855,6 +2857,11 @@ private int mAudioBackgroundRandomNonce;
         if (!player().haveTrack(C.TRACK_TYPE_TEXT)) return false;
         onSubtitleClick();
         return true;
+    }
+
+    private boolean onPlayerControlTouch(View view, MotionEvent event) {
+        setR1Callback();
+        return mKeyDown.onTouchEvent(event);
     }
 
     private boolean onActionTouch(View v, MotionEvent e) {
