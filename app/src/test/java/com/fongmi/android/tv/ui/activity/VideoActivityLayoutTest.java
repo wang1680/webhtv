@@ -115,6 +115,32 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void mobilePlayerGesturesUseVideoViewBoundsAfterFullscreen() throws Exception {
+        List<Path> gestureFiles = Arrays.asList(
+                findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "CustomKeyDown.java")),
+                findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "PlayerGesture.java"))
+        );
+
+        for (Path gestureFile : gestureFiles) {
+            String source = new String(Files.readAllBytes(gestureFile), StandardCharsets.UTF_8);
+            assertTrue(gestureFile + " must map raw touch coordinates into the actual player view",
+                    source.contains("videoView.getLocationOnScreen(videoLocation);")
+                            && source.contains("return e.getRawX() - videoLocation[0];")
+                            && source.contains("return e.getRawY() - videoLocation[1];"));
+            assertTrue(gestureFile + " must use the current player view dimensions for gesture regions",
+                    source.contains("private int getVideoWidth()")
+                            && source.contains("videoView.getWidth()")
+                            && source.contains("videoView.getMeasuredWidth()")
+                            && source.contains("private int getVideoHeight()")
+                            && source.contains("videoView.getHeight()")
+                            && source.contains("videoView.getMeasuredHeight()"));
+            assertFalse(gestureFile + " must not use app screen metrics for fullscreen gesture regions",
+                    source.contains("ResUtil.isEdge(App.get()")
+                            || source.contains("ResUtil.getScreenWidth(App.get())"));
+        }
+    }
+
+    @Test
     public void mobileVideoRefreshesDanmakuControlsAfterLateDanmakuLoad() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
@@ -1921,6 +1947,37 @@ public class VideoActivityLayoutTest {
                 source.indexOf("mBinding.videoContextScrim.setLayoutParams(", method) > method);
         assertTrue("Fusion context wall scrim must remain visible over the full-screen artwork",
                 source.indexOf("mBinding.videoContextScrim.setVisibility(View.VISIBLE)", method) > method);
+    }
+
+    @Test
+    public void mobileHistoryEntryPassesExactPlaybackSelection() throws Exception {
+        Path historyPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "HistoryActivity.java"));
+        Path videoPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String history = new String(Files.readAllBytes(historyPath), StandardCharsets.UTF_8);
+        String video = new String(Files.readAllBytes(videoPath), StandardCharsets.UTF_8);
+        String compactHistory = history.replaceAll("\\s+", " ");
+
+        assertTrue("history clicks must pass flag, episode title, and episode url to direct playback",
+                compactHistory.contains("VideoActivity.startDirect(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks(), item.getVodFlag(), item.getVodRemarks(), item.getEpisodeUrl())"));
+        assertTrue("direct playback must preserve the requested episode selection in the intent",
+                video.contains("putIntentPlaybackSelection(intent, playFlag, playEpisodeName, playEpisodeUrl);"));
+    }
+
+    @Test
+    public void mobileSaveHistoryKeepsRecordWithoutMergeDeletingSource() throws Exception {
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int method = source.indexOf("private void saveHistory(boolean exit)");
+        int end = source.indexOf("private void syncHistory()", method);
+        String body = method >= 0 && end > method ? source.substring(method, end) : "";
+
+        assertTrue(sourcePath + " is missing saveHistory(boolean)", method >= 0);
+        assertTrue("saveHistory must treat an attached non-empty owner player as played content",
+                body.contains("boolean hasPlayback = service() != null && isOwner() && !player().isEmpty();"));
+        assertTrue("saveHistory must persist played content even before progress advances past zero",
+                body.contains("if (!mHistory.canSave() && !hasPlayback) return;"));
+        assertFalse("mobile playback save must not merge-delete existing history entries",
+                body.contains("history.merge().save()"));
     }
 
     private static void assertNoPrematurePlaybackReveal(Path sourcePath, String source) {

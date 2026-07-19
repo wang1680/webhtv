@@ -615,6 +615,11 @@ private int mAudioBackgroundRandomNonce;
     }
 
     public static void startDirect(Activity activity, String key, String id, String name, String pic, String mark) {
+        startDirect(activity, key, id, name, pic, mark, null, null, null);
+    }
+
+    public static void startDirect(Activity activity, String key, String id, String name, String pic, String mark,
+            String playFlag, String playEpisodeName, String playEpisodeUrl) {
         if (AudioActivity.startSite(activity, key, id, name, pic, mark)) return;
         Intent intent = new Intent(activity, VideoActivity.class);
         intent.putExtra("collect", false);
@@ -623,6 +628,7 @@ private int mAudioBackgroundRandomNonce;
         intent.putExtra("pic", pic);
         intent.putExtra("key", key);
         intent.putExtra("id", id);
+        putIntentPlaybackSelection(intent, playFlag, playEpisodeName, playEpisodeUrl);
         activity.startActivity(intent);
     }
 
@@ -1131,37 +1137,43 @@ private int mAudioBackgroundRandomNonce;
         mBinding.flag.addItemDecoration(new SpaceItemDecoration(8));
         mBinding.flag.setAdapter(mFlagAdapter = new FlagAdapter(this));
         mBinding.quick.setAdapter(mQuickAdapter = new QuickAdapter(this));
-        mBinding.tmdbPersonalTmdbRecommendations.setHasFixedSize(true);
-        mBinding.tmdbPersonalTmdbRecommendations.setItemAnimator(null);
-        mBinding.tmdbPersonalTmdbRecommendations.addItemDecoration(new SpaceItemDecoration(8));
-        mBinding.tmdbPersonalTmdbRecommendations.setAdapter(mPersonalTmdbRecommendationAdapter = new TmdbRecommendationAdapter());
-        mPersonalTmdbRecommendationAdapter.setOnItemClickListener(this::onPersonalRecommendationClick);
-        mBinding.tmdbPersonalTmdbRecommendations.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                if (dx > 0 && isNearRecommendationRowEnd(recyclerView)) loadMoreNativePersonalRecommendations(true);
-            }
-        });
-        mBinding.tmdbPersonalDoubanRecommendations.setHasFixedSize(true);
-        mBinding.tmdbPersonalDoubanRecommendations.setItemAnimator(null);
-        mBinding.tmdbPersonalDoubanRecommendations.addItemDecoration(new SpaceItemDecoration(8));
-        mBinding.tmdbPersonalDoubanRecommendations.setAdapter(mPersonalDoubanRecommendationAdapter = new TmdbRecommendationAdapter());
-        mPersonalDoubanRecommendationAdapter.setOnItemClickListener(this::onPersonalRecommendationClick);
-        mBinding.tmdbPersonalDoubanRecommendations.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                if (dx > 0 && isNearRecommendationRowEnd(recyclerView)) loadMoreNativePersonalRecommendations(false);
-            }
-        });
-        mBinding.tmdbPersonalAiRecommendations.setHasFixedSize(true);
-        mBinding.tmdbPersonalAiRecommendations.setItemAnimator(null);
-        mBinding.tmdbPersonalAiRecommendations.addItemDecoration(new SpaceItemDecoration(8));
-        mBinding.tmdbPersonalAiRecommendations.setAdapter(mPersonalAiRecommendationAdapter = new TmdbRecommendationAdapter());
-        mPersonalAiRecommendationAdapter.setOnItemClickListener(this::onPersonalRecommendationClick);
-        mPersonalAiRecommendationAdapter.setOnItemLongClickListener(item -> {
-            com.fongmi.android.tv.ui.dialog.AiRecommendationInfoDialog.show(this, item);
-            return true;
-        });
+        if (mBinding.tmdbPersonalTmdbRecommendations != null) {
+            mBinding.tmdbPersonalTmdbRecommendations.setHasFixedSize(true);
+            mBinding.tmdbPersonalTmdbRecommendations.setItemAnimator(null);
+            mBinding.tmdbPersonalTmdbRecommendations.addItemDecoration(new SpaceItemDecoration(8));
+            mBinding.tmdbPersonalTmdbRecommendations.setAdapter(mPersonalTmdbRecommendationAdapter = new TmdbRecommendationAdapter());
+            mPersonalTmdbRecommendationAdapter.setOnItemClickListener(this::onPersonalRecommendationClick);
+            mBinding.tmdbPersonalTmdbRecommendations.addOnScrollListener(new RecyclerView.OnScrollListener() {
+                @Override
+                public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                    if (dx > 0 && isNearRecommendationRowEnd(recyclerView)) loadMoreNativePersonalRecommendations(true);
+                }
+            });
+        }
+        if (mBinding.tmdbPersonalDoubanRecommendations != null) {
+            mBinding.tmdbPersonalDoubanRecommendations.setHasFixedSize(true);
+            mBinding.tmdbPersonalDoubanRecommendations.setItemAnimator(null);
+            mBinding.tmdbPersonalDoubanRecommendations.addItemDecoration(new SpaceItemDecoration(8));
+            mBinding.tmdbPersonalDoubanRecommendations.setAdapter(mPersonalDoubanRecommendationAdapter = new TmdbRecommendationAdapter());
+            mPersonalDoubanRecommendationAdapter.setOnItemClickListener(this::onPersonalRecommendationClick);
+            mBinding.tmdbPersonalDoubanRecommendations.addOnScrollListener(new RecyclerView.OnScrollListener() {
+                @Override
+                public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                    if (dx > 0 && isNearRecommendationRowEnd(recyclerView)) loadMoreNativePersonalRecommendations(false);
+                }
+            });
+        }
+        if (mBinding.tmdbPersonalAiRecommendations != null) {
+            mBinding.tmdbPersonalAiRecommendations.setHasFixedSize(true);
+            mBinding.tmdbPersonalAiRecommendations.setItemAnimator(null);
+            mBinding.tmdbPersonalAiRecommendations.addItemDecoration(new SpaceItemDecoration(8));
+            mBinding.tmdbPersonalAiRecommendations.setAdapter(mPersonalAiRecommendationAdapter = new TmdbRecommendationAdapter());
+            mPersonalAiRecommendationAdapter.setOnItemClickListener(this::onPersonalRecommendationClick);
+            mPersonalAiRecommendationAdapter.setOnItemLongClickListener(item -> {
+                com.fongmi.android.tv.ui.dialog.AiRecommendationInfoDialog.show(this, item);
+                return true;
+            });
+        }
         mBinding.episodeGroup.setHasFixedSize(true);
         mBinding.episodeGroup.setItemAnimator(null);
         mBinding.episodeGroup.setAdapter(mEpisodeGroupAdapter = new EpisodeGroupAdapter(this));
@@ -3445,11 +3457,9 @@ private int mAudioBackgroundRandomNonce;
     }
 
     private void saveHistory(boolean exit) {
-        android.util.Log.d("VideoActivity", "saveHistory: exit=" + exit + " mHistory=" + (mHistory != null) +
-            " canSave=" + (mHistory != null ? mHistory.canSave() : "null") +
-            " incognito=" + Setting.isIncognito());
         if (mHistory == null || Setting.isIncognito()) return;
-        if (service() != null && isOwner()) {
+        boolean hasPlayback = service() != null && isOwner() && !player().isEmpty();
+        if (hasPlayback) {
             // 保存当前集的播放位置到缓存
             if (!TextUtils.isEmpty(mHistory.getVodRemarks())) {
                 EpisodePositionCache.get().put(
@@ -3465,12 +3475,10 @@ private int mAudioBackgroundRandomNonce;
             mHistory.setCreateTime(System.currentTimeMillis());
         }
         if (exit && service() != null) PlaybackEventCollector.get().onStop(player());
-        if (!mHistory.canSave()) return;
+        if (!mHistory.canSave() && !hasPlayback) return;
         History history = mHistory.copy();
         Task.execute(() -> {
-            if (history.getDuration() > 0) history.merge().save();
-            else history.save();
-            android.util.Log.d("VideoActivity", "saveHistory: saved! key=" + history.getKey());
+            history.save();
             // 持久化集数位置缓存
             EpisodePositionCache.get().save();
             if (exit) RefreshEvent.history();
@@ -4600,6 +4608,7 @@ private int mAudioBackgroundRandomNonce;
     }
 
     private void bindNativePersonalRecommendationRow(View label, View recycler, TmdbRecommendationAdapter adapter, List<TmdbItem> items) {
+        if (label == null || recycler == null || adapter == null) return;
         if (items != null && !items.isEmpty()) {
             adapter.setItems(items);
             label.setVisibility(View.VISIBLE);
@@ -4625,12 +4634,12 @@ private int mAudioBackgroundRandomNonce;
         if (mPersonalTmdbRecommendationAdapter != null) mPersonalTmdbRecommendationAdapter.setItems(new ArrayList<>());
         if (mPersonalDoubanRecommendationAdapter != null) mPersonalDoubanRecommendationAdapter.setItems(new ArrayList<>());
         if (mPersonalAiRecommendationAdapter != null) mPersonalAiRecommendationAdapter.setItems(new ArrayList<>());
-        mBinding.tmdbPersonalTmdbRecommendationsLabel.setVisibility(View.GONE);
-        mBinding.tmdbPersonalTmdbRecommendations.setVisibility(View.GONE);
-        mBinding.tmdbPersonalDoubanRecommendationsLabel.setVisibility(View.GONE);
-        mBinding.tmdbPersonalDoubanRecommendations.setVisibility(View.GONE);
-        mBinding.tmdbPersonalAiRecommendationsLabel.setVisibility(View.GONE);
-        mBinding.tmdbPersonalAiRecommendations.setVisibility(View.GONE);
+        if (mBinding.tmdbPersonalTmdbRecommendationsLabel != null) mBinding.tmdbPersonalTmdbRecommendationsLabel.setVisibility(View.GONE);
+        if (mBinding.tmdbPersonalTmdbRecommendations != null) mBinding.tmdbPersonalTmdbRecommendations.setVisibility(View.GONE);
+        if (mBinding.tmdbPersonalDoubanRecommendationsLabel != null) mBinding.tmdbPersonalDoubanRecommendationsLabel.setVisibility(View.GONE);
+        if (mBinding.tmdbPersonalDoubanRecommendations != null) mBinding.tmdbPersonalDoubanRecommendations.setVisibility(View.GONE);
+        if (mBinding.tmdbPersonalAiRecommendationsLabel != null) mBinding.tmdbPersonalAiRecommendationsLabel.setVisibility(View.GONE);
+        if (mBinding.tmdbPersonalAiRecommendations != null) mBinding.tmdbPersonalAiRecommendations.setVisibility(View.GONE);
     }
 
     private void onPersonalRecommendationClick(TmdbItem item) {
@@ -4676,11 +4685,11 @@ private int mAudioBackgroundRandomNonce;
                 if (tmdb) {
                     mNativePersonalTmdbLoading = false;
                     mNativePersonalTmdbPage = loadedPage;
-                    mPersonalTmdbRecommendationAdapter.appendItems(loadedPage.getItems());
+                    if (mPersonalTmdbRecommendationAdapter != null) mPersonalTmdbRecommendationAdapter.appendItems(loadedPage.getItems());
                 } else {
                     mNativePersonalDoubanLoading = false;
                     mNativePersonalDoubanPage = loadedPage;
-                    mPersonalDoubanRecommendationAdapter.appendItems(loadedPage.getItems());
+                    if (mPersonalDoubanRecommendationAdapter != null) mPersonalDoubanRecommendationAdapter.appendItems(loadedPage.getItems());
                 }
             });
         });
