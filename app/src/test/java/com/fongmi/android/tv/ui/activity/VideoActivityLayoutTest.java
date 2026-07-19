@@ -92,6 +92,18 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void mobilePortraitPlayerTouchesStatusBarWithoutExtraGap() throws Exception {
+        Path layoutFile = findMobileResPath().resolve(Path.of("layout", "activity_video.xml"));
+        Element video = findAndroidId(layoutFile.toFile(), "video");
+
+        assertTrue(layoutFile + " is missing @+id/video", video != null);
+        assertTrue("the portrait player must stay directly below the status bar inset",
+                "@+id/statusBar".equals(video.getAttribute("android:layout_below")));
+        assertFalse("the portrait player must not add a second gap below the status bar",
+                video.hasAttribute("android:layout_marginTop"));
+    }
+
+    @Test
     public void mobileVodControlLayoutExposesFullscreenTopActions() throws Exception {
         Path controlLayout = findMobileResPath().resolve(Path.of("layout", "view_control_vod.xml"));
         Set<String> ids = collectAndroidIds(controlLayout.toFile());
