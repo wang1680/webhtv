@@ -168,7 +168,9 @@ public class LoginStateSync {
             }
             Candidate[] array = App.gson().fromJson(json, Candidate[].class);
             if (array == null) return Collections.emptyList();
-            return new ArrayList<>(Arrays.asList(array));
+            List<Candidate> result = new ArrayList<>(Arrays.asList(array));
+            result.removeIf(item -> item == null || isIgnoredLearningPath(item.path));
+            return result;
         } catch (Exception e) {
             return Collections.emptyList();
         }
@@ -361,7 +363,7 @@ public class LoginStateSync {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 String path = normalize(entry.getName());
-                if (path.isEmpty() || entry.isDirectory() || !isSafePath(path)) {
+                if (path.isEmpty() || entry.isDirectory() || !isSafePath(path) || isIgnoredLearningPath(path)) {
                     zis.closeEntry();
                     continue;
                 }
@@ -436,6 +438,7 @@ public class LoginStateSync {
     private static void collect(File file, String path, List<Entry> result, boolean excludeNoise) {
         try {
             path = normalize(path);
+            if (isIgnoredLearningPath(path)) return;
             Parsed parsed = parse(path);
             if (parsed == null || !file.exists()) return;
             File current = file.getCanonicalFile();
@@ -454,6 +457,7 @@ public class LoginStateSync {
 
     private static Candidate candidate(Entry entry, ScanBudget budget) {
         String path = normalize(entry.path);
+        if (isIgnoredLearningPath(path)) return null;
         Parsed parsed = parse(path);
         if (parsed == null) return null;
         File file;
@@ -585,7 +589,7 @@ public class LoginStateSync {
         LinkedHashSet<String> values = new LinkedHashSet<>();
         for (String line : text.split("[\\r\\n]+")) {
             String path = normalize(line);
-            if (!path.isEmpty() && isSafePath(path)) values.add(path);
+            if (!path.isEmpty() && isSafePath(path) && !isIgnoredLearningPath(path)) values.add(path);
         }
         return new LoginStatePathIndex(values).asList();
     }
@@ -594,7 +598,7 @@ public class LoginStateSync {
         LinkedHashSet<String> values = new LinkedHashSet<>();
         for (String path : paths == null ? Collections.<String>emptyList() : paths) {
             path = normalize(path);
-            if (!path.isEmpty() && isSafePath(path)) values.add(path);
+            if (!path.isEmpty() && isSafePath(path) && !isIgnoredLearningPath(path)) values.add(path);
         }
         return new LoginStatePathIndex(values).asList();
     }
@@ -646,6 +650,7 @@ public class LoginStateSync {
         if (parsed == null) return true;
         String relative = parsed.relative.toLowerCase(Locale.ROOT);
         if (relative.isEmpty()) return false;
+        if (isIgnoredLearningPath(relative)) return true;
         if (relative.equals("code_cache") || relative.startsWith("code_cache/")) return true;
         if (relative.startsWith("files/chaquopy/")) return true;
         if (relative.startsWith("files/pvideo-") || relative.equals("files/profileinstalled")) return true;
@@ -1033,7 +1038,43 @@ public class LoginStateSync {
 
     private static boolean isVisible(File root, String key, File file) {
         String path = relative(root, key, file);
-        return !path.isEmpty();
+        return !path.isEmpty() && !isIgnoredLearningPath(path);
+    }
+
+    static boolean isIgnoredLearningPath(String path) {
+        if (path == null) return false;
+        String value = path.trim().replace('\\', '/').toLowerCase(Locale.ROOT);
+        if (value.isEmpty()) return false;
+        String name = basename(value);
+        if (name.equals("webhtv-debug-log.txt") || name.startsWith("webhtv-debug-log-")) return true;
+        if (name.endsWith(".log") || isRotatedLog(name)) return true;
+        if (isDiagnosticTextFile(name)) return true;
+        for (String segment : value.split("/")) {
+            if (segment.equals("log") || segment.equals("logs") || segment.equals("debug-log") || segment.equals("debug_logs")
+                    || segment.equals("debug-logs") || segment.equals("trace") || segment.equals("traces")
+                    || segment.equals("tombstone") || segment.equals("tombstones") || segment.equals("crash-log")
+                    || segment.equals("crash_logs") || segment.equals("crash-logs")) return true;
+        }
+        return false;
+    }
+
+    private static boolean isRotatedLog(String name) {
+        int marker = name.lastIndexOf(".log.");
+        if (marker < 1) return false;
+        String suffix = name.substring(marker + 5);
+        if (suffix.equals("gz") || suffix.equals("zip")) return true;
+        if (suffix.endsWith(".gz")) suffix = suffix.substring(0, suffix.length() - 3);
+        if (suffix.isEmpty()) return false;
+        for (int i = 0; i < suffix.length(); i++) if (!Character.isDigit(suffix.charAt(i))) return false;
+        return true;
+    }
+
+    private static boolean isDiagnosticTextFile(String name) {
+        if (!name.endsWith(".txt") && !name.endsWith(".text")) return false;
+        return name.startsWith("logcat") || name.startsWith("debug-log") || name.startsWith("debug_log")
+                || name.startsWith("crash-log") || name.startsWith("crash_log") || name.startsWith("tombstone")
+                || name.startsWith("anr-trace") || name.startsWith("anr_trace") || name.startsWith("playback-trace")
+                || name.startsWith("playback_trace");
     }
 
     private static String parent(String path) {
