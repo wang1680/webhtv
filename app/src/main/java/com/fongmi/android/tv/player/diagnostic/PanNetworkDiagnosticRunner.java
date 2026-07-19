@@ -67,11 +67,12 @@ public final class PanNetworkDiagnosticRunner {
                 .connectionPool(new ConnectionPool(0, 1, TimeUnit.MILLISECONDS))
                 .addNetworkInterceptor(chain -> {
                     Request request = chain.request();
-                    String originalHost = chain.call().request().url().host();
+                    HttpUrl originalUrl = chain.call().request().url();
+                    String originalHost = originalUrl.host();
                     if (!PanNetworkSafety.isLoopbackHost(originalHost) || !originalHost.equalsIgnoreCase(request.url().host())) {
                         PanNetworkSafety.requireSafeRemoteHost(request.url().host());
                     }
-                    return chain.proceed(PanNetworkSafety.stripSensitiveHeadersOnRedirect(request, originalHost));
+                    return chain.proceed(PanNetworkSafety.stripSensitiveHeadersOnRedirect(request, originalUrl));
                 })
                 .protocols(List.of(Protocol.HTTP_1_1))
                 .followRedirects(true)

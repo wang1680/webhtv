@@ -47,6 +47,29 @@ public class PanNetworkSafetyTest {
     }
 
     @Test
+    public void stripsSensitiveHeadersWhenRedirectOriginChangesWithinHost() {
+        Request original = new Request.Builder().url("https://cdn.example.com/file").build();
+        Request changedPort = new Request.Builder()
+                .url("https://cdn.example.com:8443/file")
+                .header("Authorization", "Bearer secret")
+                .header("User-Agent", "UA")
+                .build();
+        Request downgraded = new Request.Builder()
+                .url("http://cdn.example.com/file")
+                .header("Cookie", "session=secret")
+                .header("User-Agent", "UA")
+                .build();
+
+        Request sanitizedPort = PanNetworkSafety.stripSensitiveHeadersOnRedirect(changedPort, original.url());
+        Request sanitizedScheme = PanNetworkSafety.stripSensitiveHeadersOnRedirect(downgraded, original.url());
+
+        assertNull(sanitizedPort.header("Authorization"));
+        assertEquals("UA", sanitizedPort.header("User-Agent"));
+        assertNull(sanitizedScheme.header("Cookie"));
+        assertEquals("UA", sanitizedScheme.header("User-Agent"));
+    }
+
+    @Test
     public void rejectsUnsafeRemoteTargetsBeforeConnection() {
         try {
             PanNetworkSafety.requireSafeRemoteHost("10.0.0.1");

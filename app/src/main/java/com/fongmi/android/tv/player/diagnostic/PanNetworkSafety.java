@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Locale;
 
+import okhttp3.HttpUrl;
 import okhttp3.Request;
 
 final class PanNetworkSafety {
@@ -47,6 +48,13 @@ final class PanNetworkSafety {
         return builder.build();
     }
 
+    static Request stripSensitiveHeadersOnRedirect(Request request, HttpUrl originalUrl) {
+        if (originalUrl == null || sameOrigin(originalUrl, request.url())) return request;
+        Request.Builder builder = request.newBuilder();
+        for (String name : request.headers().names()) if (isSensitiveHeader(name)) builder.removeHeader(name);
+        return builder.build();
+    }
+
     static boolean isLoopbackHost(String host) {
         String value = normalizeHost(host);
         return "localhost".equals(value) || value.endsWith(".localhost") || "127.0.0.1".equals(value) || "::1".equals(value);
@@ -57,6 +65,13 @@ final class PanNetworkSafety {
         return value.equals("authorization") || value.equals("proxy-authorization") || value.equals("cookie")
                 || value.equals("set-cookie") || value.equals("x-api-key") || value.equals("api-key")
                 || value.contains("token");
+    }
+
+    private static boolean sameOrigin(HttpUrl left, HttpUrl right) {
+        return left != null && right != null
+                && normalizeHost(left.host()).equals(normalizeHost(right.host()))
+                && left.port() == right.port()
+                && left.scheme().equalsIgnoreCase(right.scheme());
     }
 
     private static boolean isUnsafeAddress(InetAddress address) {
