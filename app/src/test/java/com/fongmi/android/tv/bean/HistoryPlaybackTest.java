@@ -101,6 +101,67 @@ public class HistoryPlaybackTest {
     }
 
     @Test
+    public void isSameContentDetectsEpisodeLabelChanges() {
+        History original = history("site@@vod@@1", "武神主宰", "第2集", "url-2", 120_000, 300_000);
+        History changed = original.copy();
+        changed.setVodRemarks("第3集");
+
+        assertFalse(original.isSameContent(changed));
+    }
+
+    @Test
+    public void isSameContentDetectsPlaybackProgressChanges() {
+        History original = history("site@@vod@@1", "武神主宰", "第2集", "url-2", 120_000, 300_000);
+
+        History changedPosition = original.copy();
+        changedPosition.setPosition(180_000);
+        assertFalse(original.isSameContent(changedPosition));
+
+        History changedDuration = original.copy();
+        changedDuration.setDuration(360_000);
+        assertFalse(original.isSameContent(changedDuration));
+    }
+
+    @Test
+    public void isSameContentDetectsPlaybackRouteChanges() {
+        History original = history("site@@vod@@1", "武神主宰", "第2集", "url-2", 120_000, 300_000);
+
+        History changedFlag = original.copy();
+        changedFlag.setVodFlag("备用线路");
+        assertFalse(original.isSameContent(changedFlag));
+
+        History changedEpisodeUrl = original.copy();
+        changedEpisodeUrl.setEpisodeUrl("url-3");
+        assertFalse(original.isSameContent(changedEpisodeUrl));
+    }
+
+    @Test
+    public void playbackTimeIncludesZeroPositionWhenDurationIsKnown() {
+        History history = history("site@@vod@@1", "片名", "第1集", "url-1", 0, 90_000);
+
+        assertTrue(history.hasPlaybackTime());
+        assertEquals("00:00 / 01:30", history.getPlaybackTimeText());
+    }
+
+    @Test
+    public void playbackTimeHidesUnsetOrNegativeValues() {
+        History unsetPosition = history("site@@vod@@1", "片名", "第1集", "url-1", -1, 90_000);
+        History unsetDuration = history("site@@vod@@2", "片名", "第1集", "url-1", 0, -1);
+
+        assertFalse(unsetPosition.hasPlaybackTime());
+        assertFalse(unsetDuration.hasPlaybackTime());
+        assertEquals("", unsetPosition.getPlaybackTimeText());
+        assertEquals("", unsetDuration.getPlaybackTimeText());
+    }
+
+    @Test
+    public void playbackTimeClampsPositionToDuration() {
+        History history = history("site@@vod@@1", "片名", "第1集", "url-1", 120_000, 90_000);
+
+        assertEquals("01:30 / 01:30", history.getPlaybackTimeText());
+    }
+
+    @Test
     public void shouldMergeStillDeduplicatesIndependentMatchingHistories() {
         History source = history("site@@vod@@1", "武神主宰", "第2集", "url-2", 120_000, 300_000);
         History independent = history("site@@vod@@2", "武神主宰", "第2集", "url-2", 180_000, 300_000);
