@@ -12,6 +12,7 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.mpvplayer.MpvPlayer;
 import androidx.media3.mpvplayer.MpvPlayerConfig;
+import androidx.annotation.Nullable;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
@@ -26,6 +27,7 @@ import com.fongmi.android.tv.player.mpv.MpvConfigStore;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.MpvPerformanceSetting;
 import com.fongmi.android.tv.utils.ResUtil;
+import com.fongmi.android.tv.utils.Util;
 import com.github.catvod.crawler.SpiderDebug;
 
 import java.util.List;
@@ -40,6 +42,8 @@ public class MpvPlayerEngine implements PlayerEngine {
     private PlaySpec spec;
     private boolean playWhenReady;
     private boolean retriedFormat;
+    private boolean surfaceDirect;
+    private Boolean surfaceDirectOverride;
     private int decode;
 
     public MpvPlayerEngine(int decode, Player.Listener listener) {
@@ -189,7 +193,15 @@ public class MpvPlayerEngine implements PlayerEngine {
 
     @Override
     public boolean supportsNativeLut() {
-        return true;
+        return !surfaceDirect;
+    }
+
+    public boolean isSurfaceDirect() {
+        return surfaceDirect;
+    }
+
+    public void setSurfaceDirectOverride(@Nullable Boolean value) {
+        surfaceDirectOverride = value;
     }
 
     @Override
@@ -231,7 +243,7 @@ public class MpvPlayerEngine implements PlayerEngine {
 
     @Override
     public boolean supportsSubtitleStyle() {
-        return true;
+        return !surfaceDirect;
     }
 
     @Override
@@ -246,7 +258,7 @@ public class MpvPlayerEngine implements PlayerEngine {
 
     @Override
     public boolean supportsSecondarySubtitle() {
-        return true;
+        return !surfaceDirect;
     }
 
     @Override
@@ -383,16 +395,19 @@ public class MpvPlayerEngine implements PlayerEngine {
 
     private MpvPlayerConfig buildConfig() {
         MpvConfigStore.ensureReady();
+        surfaceDirect = surfaceDirectOverride == null
+                ? MpvPerformanceSetting.shouldUseSurfaceDirect(false, Util.isLeanback(), decode == HARD)
+                : surfaceDirectOverride && decode == HARD;
         boolean requestVulkan = PlayerSetting.getMpvRender() == PlayerSetting.MPV_RENDER_VULKAN;
         boolean nativeVulkan = MPVLib.isBundledVulkanEnabled(App.get());
         boolean deviceVulkan = MPVLib.isDeviceVulkan13Capable(App.get());
-        boolean useVulkan = requestVulkan && nativeVulkan && deviceVulkan;
-        boolean useGpuNext = useVulkan || decode != HARD;
-        if (requestVulkan && !useVulkan) SpiderDebug.log("player-engine", "mpv render requested=vulkan but unavailable native=%s device=%s; fallback=opengl", nativeVulkan, deviceVulkan);
-        SpiderDebug.log("player-engine", "mpv render requested=%s nativeVulkan=%s deviceVulkan=%s decode=%s actual=%s/%s", requestVulkan ? "vulkan" : "opengl", nativeVulkan, deviceVulkan, decode == HARD ? "hard" : "soft", useVulkan ? "vulkan" : "opengl", useGpuNext ? "gpu-next" : "gpu");
+        boolean useVulkan = !surfaceDirect && requestVulkan && nativeVulkan && deviceVulkan;
+        boolean useGpuNext = !surfaceDirect && (useVulkan || decode != HARD);
+        if (requestVulkan && !surfaceDirect && !useVulkan) SpiderDebug.log("player-engine", "mpv render requested=vulkan but unavailable native=%s device=%s; fallback=opengl", nativeVulkan, deviceVulkan);
+        SpiderDebug.log("player-engine", "mpv output mode=%s direct=%s render requested=%s nativeVulkan=%s deviceVulkan=%s decode=%s actual=%s/%s", MpvPerformanceSetting.getOutputModeText(), surfaceDirect, requestVulkan ? "vulkan" : "opengl", nativeVulkan, deviceVulkan, decode == HARD ? "hard" : "soft", surfaceDirect ? "surface" : useVulkan ? "vulkan" : "opengl", surfaceDirect ? "mediacodec_embed" : useGpuNext ? "gpu-next" : "gpu");
         MpvPlayerConfig.Builder builder = MpvPlayerConfig.builder(App.get())
                 .configDir(MpvConfigStore.configDir())
-                .hwdec(decode == HARD ? MpvPerformanceSetting.getHwdecOption() : "no")
+                .hwdec(surfaceDirect ? "mediacodec" : decode == HARD ? MpvPerformanceSetting.getHwdecOption() : "no")
                 .audioSpdif(resolveAudioSpdifCodecs())
                 .logLevel(MpvPerformanceSetting.isVerboseLog() ? "all=v" : "all=warn")
                 .demuxerMaxBytes(getDemuxerMaxBytes())
@@ -406,7 +421,11 @@ public class MpvPlayerEngine implements PlayerEngine {
                 .option("interpolation", MpvPerformanceSetting.isInterpolation() ? "yes" : "no")
                 .option("hls-bitrate", MpvPerformanceSetting.getHlsBitrateOption());
         applySoftDecodeOptions(builder);
-        if (useVulkan) {
+        if (surfaceDirect) {
+            builder.vo("mediacodec_embed")
+                    .gpuApi("")
+                    .openglEs(false);
+        } else if (useVulkan) {
             builder.vo("gpu-next")
                     .gpuContext("androidvk")
                     .gpuApi("vulkan")

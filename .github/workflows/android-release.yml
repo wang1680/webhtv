@@ -75,6 +75,14 @@ jobs:
         run: |
           sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
 
+      - name: Run WebSocket danmaku tests
+        run: |
+          chmod +x ./gradlew
+          ./gradlew \
+            :app:testMobileArm64_v8aDebugUnitTest \
+            --tests 'com.fongmi.android.tv.player.danmaku.*' \
+            --no-daemon
+
       - name: Resolve release tag
         id: meta
         run: |
