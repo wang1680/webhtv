@@ -104,10 +104,8 @@ public class TmdbDetailActivityLayoutTest {
                 source.indexOf("window.setStatusBarColor(Color.TRANSPARENT)", method) > method);
         assertTrue("TMDB detail navigation bar must stay transparent over the backdrop",
                 source.indexOf("window.setNavigationBarColor(Color.TRANSPARENT)", method) > method);
-        assertTrue("TMDB detail must keep light-colored status bar icons like the other native screens",
-                source.indexOf("setAppearanceLightStatusBars(false)", method) > method);
-        assertTrue("TMDB detail must keep light-colored navigation bar icons like the other native screens",
-                source.indexOf("setAppearanceLightNavigationBars(false)", method) > method);
+        assertTrue("TMDB detail must keep system bar icon contrast in sync with the detail theme",
+                source.indexOf("setAppearanceLightStatusBars", method) > method);
         assertTrue("TMDB detail must configure edge-to-edge during initialization",
                 source.indexOf("applyDetailEdgeToEdge();", init) > init);
         assertTrue("TMDB detail must re-apply edge-to-edge after theme changes",
@@ -201,6 +199,19 @@ public class TmdbDetailActivityLayoutTest {
         assertAndroidIdHasAttribute("TMDB header theme action", headerLayout, "tmdbThemeToggle", "android:text=\"@string/detail_theme_light\"");
         assertTrue("TMDB detail must set theme action labels before applying their initial visibility",
                 init >= 0 && labelRefresh > init && visibilityRefresh > labelRefresh);
+    }
+
+    @Test
+    public void defaultDetailPlaybackDefersLaunchUntilAfterCurrentInputDispatch() throws Exception {
+        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        int method = source.indexOf("private void playDefaultPlayback()");
+        int methodEnd = source.indexOf("private ", method + 1);
+        String body = source.substring(method, methodEnd);
+
+        assertTrue("detail playback must reject repeated taps while a launch is pending",
+                body.contains("if (defaultPlaybackLaunchPending) return;"));
+        assertTrue("detail playback must leave the current click/input dispatch before launching VideoActivity",
+                body.contains("ActivityLaunch.postOnAnimation(this, () ->"));
     }
 
     @Test
@@ -519,6 +530,30 @@ public class TmdbDetailActivityLayoutTest {
                 source.indexOf("seasonCounts.put(seasonNumber, episodes.size());", preload) > preload
                         && source.indexOf("seasonCast.put(seasonNumber, tmdbService.seasonCast(season, tmdbConfig));", preload) > preload
                         && source.indexOf("seasonPhotos.put(seasonNumber, tmdbService.seasonPhotos(season, tmdbConfig));", preload) > preload);
+    }
+
+    @Test
+    public void episodeDetailDismissRestoresLongPressedCardFocus() throws Exception {
+        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        int show = source.indexOf("private void showTmdbEpisodeDetail(Episode episode, int episodeNumber, RecyclerView returnRecycler)");
+        int restore = source.indexOf("private void restoreEpisodeDetailFocus(RecyclerView recycler, Episode episode)", show);
+
+        assertTrue("TMDB episode detail must define an exact-card focus restore helper", show >= 0 && restore > show);
+        assertTrue("each episode list must provide its own recycler as the focus return target",
+                source.contains("showTmdbEpisodeDetail(episode, episodeNumber, binding.episodeContainer);")
+                        && source.contains("showTmdbEpisodeDetail(episode, episodeNumber, recycler);"));
+        int dismiss = source.indexOf("OnDismissListener dismissListener", show);
+        int movie = source.indexOf("// 电影场景", dismiss);
+        String dismissBody = source.substring(dismiss, movie);
+        assertTrue("closing episode detail must rerender and then restore the long-pressed episode card",
+                dismissBody.contains("rerenderEpisodeViewportOnly(false, true, true);")
+                        && dismissBody.contains("returnRecycler.post(() -> restoreEpisodeDetailFocus(returnRecycler, episode));"));
+        int restoreEnd = source.indexOf("\n    private ", restore + 1);
+        String restoreBody = source.substring(restore, restoreEnd);
+        assertTrue("focus restoration must resolve the episode's exact adapter position instead of defaulting to the first column",
+                restoreBody.contains("if (!(adapter instanceof TmdbEpisodeAdapter episodeAdapter)) return;")
+                        && restoreBody.contains("int position = episodeAdapter.getPosition(episode);")
+                        && restoreBody.contains("focusTmdbRecyclerItem(recycler, position);"));
     }
 
     @Test

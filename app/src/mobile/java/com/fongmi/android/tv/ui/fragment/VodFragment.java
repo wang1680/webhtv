@@ -7,8 +7,6 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.WebView;
-import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -73,7 +71,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     private FragmentVodBinding mBinding;
     private SiteViewModel mViewModel;
     private HomeWebController mWeb;
-    private WebView mHomeWeb;
     private TypeAdapter mAdapter;
     private Result mResult;
     private String mChromeMode = WebHomeChrome.NORMAL;
@@ -165,23 +162,8 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void setWebView() {
-        try {
-            mHomeWeb = new WebView(requireContext());
-            mBinding.homeWeb.addView(mHomeWeb, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            mWeb = new HomeWebController(requireActivity(), mHomeWeb, this);
-            syncWebHomeChrome();
-        } catch (RuntimeException | LinkageError error) {
-            error.printStackTrace();
-            releaseHomeWeb();
-            requestNormalChrome();
-        }
-    }
-
-    private void releaseHomeWeb() {
-        if (mHomeWeb == null) return;
-        mBinding.homeWeb.removeView(mHomeWeb);
-        mHomeWeb.destroy();
-        mHomeWeb = null;
+        mWeb = new HomeWebController(requireActivity(), mBinding.homeWeb, this);
+        syncWebHomeChrome();
     }
 
     private void setViewModel() {
@@ -497,9 +479,6 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     public void onDestroyView() {
         requestNormalChrome();
         if (mWeb != null) mWeb.destroy();
-        else releaseHomeWeb();
-        mWeb = null;
-        mHomeWeb = null;
         EventBus.getDefault().unregister(this);
         super.onDestroyView();
     }

@@ -121,6 +121,7 @@ import com.fongmi.android.tv.ui.helper.TmdbNavigation;
 import com.fongmi.android.tv.ui.player.VodPlayerChrome;
 import com.fongmi.android.tv.ui.player.VodPlayerUiController;
 import com.fongmi.android.tv.ui.player.VodPlayerUiHost;
+import com.fongmi.android.tv.utils.ActivityLaunch;
 import com.fongmi.android.tv.utils.AudioUtil;
 import com.fongmi.android.tv.utils.Clock;
 import com.fongmi.android.tv.utils.EpisodeTitleFormatter;
@@ -632,7 +633,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         Task.execute(() -> {
             try {
                 AudioPlaybackResolver.Resolved resolved = AudioPlaybackResolver.resolveSite(key, id, name, pic, mark);
-                App.post(() -> startResolvedImmersiveAudio(activity, resolved, mark));
+                App.post(() -> ActivityLaunch.postOnAnimation(activity, () -> startResolvedImmersiveAudio(activity, resolved, mark)));
             } catch (Throwable e) {
                 App.post(() -> Notify.show(TextUtils.isEmpty(e.getMessage()) ? "音频加载失败" : e.getMessage()));
             }

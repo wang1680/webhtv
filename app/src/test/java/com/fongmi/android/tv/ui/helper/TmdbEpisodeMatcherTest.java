@@ -64,6 +64,15 @@ public class TmdbEpisodeMatcherTest {
     }
 
     @Test
+    public void allowsUnderscoreSeparatedQualitySuffix() {
+        Episode episode = Episode.create("85_4K.mp4", "http://example.test/85");
+        TmdbEpisode tmdbEpisode = new TmdbEpisode(85, "Episode 85", "", "", "", 0, 0);
+
+        assertEquals(85, episode.getNumber());
+        assertTrue(TmdbEpisodeMatcher.shouldApply(episode, tmdbEpisode, 85));
+    }
+
+    @Test
     public void rejectsWhenSourceEpisodeNumberDoesNotMatchTmdbEpisodeNumber() {
         Episode episode = Episode.create("11. 啪啪鹿鸣上分！太子认出她", "http://example.test/11");
         TmdbEpisode tmdbEpisode = new TmdbEpisode(12, "诀爱！郦主烧信烧", "", "", "", 0, 0);

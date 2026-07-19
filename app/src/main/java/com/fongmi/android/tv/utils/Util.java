@@ -114,7 +114,8 @@ public class Util {
             if (TextUtils.isEmpty(text)) return -1;
 
             // 预处理：移除常见干扰信息
-            String processed = preprocessEpisodeText(text);
+            // 文件名常用下划线分隔集号与画质（如 85_4K），先统一为空格以便复用画质过滤规则。
+            String processed = preprocessEpisodeText(text.replace('_', ' '));
 
             // 1. 独立纯数字检测（如播放器传来的 "17" 或 "03"）
             String trimmed = processed.trim();

@@ -95,8 +95,8 @@ public class HomeWebController {
         this.density = activity.getResources().getDisplayMetrics().density;
         this.injectedExtensions = new HashSet<>();
         this.extensionReloadRunnable = this::consumeExtensionReload;
-        init();
         active = this;
+        init();
     }
 
     public static void requestExtensionReload() {
