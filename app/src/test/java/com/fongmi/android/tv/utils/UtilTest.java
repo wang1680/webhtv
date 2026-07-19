@@ -85,6 +85,13 @@ public class UtilTest {
         assertEquals(23, Util.getEpisodeNumber("EP23.4K.BluRay.x265"));
         assertEquals(5, Util.getEpisodeNumber("E05.2160p.WEB-DL.AAC"));
         assertEquals(12, Util.getEpisodeNumber("12.720p.HEVC.mp4"));
+        assertEquals(85, Util.getEpisodeNumber("85_4K.mp4"));
+    }
+
+    @Test
+    public void getNumber_ignoresUnderscoreSeparatedDates() {
+        assertEquals(-1, Util.getEpisodeNumber("show_2026_07_18.mp4"));
+        assertEquals(-1, Util.getEpisodeNumber("release_2024_12_31.mkv"));
     }
 
     @Test
