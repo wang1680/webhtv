@@ -18,6 +18,18 @@ public final class MpvAutoOutputPolicy {
         return new Decision(true, "eligible-high-resolution-hardware-decode");
     }
 
+    public static Transition transition(boolean eligible, boolean currentlyDirect) {
+        if (eligible) return currentlyDirect ? Transition.KEEP_SURFACE_DIRECT : Transition.ENTER_SURFACE_DIRECT;
+        return currentlyDirect ? Transition.LEAVE_SURFACE_DIRECT : Transition.KEEP_GPU;
+    }
+
+    public enum Transition {
+        KEEP_GPU,
+        ENTER_SURFACE_DIRECT,
+        KEEP_SURFACE_DIRECT,
+        LEAVE_SURFACE_DIRECT
+    }
+
     static boolean isHighResolution(int width, int height) {
         if (width <= 0 || height <= 0) return false;
         return Math.max(width, height) >= HIGH_RESOLUTION_EDGE && (long) width * height >= HIGH_RESOLUTION_AREA;

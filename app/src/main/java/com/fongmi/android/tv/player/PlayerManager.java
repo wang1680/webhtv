@@ -942,6 +942,10 @@ public class PlayerManager implements ParseCallback {
     private void prepareMpvOutputForNewItem() {
         resetMpvOutputEvaluationState();
         if (!(engine instanceof MpvPlayerEngine mpv)) return;
+        if (MpvPerformanceSetting.getOutputMode() == MpvPerformanceSetting.OUTPUT_AUTO && mpv.isSurfaceDirect()) {
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("mpv-output", "preserve direct output for new item reason=auto-sticky");
+            return;
+        }
         mpv.setSurfaceDirectOverride(null);
         boolean shouldStartDirect = MpvPerformanceSetting.shouldUseSurfaceDirect(false, Util.isLeanback(), engine.isHard());
         if (mpv.isSurfaceDirect() == shouldStartDirect) return;
@@ -963,7 +967,7 @@ public class PlayerManager implements ParseCallback {
 
     private void scheduleMpvAutoOutputEvaluation() {
         if (!isMpv() || MpvPerformanceSetting.getOutputMode() != MpvPerformanceSetting.OUTPUT_AUTO) return;
-        if (mpvAutoOutputEvaluated || mpvAutoOutputEvaluationScheduled || isMpvSurfaceDirect()) return;
+        if (mpvAutoOutputEvaluated || mpvAutoOutputEvaluationScheduled) return;
         mpvAutoOutputEvaluationScheduled = true;
         int seq = ++mpvOutputEvaluationSeq;
         App.post(() -> {
@@ -974,7 +978,7 @@ public class PlayerManager implements ParseCallback {
     }
 
     private void evaluateMpvAutoOutput() {
-        if (!isMpv() || mpvAutoOutputEvaluated || isMpvSurfaceDirect() || engine == null) return;
+        if (!isMpv() || mpvAutoOutputEvaluated || engine == null) return;
         Tracks tracks = engine.getCurrentTracks();
         if (tracks == null || tracks.isEmpty()) return;
         Format format = engine.getVideoFormat();
@@ -986,8 +990,11 @@ public class PlayerManager implements ParseCallback {
         boolean customGpuProcessing = MpvConfigStore.hasGpuVideoProcessing();
         MpvAutoOutputPolicy.Decision decision = MpvAutoOutputPolicy.evaluate(width, height, engine.isHard(), Util.isLeanback(), subtitleActive, lutOrFilterActive, customGpuProcessing);
         mpvAutoOutputEvaluated = true;
-        if (SpiderDebug.isEnabled()) SpiderDebug.log("mpv-output", "auto decision eligible=%s reason=%s size=%dx%d subtitle=%s lutOrFilter=%s customGpu=%s", decision.eligible(), decision.reason(), width, height, subtitleActive, lutOrFilterActive, customGpuProcessing);
-        if (decision.eligible()) rebuildAndRestartMpv(true, "auto-" + decision.reason());
+        boolean currentlyDirect = isMpvSurfaceDirect();
+        MpvAutoOutputPolicy.Transition transition = MpvAutoOutputPolicy.transition(decision.eligible(), currentlyDirect);
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("mpv-output", "auto decision eligible=%s transition=%s reason=%s size=%dx%d subtitle=%s lutOrFilter=%s customGpu=%s direct=%s", decision.eligible(), transition, decision.reason(), width, height, subtitleActive, lutOrFilterActive, customGpuProcessing, currentlyDirect);
+        if (transition == MpvAutoOutputPolicy.Transition.ENTER_SURFACE_DIRECT) rebuildAndRestartMpv(true, "auto-" + decision.reason());
+        else if (transition == MpvAutoOutputPolicy.Transition.LEAVE_SURFACE_DIRECT) rebuildAndRestartMpv(false, "auto-" + decision.reason());
     }
 
     private boolean shouldLeaveAutoSurfaceDirectForSubtitle(List<Track> tracks) {
