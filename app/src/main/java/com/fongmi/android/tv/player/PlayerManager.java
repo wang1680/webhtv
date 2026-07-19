@@ -100,6 +100,7 @@ public class PlayerManager implements ParseCallback {
     private String loadingDanmakuKey;
     private String lastLoggedRouteTraceId = PlaybackTrace.NONE;
     private long danmakuLoadStartedAtMs;
+    private volatile long liveDanmakuGeneration;
     private long pendingSwitchPositionMs = C.TIME_UNSET;
     private float pendingSwitchSpeed = 1f;
     private boolean danmakuLoadInProgress;
@@ -1680,31 +1681,23 @@ public class PlayerManager implements ParseCallback {
         if (liveDanmakuSession == null) {
             liveDanmakuSession = new LiveDanmakuWebSocketSession(new LiveDanmakuWebSocketSession.Listener() {
                 @Override
-                public void onOpen() {
-                    if (SpiderDebug.isEnabled()) SpiderDebug.log("danmaku-ws", "open %s", DanmakuUrlPolicy.logSummary(currentDanmakuUrl));
+                public void onStateChanged(LiveDanmakuWebSocketSession.State state, long generation, String sourceUrl, int code, String detail) {
+                    liveDanmakuGeneration = generation;
+                    if (SpiderDebug.isEnabled()) SpiderDebug.log("danmaku-ws", "state=%s generation=%d code=%d detail=%s %s", state, generation, code, detail, DanmakuUrlPolicy.logSummary(sourceUrl));
                 }
 
                 @Override
-                public void onMessage(String text) {
+                public void onMessage(long generation, String text) {
+                    if (generation != liveDanmakuGeneration) return;
                     // Parsing and bounded delivery are added by the following implementation batch.
-                }
-
-                @Override
-                public void onClosed(int code, String reason) {
-                    if (SpiderDebug.isEnabled()) SpiderDebug.log("danmaku-ws", "closed code=%d reason=%s", code, reason);
-                }
-
-                @Override
-                public void onFailure(Throwable throwable, int httpCode) {
-                    if (SpiderDebug.isEnabled()) SpiderDebug.log("danmaku-ws", "failure http=%d error=%s", httpCode, throwable == null ? "unknown" : throwable.getClass().getSimpleName());
                 }
             });
         }
-        liveDanmakuSession.connect(url);
+        liveDanmakuGeneration = liveDanmakuSession.connect(url);
     }
 
     private void stopLiveDanmakuSession(String reason) {
-        if (liveDanmakuSession != null) liveDanmakuSession.stop(reason);
+        if (liveDanmakuSession != null) liveDanmakuGeneration = liveDanmakuSession.stop(reason);
     }
 
     private void releaseLiveDanmakuSession() {
