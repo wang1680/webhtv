@@ -615,6 +615,15 @@ private int mAudioBackgroundRandomNonce;
         start(activity, key, id, name, pic, mark, false, tmdbItem);
     }
 
+    static void startFromHistory(Activity activity, History item) {
+        if (shouldOpenLegacyTmdbDetail(item.getSiteKey())) {
+            start(activity, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks());
+            return;
+        }
+        startDirect(activity, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks(),
+                item.getVodFlag(), item.getVodRemarks(), item.getEpisodeUrl());
+    }
+
     public static void startDirect(Activity activity, String key, String id, String name, String pic) {
         startDirect(activity, key, id, name, pic, null);
     }

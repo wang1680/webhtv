@@ -87,8 +87,7 @@ public class HistoryActivity extends BaseActivity implements HistoryAdapter.OnCl
 
     @Override
     public void onItemClick(History item) {
-        VideoActivity.startDirect(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks(),
-                item.getVodFlag(), item.getVodRemarks(), item.getEpisodeUrl());
+        VideoActivity.startFromHistory(this, item);
     }
 
     @Override
