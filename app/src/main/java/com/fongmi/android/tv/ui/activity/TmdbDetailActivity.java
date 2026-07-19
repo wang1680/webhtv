@@ -757,9 +757,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             window.setNavigationBarContrastEnforced(false);
         }
         WindowInsetsControllerCompat insets = WindowCompat.getInsetsController(window, window.getDecorView());
-        boolean lightBars = lightTheme && !isFusionMode();
-        insets.setAppearanceLightStatusBars(lightBars);
-        insets.setAppearanceLightNavigationBars(lightBars);
+        insets.setAppearanceLightStatusBars(false);
+        insets.setAppearanceLightNavigationBars(false);
     }
 
     private void initInlineLutLaunchers() {
