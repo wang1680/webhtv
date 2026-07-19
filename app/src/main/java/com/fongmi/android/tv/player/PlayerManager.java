@@ -501,6 +501,7 @@ public class PlayerManager implements ParseCallback {
         if (controller == null) return;
         controller.setOkHttpClient(OkHttp.player());
         controller.setConfig(DanmakuSetting.getConfig());
+        controller.setEnabled(DanmakuSetting.isShow());
         controller.setListener(new DanmakuController.Listener() {
             @Override
             public void onLoadCompleted(Uri uri, int count) {
