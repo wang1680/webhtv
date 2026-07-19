@@ -1173,6 +1173,9 @@
     <string name="dialog_audio_site_rules">Audio source rules: enabled sources or keywords, separated by ;. Default: [音];[听]</string>
     <string name="dialog_audio_site_manage">Select audio sources</string>
     <string name="dialog_audio_site_default">Default [音]/[听]</string>
+    <string name="dialog_audio_playback_style">Audio playback style</string>
+    <string name="dialog_audio_playback_style_immersive">Immersive audio (merged upstream)</string>
+    <string name="dialog_audio_playback_style_built_in">Standard audio (built-in)</string>
     <string name="dialog_audio_enabled_label">启用规则</string>
     <string name="dialog_audio_add_hint">添加关键词或站点…</string>
     <string name="dialog_audio_add">添加</string>

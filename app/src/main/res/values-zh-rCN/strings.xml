@@ -1169,6 +1169,9 @@
     <string name="dialog_audio_site_rules">音频源规则:关联站源或关键词,用 ; 分隔。默认:[音];[听]</string>
     <string name="dialog_audio_site_manage">选择音频源</string>
     <string name="dialog_audio_site_default">默认 [音]/[听]</string>
+    <string name="dialog_audio_playback_style">音频播放风格</string>
+    <string name="dialog_audio_playback_style_immersive">沉浸音频（上游合并版）</string>
+    <string name="dialog_audio_playback_style_built_in">标准音频（自研版）</string>
     <string name="dialog_short_drama_site_rules">短剧源规则:关联站源或关键词,用 ; 分隔。默认:[短];短剧</string>
     <string name="dialog_short_drama_site_manage">选择短剧源</string>
     <string name="dialog_short_drama_site_default">默认 [短]/短剧</string>

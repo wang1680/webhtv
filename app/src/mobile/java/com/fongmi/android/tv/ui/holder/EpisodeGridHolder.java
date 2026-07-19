@@ -56,11 +56,9 @@ public class EpisodeGridHolder extends BaseEpisodeHolder {
     @Override
     public void initView(Episode item) {
         updateLayout();
-        // 使用集号匹配 TMDB 数据，而不是直接使用 item.getTmdbEpisode()
-        int position = getBindingAdapterPosition();
-        int episodeNumber = item.getNumber() > 0 ? item.getNumber() : position + 1;
+        // 验证 TMDB 匹配：只有文件名有有效集号且与 TMDB 集号一致时才匹配
         TmdbEpisode episode = item.getTmdbEpisode();
-        if (!TmdbEpisodeMatcher.shouldApply(item, episode, episodeNumber)) {
+        if (!TmdbEpisodeMatcher.shouldApply(item, episode)) {
             episode = null;
         }
         if (EpisodeCardPolicy.shouldShowCard(useTmdbCard, episode != null, !TextUtils.isEmpty(fallbackStillUrl))) bindCard(item, episode);
@@ -87,7 +85,7 @@ public class EpisodeGridHolder extends BaseEpisodeHolder {
         binding.card.setSelected(item.isSelected());
         bindCardActions(item, binding.getRoot(), binding.card, binding.imageFrame, binding.still, binding.textPanel, binding.cardTitle, binding.overview);
 
-        String cardTitle = EpisodeAdapter.getCardTitle(item);
+        String cardTitle = EpisodeAdapter.getCardTitle(item, episode);
         binding.cardTitle.setText(cardTitle);
         binding.cardTitle.setSelected(item.isSelected());
 

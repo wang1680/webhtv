@@ -97,6 +97,7 @@ import com.fongmi.android.tv.ui.adapter.ParseAdapter;
 import com.fongmi.android.tv.ui.adapter.PartAdapter;
 import com.fongmi.android.tv.ui.adapter.QualityAdapter;
 import com.fongmi.android.tv.ui.adapter.QuickAdapter;
+import com.fongmi.android.tv.ui.audio.AudioPlaybackResolver;
 import com.fongmi.android.tv.ui.custom.CustomKeyDownVod;
 import com.fongmi.android.tv.ui.custom.CustomMovement;
 import com.fongmi.android.tv.ui.custom.CustomSeekView;
@@ -294,6 +295,8 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     private static final String EXTRA_TMDB_PLAY_EPISODE_NAME = "tmdb_play_episode_name";
     private static final String EXTRA_TMDB_PLAY_EPISODE_URL = "tmdb_play_episode_url";
     private static final String EXTRA_TMDB_VOD_CACHE_KEY = "tmdb_vod_cache_key";
+    private static final String EXTRA_IMMERSIVE_AUDIO_CACHE_KEY = "immersive_audio_cache_key";
+    private static final java.util.concurrent.ConcurrentHashMap<String, AudioPlaybackResolver.Resolved> IMMERSIVE_AUDIO_LAUNCHES = new java.util.concurrent.ConcurrentHashMap<>();
 
     private ActivityVideoBinding mBinding;
     private ViewGroup.LayoutParams mFrameParams;
@@ -388,6 +391,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     private View mFocus2;
     private Result mPendingDetail;
     private Result mPendingPlayer;
+    private AudioPlaybackResolver.Resolved mImmersiveAudioResolved;
     private String mContextWallUrl;
     private String mContextWallLockedUrl;
     private String playHealthKey;
@@ -617,6 +621,43 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         intent.putExtra("pic", pic);
         intent.putExtra("key", key);
         intent.putExtra("id", id);
+        activity.startActivity(intent);
+    }
+
+    public static boolean startImmersiveAudioSite(Activity activity, String key, String id, String name, String pic, String mark) {
+        if (SiteApi.PUSH.equals(key)) return false;
+        if (!PlayerSetting.isImmersiveAudioMode()) return false;
+        if (!AudioUtil.isAudioSiteEnabled(key)) return false;
+        Notify.show("正在加载音频");
+        Task.execute(() -> {
+            try {
+                AudioPlaybackResolver.Resolved resolved = AudioPlaybackResolver.resolveSite(key, id, name, pic, mark);
+                App.post(() -> startResolvedImmersiveAudio(activity, resolved, mark));
+            } catch (Throwable e) {
+                App.post(() -> Notify.show(TextUtils.isEmpty(e.getMessage()) ? "音频加载失败" : e.getMessage()));
+            }
+        });
+        return true;
+    }
+
+    private static void startResolvedImmersiveAudio(Activity activity, AudioPlaybackResolver.Resolved resolved, String mark) {
+        Result result = resolved.getResult();
+        Vod vod = resolved.getVod();
+        Episode episode = resolved.getEpisode();
+        String pic = result.hasArtwork() ? result.getArtwork() : vod.getPic();
+        if (!TextUtils.isEmpty(pic)) ImgUtil.preload(activity, pic);
+        String cacheKey = resolved.getSiteKey() + AppDatabase.SYMBOL + resolved.getVodId() + AppDatabase.SYMBOL + System.nanoTime();
+        IMMERSIVE_AUDIO_LAUNCHES.put(cacheKey, resolved);
+        Intent intent = new Intent(activity, VideoActivity.class);
+        intent.putExtra("collect", false);
+        intent.putExtra("cast", false);
+        intent.putExtra("mark", mark);
+        intent.putExtra("name", vod.getName());
+        intent.putExtra("pic", pic);
+        intent.putExtra("key", resolved.getSiteKey());
+        intent.putExtra("id", resolved.getVodId());
+        intent.putExtra(EXTRA_IMMERSIVE_AUDIO_CACHE_KEY, cacheKey);
+        putIntentPlaybackSelection(intent, resolved.getFlag().getFlag(), episode.getName(), episode.getUrl());
         activity.startActivity(intent);
     }
 
@@ -883,6 +924,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         setPlayerKernel();
         setDecode();
         setLut();
+        if (consumeImmersiveAudioLaunch()) return;
         if (!detailRequested) checkId();
         flushPendingFastTmdbPlayback();
         if (mPendingDetail != null) {
@@ -3594,6 +3636,9 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         mBinding.flag.setVisibility(empty ? View.GONE : View.VISIBLE);
         if (empty) {
             startFlow();
+        } else if (mImmersiveAudioResolved != null) {
+            applyImmersiveAudioSelection(mImmersiveAudioResolved);
+            if (mHistory.isRevSort()) reverseEpisode(true);
         } else if (mFastTmdbPlaybackStarted && mFastPlaybackFlag != null && mFastPlaybackEpisode != null) {
             mFlagAdapter.setSelected(mFastPlaybackFlag);
             mBinding.flag.setSelectedPosition(mFlagAdapter.indexOf(mFastPlaybackFlag));
@@ -7531,9 +7576,61 @@ private void setAudioStageVisible(boolean visible) {
     }
 
     private boolean shouldUseImmersiveAudio() {
-        // 暂时关闭 TV 歌曲舞台的自动判断，避免普通视频被错误切换为歌曲模式。
-        // 后续只能由播放入口传入明确的媒体类型后恢复，不能再依赖名称或轨道发布时序猜测。
-        return false;
+        return PlayerSetting.isImmersiveAudioMode() && (isAudioOnly() || isMusicLike());
+    }
+
+private AudioPlaybackResolver.Resolved takeImmersiveAudioLaunch() {
+        String cacheKey = Objects.toString(getIntent().getStringExtra(EXTRA_IMMERSIVE_AUDIO_CACHE_KEY), "");
+        return TextUtils.isEmpty(cacheKey) ? null : IMMERSIVE_AUDIO_LAUNCHES.remove(cacheKey);
+    }
+
+private boolean consumeImmersiveAudioLaunch() {
+        AudioPlaybackResolver.Resolved resolved = takeImmersiveAudioLaunch();
+        if (resolved == null) return false;
+        try {
+            prepareImmersiveAudioPlayback(resolved);
+            setDetail(resolved.getVod());
+            mInlineLyrics = getEpisodeInlineLyrics(resolved.getEpisode());
+            setAudioStageVisible(true);
+            setPlayer(resolved.getResult());
+            return true;
+        } finally {
+            mImmersiveAudioResolved = null;
+        }
+    }
+
+private void prepareImmersiveAudioPlayback(AudioPlaybackResolver.Resolved resolved) {
+        mImmersiveAudioResolved = resolved;
+        Vod vod = resolved.getVod();
+        Result result = resolved.getResult();
+        Episode episode = resolved.getEpisode();
+        String pic = result.hasArtwork() ? result.getArtwork() : vod.getPic();
+        getIntent().putExtra("key", resolved.getSiteKey());
+        getIntent().putExtra("id", resolved.getVodId());
+        getIntent().putExtra("name", vod.getName());
+        getIntent().putExtra("pic", pic);
+        putIntentPlaybackSelection(getIntent(), resolved.getFlag().getFlag(), episode.getName(), episode.getUrl());
+        detailStartTime = System.currentTimeMillis();
+        playerStartTime = detailStartTime;
+        beginPlayHealth();
+        mPlaybackEpisodeKey = audioQueueEpisodeKey(episode);
+        clearLyrics();
+        clearKaraokeState();
+        setAudioOnly(true);
+    }
+
+private void applyImmersiveAudioSelection(AudioPlaybackResolver.Resolved resolved) {
+        Flag flag = resolved.getFlag();
+        Episode episode = resolved.getEpisode();
+        mFlagAdapter.setSelected(flag);
+        mFlagAdapter.toggle(episode);
+        int position = mFlagAdapter.indexOf(flag);
+        if (position != RecyclerView.NO_POSITION) mBinding.flag.setSelectedPosition(position);
+        notifyItemChanged(mBinding.flag, mFlagAdapter);
+        setEpisodeAdapter(flag.getEpisodes(), false);
+        setQualityVisible(false);
+        mBinding.widget.title.setText(getPlaybackControlTitle(episode));
+        mBinding.widget.title.setSelected(true);
     }
 
 private void syncAudioStageSurface(boolean visible) {

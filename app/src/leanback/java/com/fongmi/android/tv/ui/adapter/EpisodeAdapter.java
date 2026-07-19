@@ -310,7 +310,7 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
         binding.cardContainer.setOnKeyListener(keyListener);
 
         // 加载剧照
-        String cardTitle = getCardTitle(item);
+        String cardTitle = getCardTitle(item, tmdbEpisode);
         String stillUrl = tmdbEpisode.getStillUrl();
         String imageUrl = TextUtils.isEmpty(stillUrl) ? fallbackStillUrl : stillUrl;
         String errorImageUrl = TextUtils.isEmpty(stillUrl) ? "" : fallbackStillUrl;
@@ -447,8 +447,11 @@ public class EpisodeAdapter extends RecyclerView.Adapter<EpisodeAdapter.ViewHold
     }
 
     public static String getCardTitle(Episode item) {
+        return getCardTitle(item, item == null ? null : item.getTmdbEpisode());
+    }
+
+    public static String getCardTitle(Episode item, TmdbEpisode tmdbEpisode) {
         if (item == null) return "";
-        TmdbEpisode tmdbEpisode = item.getTmdbEpisode();
         if (tmdbEpisode == null) return getTitle(item);
         if (!Setting.getTmdbEpisodeShowScrapedName()) return item.getDisplayName();
         String title = EpisodeTitleFormatter.formatTmdbTitle(tmdbEpisode.getNumber(), tmdbEpisode.getTitle());
