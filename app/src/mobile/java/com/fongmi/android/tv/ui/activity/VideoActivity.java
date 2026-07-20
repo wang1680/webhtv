@@ -2707,20 +2707,19 @@ private int mAudioBackgroundRandomNonce;
 
     private void onSpeed() {
         mBinding.control.action.speed.setText(player().addSpeed());
-        saveDefaultSpeed();
+        saveUserSpeed();
         setR1Callback();
     }
 
     private boolean onSpeedLong() {
-        mBinding.control.action.speed.setText(player().toggleSpeed());
-        saveDefaultSpeed();
+        mBinding.control.action.speed.setText(player().toggleSpeed(getPlaybackSpeed()));
+        saveUserSpeed();
         setR1Callback();
         return true;
     }
 
-    private void saveDefaultSpeed() {
-        PlayerSetting.putDefaultSpeed(player().getSpeed());
-        mHistory.setSpeed(player().getSpeed());
+    private void saveUserSpeed() {
+        mHistory.setUserSpeed(player().getSpeed());
     }
 
     private void onReset() {
@@ -3390,10 +3389,9 @@ private int mAudioBackgroundRandomNonce;
         if (Setting.isIncognito() && mHistory.getKey().equals(getHistoryKey())) mHistory.delete();
         mBinding.control.action.opening.setText(mHistory.getOpening() <= 0 ? getString(R.string.play_op) : Util.timeMs(mHistory.getOpening()));
         mBinding.control.action.ending.setText(mHistory.getEnding() <= 0 ? getString(R.string.play_ed) : Util.timeMs(mHistory.getEnding()));
-        // 如果历史记录中已有速度（播放过的剧），使用历史记录中的速度；否则使用默认速度1.0x
-        float speed = (mHistory.getSpeed() > 0 && mHistory.getSpeed() != 1f) ? mHistory.getSpeed() : 1f;
+        // 如果历史记录中已有有效倍速，使用历史倍速；否则使用默认播放倍速
+        float speed = getPlaybackSpeed();
         mBinding.control.action.speed.setText(player().setSpeed(speed));
-        mHistory.setSpeed(player().getSpeed());
         mHistory.setVodName(item.getName());
         enrichHistoryMeta(item);
         PlaybackEventCollector.get().updateHistory(mHistory);
@@ -4014,10 +4012,11 @@ private int mAudioBackgroundRandomNonce;
 
     private void setSpeed() {
         if (mHistory == null) return;
-        float speed = mHistory.getSpeed();
-        if (speed > 0 && speed != 1f) {
-            mBinding.control.action.speed.setText(player().setSpeed(speed));
-        }
+        mBinding.control.action.speed.setText(player().setSpeed(getPlaybackSpeed()));
+    }
+
+    private float getPlaybackSpeed() {
+        return mHistory == null ? PlayerSetting.getDefaultSpeed() : mHistory.getPlaybackSpeed(PlayerSetting.getDefaultSpeed());
     }
 
     private void checkOrientation() {
@@ -5168,8 +5167,7 @@ private int mAudioBackgroundRandomNonce;
     @Override
     public void onSpeedEnd() {
         mBinding.widget.speed.clearAnimation();
-        mBinding.control.action.speed.setText(player().setSpeed(PlayerSetting.getDefaultSpeed()));
-        mHistory.setSpeed(player().getSpeed());
+        mBinding.control.action.speed.setText(player().setSpeed(getPlaybackSpeed()));
     }
 
     @Override

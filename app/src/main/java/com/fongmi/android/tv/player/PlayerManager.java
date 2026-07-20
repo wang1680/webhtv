@@ -119,6 +119,7 @@ public class PlayerManager implements ParseCallback {
     private final LiveDanmakuBatcher liveDanmakuBatcher;
     private final LiveDanmakuBuffer liveDanmakuBuffer;
     private final LiveDanmakuMetrics liveDanmakuMetrics;
+    private final SpeedToggleState speedToggleState;
     private DanmakuController danmakuController;
     private LiveDanmakuWebSocketSession liveDanmakuSession;
     private PlayerEngine engine;
@@ -184,6 +185,7 @@ public class PlayerManager implements ParseCallback {
         this.liveDanmakuBuffer = new LiveDanmakuBuffer();
         this.liveDanmakuMetrics = new LiveDanmakuMetrics();
         this.liveDanmakuBatcher = new LiveDanmakuBatcher(liveDanmakuBuffer, this::onLiveDanmakuBatch);
+        this.speedToggleState = new SpeedToggleState();
         this.dynamicLutEffect = new DynamicLutEffect();
         this.audioFocusChangeListener = this::onNativeAudioFocusChanged;
         this.noisyReceiver = new BroadcastReceiver() {
@@ -723,6 +725,11 @@ public class PlayerManager implements ParseCallback {
     }
 
     public String setSpeed(float speed) {
+        speedToggleState.clear();
+        return applySpeed(speed);
+    }
+
+    private String applySpeed(float speed) {
         if (!player.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)) return getSpeedText();
         RealtimeSubtitleController realtime = RealtimeSubtitleController.get();
         if (Math.abs(speed - 1f) > 0.001f && (realtime.isEnabled() || realtime.isPreparing())) {
@@ -746,7 +753,50 @@ public class PlayerManager implements ParseCallback {
     }
 
     public String toggleSpeed() {
-        return setSpeed(getSpeed() == 1 ? PlayerSetting.getSpeed() : 1);
+        return toggleSpeed(1.0f, 1.0f);
+    }
+
+    public String toggleSpeed(float normalSpeed) {
+        return toggleSpeed(normalSpeed, PlayerSetting.getDefaultSpeed());
+    }
+
+    private String toggleSpeed(float normalSpeed, float fallbackSpeed) {
+        if (!player.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)) return getSpeedText();
+        return applySpeed(speedToggleState.next(getSpeed(), normalSpeed, PlayerSetting.getSpeed(), fallbackSpeed));
+    }
+
+    static final class SpeedToggleState {
+
+        private static final float EPSILON = 0.001f;
+        private float restoreSpeed = Float.NaN;
+
+        float next(float currentSpeed, float normalSpeed, float fastSpeed, float fallbackSpeed) {
+            if (isClose(currentSpeed, fastSpeed)) {
+                float target = isValid(restoreSpeed) ? restoreSpeed : restoreSpeed(normalSpeed, fastSpeed, fallbackSpeed);
+                clear();
+                return target;
+            }
+            restoreSpeed = restoreSpeed(normalSpeed, fastSpeed, fallbackSpeed);
+            return fastSpeed;
+        }
+
+        void clear() {
+            restoreSpeed = Float.NaN;
+        }
+
+        private static float restoreSpeed(float normalSpeed, float fastSpeed, float fallbackSpeed) {
+            if (isValid(normalSpeed) && !isClose(normalSpeed, fastSpeed)) return normalSpeed;
+            if (isValid(fallbackSpeed) && !isClose(fallbackSpeed, fastSpeed)) return fallbackSpeed;
+            return 1.0f;
+        }
+
+        private static boolean isClose(float first, float second) {
+            return Math.abs(first - second) < EPSILON;
+        }
+
+        private static boolean isValid(float speed) {
+            return speed > 0 && !Float.isNaN(speed) && !Float.isInfinite(speed);
+        }
     }
 
     private float nextPresetSpeed() {

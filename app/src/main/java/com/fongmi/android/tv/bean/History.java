@@ -6,6 +6,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
@@ -67,6 +68,9 @@ public class History implements Diffable<History> {
     private long duration;
     @SerializedName("speed")
     private float speed;
+    @SerializedName("speedOverride")
+    @ColumnInfo(defaultValue = "0")
+    private boolean speedOverride;
     @SerializedName("scale")
     private int scale;
     @SerializedName("cid")
@@ -112,6 +116,7 @@ public class History implements Diffable<History> {
         item.position = position;
         item.duration = duration;
         item.speed = speed;
+        item.speedOverride = speedOverride;
         item.scale = scale;
         item.cid = cid;
         item.typeName = typeName;
@@ -353,6 +358,27 @@ public class History implements Diffable<History> {
         this.speed = speed;
     }
 
+    public boolean getSpeedOverride() {
+        return speedOverride;
+    }
+
+    public void setSpeedOverride(boolean speedOverride) {
+        this.speedOverride = speedOverride;
+    }
+
+    public boolean hasUserSpeed() {
+        return speedOverride || (speed > 0 && Math.abs(speed - 1.0f) > 0.001f);
+    }
+
+    public float getPlaybackSpeed(float defaultSpeed) {
+        return hasUserSpeed() && speed > 0 ? speed : defaultSpeed;
+    }
+
+    public void setUserSpeed(float speed) {
+        this.speed = speed;
+        this.speedOverride = true;
+    }
+
     public int getScale() {
         return scale;
     }
@@ -510,7 +536,7 @@ public class History implements Diffable<History> {
     private History copyTo(History item) {
         if (getOpening() > 0) item.setOpening(getOpening());
         if (getEnding() > 0) item.setEnding(getEnding());
-        if (getSpeed() != 1) item.setSpeed(getSpeed());
+        if (hasUserSpeed()) item.setUserSpeed(getSpeed());
         return this;
     }
 
