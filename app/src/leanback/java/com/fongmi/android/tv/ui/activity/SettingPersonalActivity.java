@@ -11,6 +11,7 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.HomeButton;
 import com.fongmi.android.tv.databinding.ActivitySettingPersonalBinding;
 import com.fongmi.android.tv.event.RefreshEvent;
+import com.fongmi.android.tv.setting.AutoBackupPolicy;
 import com.fongmi.android.tv.setting.GroupRuleConfig;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
@@ -20,6 +21,8 @@ import com.fongmi.android.tv.ui.dialog.HomeButtonDialog;
 import com.fongmi.android.tv.ui.dialog.HomeMenuKeyDialog;
 import com.fongmi.android.tv.ui.dialog.SpeedSettingDialog;
 import com.fongmi.android.tv.ui.dialog.SliderNumberDialog;
+import com.fongmi.android.tv.utils.Notify;
+import com.fongmi.android.tv.utils.PermissionUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.Locale;
@@ -56,6 +59,7 @@ public class SettingPersonalActivity extends BaseActivity {
     @Override
     protected void initEvent() {
         mBinding.homeVodAutoLoad.setOnClickListener(this::setHomeVodAutoLoad);
+        mBinding.autoBackup.setOnClickListener(this::setAutoBackup);
         mBinding.homeButtons.setOnClickListener(this::onHomeButtons);
         mBinding.fullscreenMenuKey.setOnClickListener(this::setFullscreenMenuKey);
         mBinding.homeMenuKey.setOnClickListener(this::setHomeMenuKey);
@@ -74,6 +78,7 @@ public class SettingPersonalActivity extends BaseActivity {
 
     private void setText() {
         mBinding.homeVodAutoLoadText.setText(getSwitch(Setting.isHomeVodAutoLoad()));
+        mBinding.autoBackupText.setText(getSwitch(isAutoBackupEnabled()));
         mBinding.homeButtonsText.setText(getString(R.string.home_buttons_selected, HomeButton.getButtons().size(), HomeButton.all().size()));
         mBinding.fullscreenMenuKeyText.setText((fullscreenMenuKey = getResources().getStringArray(R.array.select_fullscreen_menu_key))[Setting.getFullscreenMenuKey()]);
         mBinding.homeMenuKeyText.setText((homeMenuKey = getResources().getStringArray(R.array.select_home_menu_key))[Setting.getHomeMenuKey()]);
@@ -106,6 +111,26 @@ public class SettingPersonalActivity extends BaseActivity {
     private void setHomeVodAutoLoad(View view) {
         Setting.putHomeVodAutoLoad(!Setting.isHomeVodAutoLoad());
         setText();
+    }
+
+    private void setAutoBackup(View view) {
+        if (isAutoBackupEnabled()) {
+            Setting.putAutoBackup(false);
+            setText();
+            return;
+        }
+        PermissionUtil.requestFile(this, allGranted -> {
+            if (!allGranted) {
+                Notify.show(R.string.backup_permission_denied);
+                return;
+            }
+            Setting.putAutoBackup(true);
+            setText();
+        });
+    }
+
+    private boolean isAutoBackupEnabled() {
+        return AutoBackupPolicy.isEffective(Setting.isAutoBackup(), Setting.hasFileAccess());
     }
 
     private void onHomeButtons(View view) {

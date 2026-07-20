@@ -10,6 +10,7 @@ import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.FragmentSettingPersonalBinding;
+import com.fongmi.android.tv.setting.AutoBackupPolicy;
 import com.fongmi.android.tv.setting.GroupRuleConfig;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
@@ -17,6 +18,8 @@ import com.fongmi.android.tv.ui.base.BaseFragment;
 import com.fongmi.android.tv.ui.dialog.GroupRuleDialog;
 import com.fongmi.android.tv.ui.dialog.SpeedSettingDialog;
 import com.fongmi.android.tv.ui.dialog.SliderNumberDialog;
+import com.fongmi.android.tv.utils.Notify;
+import com.fongmi.android.tv.utils.PermissionUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.Locale;
@@ -51,6 +54,7 @@ public class SettingPersonalFragment extends BaseFragment {
     @Override
     protected void initEvent() {
         mBinding.searchThread.setOnClickListener(this::setSearchThread);
+        mBinding.autoBackup.setOnClickListener(this::setAutoBackup);
         mBinding.playBackToDetail.setOnClickListener(this::setPlayBackToDetail);
         mBinding.playSpeed.setOnClickListener(this::setPlaySpeed);
         mBinding.tmdbMatchMode.setOnClickListener(this::setTmdbMatchMode);
@@ -65,6 +69,7 @@ public class SettingPersonalFragment extends BaseFragment {
 
     private void setText() {
         mBinding.searchThreadText.setText(String.valueOf(Setting.getSearchThread()));
+        mBinding.autoBackupText.setText(getSwitch(isAutoBackupEnabled()));
         mBinding.playBackToDetailText.setText(getSwitch(Setting.isPlayBackToDetail()));
         mBinding.playSpeedText.setText(getSpeedText(PlayerSetting.getDefaultSpeed()));
         mBinding.tmdbMatchModeText.setText((tmdbMatchMode = getResources().getStringArray(R.array.select_tmdb_match_mode))[Setting.getTmdbMatchMode()]);
@@ -95,6 +100,26 @@ public class SettingPersonalFragment extends BaseFragment {
             Setting.putSearchThread(value);
             setText();
         });
+    }
+
+    private void setAutoBackup(View view) {
+        if (isAutoBackupEnabled()) {
+            Setting.putAutoBackup(false);
+            setText();
+            return;
+        }
+        PermissionUtil.requestFile(this, allGranted -> {
+            if (!allGranted) {
+                Notify.show(R.string.backup_permission_denied);
+                return;
+            }
+            Setting.putAutoBackup(true);
+            setText();
+        });
+    }
+
+    private boolean isAutoBackupEnabled() {
+        return AutoBackupPolicy.isEffective(Setting.isAutoBackup(), Setting.hasFileAccess());
     }
 
     private void setPlayBackToDetail(View view) {

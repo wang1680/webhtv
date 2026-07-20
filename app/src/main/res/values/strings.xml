@@ -192,6 +192,7 @@
     <string name="group_rule_edit_item">Edit · %1$s\n%2$s</string>
     <string name="group_rule_interface_item">Interface · %1$s\n%2$s</string>
     <string name="setting_home_vod_auto_load">Auto-load VOD</string>
+    <string name="setting_auto_backup">Automatic backup</string>
     <string name="setting_fullscreen_menu_key">Fullscreen menu key</string>
     <string name="setting_home_menu_key">Home menu key</string>
     <string name="setting_play_back_to_detail">Return playback to detail</string>
@@ -829,6 +830,7 @@
     <string name="restore_fail">Restore failed</string>
     <string name="backup_success">Backup successful</string>
     <string name="backup_fail">Backup failed</string>
+    <string name="backup_permission_denied">Storage permission is required to back up or restore data</string>
 
     <!-- Device Sync -->
     <string name="device_select">Select devices</string>
