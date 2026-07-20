@@ -36,6 +36,7 @@ public class HistoryAdapterTest {
 
         assertHistoryCardLayout("TV", layout);
         assertHistoryCardLayout("mobile", mobileLayout);
+        assertMobileDeleteOverlayIsCentered(mobileLayout, mobileAdapter);
         assertBindsPlaybackProgress("TV history page", adapter);
         assertBindsPlaybackProgress("mobile history page", mobileAdapter);
         assertBindsPlaybackProgress("TV home recent row", presenter);
@@ -84,6 +85,31 @@ public class HistoryAdapterTest {
         assertMarquee(owner + " episode", remark);
     }
 
+    private static void assertMobileDeleteOverlayIsCentered(String layout, String adapter) throws Exception {
+        Element root = parseLayout(layout);
+        Element image = findById(root, "@+id/image");
+        Element site = findById(root, "@+id/site");
+        Element delete = findById(root, "@+id/delete");
+        assertTrue("mobile delete overlay must span the card instead of becoming a clipped fixed-size dot",
+                delete.getParentNode() == root
+                        && "wrap_content".equals(androidAttribute(delete, "layout_width"))
+                        && "wrap_content".equals(androidAttribute(delete, "layout_height"))
+                        && "@+id/image".equals(androidAttribute(delete, "layout_alignStart"))
+                        && "@+id/image".equals(androidAttribute(delete, "layout_alignTop"))
+                        && "@+id/image".equals(androidAttribute(delete, "layout_alignEnd"))
+                        && "@+id/history_info".equals(androidAttribute(delete, "layout_alignBottom")));
+        assertTrue("mobile delete overlay must dim the card and center the full white trash icon",
+                "@color/black_50".equals(androidAttribute(delete, "background"))
+                        && "center".equals(androidAttribute(delete, "scaleType"))
+                        && "@drawable/ic_vod_delete".equals(androidAttribute(delete, "src"))
+                        && "@style/Vod.Grid.Large".equals(delete.getAttributeNS(APP_NS, "shapeAppearanceOverlay")));
+        assertTrue("mobile delete overlay must render above the poster and below the source label",
+                childElementIndex(root, image) < childElementIndex(root, delete)
+                        && childElementIndex(root, delete) < childElementIndex(root, site));
+        assertTrue("mobile delete mode must keep a distinct episode name visible",
+                adapter.contains("binding.remark.setVisibility(same ? View.INVISIBLE : View.VISIBLE);"));
+    }
+
     private static void assertHidesHistoryOnlyViews(String owner, String source) {
         assertTrue(owner + " reuses the card layout and must hide the history-only progress bar and time label",
                 source.contains("holder.binding.progress.setVisibility(View.GONE);")
@@ -108,7 +134,8 @@ public class HistoryAdapterTest {
                         && source.contains("item.hasPlaybackTime()")
                         && source.contains("!delete && item.hasPlaybackTime()"));
         assertTrue(owner + " must keep the second metadata line aligned when no distinct episode exists",
-                source.contains("binding.remark.setVisibility(delete || same ? View.INVISIBLE : View.VISIBLE);"));
+                source.contains("binding.remark.setVisibility(delete || same ? View.INVISIBLE : View.VISIBLE);")
+                        || source.contains("binding.remark.setVisibility(same ? View.INVISIBLE : View.VISIBLE);"));
     }
 
     private static Element parseLayout(String layout) throws Exception {
