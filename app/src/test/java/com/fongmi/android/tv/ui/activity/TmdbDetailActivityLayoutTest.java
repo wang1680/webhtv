@@ -1770,6 +1770,22 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
+    public void inlinePlayerScaleSurvivesPlayerCoreRebuild() throws Exception {
+        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        int setScale = activity.indexOf("private void setInlineScale(int scale)");
+        int previewScale = activity.indexOf("private void setInlinePreviewScale(int scale)", setScale);
+
+        assertTrue("TmdbDetailActivity is missing setInlineScale", setScale >= 0);
+        assertTrue("TmdbDetailActivity is missing setInlinePreviewScale", previewScale > setScale);
+
+        String setScaleBody = activity.substring(setScale, previewScale);
+        assertTrue("inline scale must update PlaybackActivity's requested resize mode so a player-core rebuild restores the same style",
+                setScaleBody.contains("applyResizeMode(scale);"));
+        assertFalse("inline scale must not bypass PlaybackActivity's resize-mode state",
+                setScaleBody.contains("binding.exo.setResizeMode(scale);"));
+    }
+
+    @Test
     public void inlinePlayerPanelStaysInRootWithoutReparent() throws Exception {
         Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8).replace("\r\n", "\n");

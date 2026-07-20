@@ -6350,7 +6350,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void setInlineScale(int scale) {
         if (history != null) history.setScale(scale);
-        binding.exo.setResizeMode(scale);
+        applyResizeMode(scale);
         setInlineScaleText(scaleLabel(scale));
     }
 
