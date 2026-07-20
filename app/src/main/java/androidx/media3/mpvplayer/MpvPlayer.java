@@ -64,6 +64,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
 import is.xyz.mpv.MPVLib;
 
@@ -207,6 +208,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     private boolean cachedCacheEof;
     private boolean preferAacApplied;
     private boolean audioTrackManuallySelected;
+    private BiConsumer<Integer, Integer> videoSizeProbeListener;
     private boolean trackRefreshScheduled;
     private int loadStartRetryCount;
     private int videoReconfigCount;
@@ -432,6 +434,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     @Override
     protected ListenableFuture<?> handleRelease() {
         released = true;
+        videoSizeProbeListener = null;
         cancelScheduledTrackRefresh();
         mainHandler.removeCallbacks(mediaReplacementStopTimeoutRunnable);
         mediaReplacementCoordinator.reset();
@@ -991,6 +994,10 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
 
     public VideoSize getVideoSizeSnapshot() {
         return videoSize;
+    }
+
+    public void setVideoSizeProbeListener(@Nullable BiConsumer<Integer, Integer> listener) {
+        videoSizeProbeListener = listener;
     }
 
     public void resetTrackSelection() {
@@ -1872,6 +1879,14 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         if (candidate == null || candidate.width <= 0 || candidate.height <= 0) return;
         if (videoSize.width == candidate.width && videoSize.height == candidate.height) return;
         videoSize = new VideoSize(candidate.width, candidate.height);
+        BiConsumer<Integer, Integer> listener = videoSizeProbeListener;
+        if (listener != null) {
+            int width = candidate.width;
+            int height = candidate.height;
+            mainHandler.postAtFrontOfQueue(() -> {
+                if (!released && listener == videoSizeProbeListener) listener.accept(width, height);
+            });
+        }
         Log.d(SIZE_TAG, "mpv videoSize=" + candidate.width + "x" + candidate.height + " source=" + candidate.source + " reason=" + reason + " surface=" + surfaceWidth + "x" + surfaceHeight);
     }
 

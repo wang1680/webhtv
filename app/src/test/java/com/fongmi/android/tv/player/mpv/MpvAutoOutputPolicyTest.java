@@ -37,6 +37,13 @@ public class MpvAutoOutputPolicyTest {
     }
 
     @Test
+    public void ignoresAutoSelectedEmbeddedSubtitleButHonorsExplicitSubtitleDemand() {
+        assertFalse(MpvAutoOutputPolicy.requiresGpuSubtitle(false, false));
+        assertTrue(MpvAutoOutputPolicy.requiresGpuSubtitle(true, false));
+        assertTrue(MpvAutoOutputPolicy.requiresGpuSubtitle(false, true));
+    }
+
+    @Test
     public void keepsDirectOutputWhenNextItemRemainsEligible() {
         assertEquals(MpvAutoOutputPolicy.Transition.KEEP_SURFACE_DIRECT, MpvAutoOutputPolicy.transition(true, true));
     }

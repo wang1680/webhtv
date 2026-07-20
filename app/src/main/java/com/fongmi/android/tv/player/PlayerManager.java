@@ -147,6 +147,7 @@ public class PlayerManager implements ParseCallback {
     private boolean lutAllowed = true;
     private boolean mpvAutoOutputEvaluated;
     private boolean mpvAutoOutputEvaluationScheduled;
+    private boolean mpvExplicitSubtitlePreference;
     private boolean mpvSurfaceFallbackTried;
     private int playerType;
     private int retry;
@@ -623,6 +624,7 @@ public class PlayerManager implements ParseCallback {
     }
 
     public void setTrack(List<Track> tracks) {
+        mpvExplicitSubtitlePreference = hasRequestedSubtitle(tracks);
         if (shouldLeaveAutoSurfaceDirectForSubtitle(tracks)) {
             rebuildAndRestartMpv(false, "subtitle-selected");
             return;
@@ -945,6 +947,7 @@ public class PlayerManager implements ParseCallback {
 
     private void prepareMpvOutputForNewItem() {
         resetMpvOutputEvaluationState();
+        mpvExplicitSubtitlePreference = hasRequestedSubtitle(Track.find(getKey()));
         if (!(engine instanceof MpvPlayerEngine mpv)) return;
         if (MpvPerformanceSetting.getOutputMode() == MpvPerformanceSetting.OUTPUT_AUTO && mpv.isSurfaceDirect()) {
             if (SpiderDebug.isEnabled()) SpiderDebug.log("mpv-output", "preserve direct output for new item reason=auto-sticky");
@@ -1000,7 +1003,7 @@ public class PlayerManager implements ParseCallback {
         boolean externalSubtitleActive = spec != null && spec.getSubs() != null && !spec.getSubs().isEmpty();
         boolean earlyEvaluation = !tracksReady;
         if (earlyEvaluation && !MpvAutoOutputPolicy.canEvaluateWithoutTracks(width, height, externalSubtitleActive)) return false;
-        boolean subtitleActive = externalSubtitleActive || hasSelectedSubtitle(tracks);
+        boolean subtitleActive = MpvAutoOutputPolicy.requiresGpuSubtitle(externalSubtitleActive, mpvExplicitSubtitlePreference);
         boolean lutOrFilterActive = videoEffectsActive || videoEffectsDirty || lutAllowed && LutSetting.isEnabled() || MpvPerformanceSetting.isInterpolation();
         boolean customGpuProcessing = MpvConfigStore.hasGpuVideoProcessing();
         MpvAutoOutputPolicy.Decision decision = MpvAutoOutputPolicy.evaluate(width, height, engine.isHard(), Util.isLeanback(), subtitleActive, lutOrFilterActive, customGpuProcessing);
@@ -1025,13 +1028,25 @@ public class PlayerManager implements ParseCallback {
         return false;
     }
 
-    private boolean hasSelectedSubtitle(Tracks tracks) {
+    private boolean hasRequestedSubtitle(List<Track> tracks) {
         if (tracks == null || tracks.isEmpty()) return false;
-        for (Tracks.Group group : tracks.getGroups()) {
-            if (group.getType() != C.TRACK_TYPE_TEXT) continue;
-            for (int i = 0; i < group.length; i++) if (group.isTrackSelected(i)) return true;
+        for (Track track : tracks) {
+            if (track.getType() == C.TRACK_TYPE_TEXT && track.isSelected() && !track.isDisabled()) return true;
         }
         return false;
+    }
+
+    private void restoreTrackSelection(List<Track> tracks) {
+        if (tracks != null && !tracks.isEmpty()) engine.setTrack(tracks);
+    }
+
+    private void onMpvVideoSizeProbed(Integer width, Integer height) {
+        if (width == null || height == null || width <= 0 || height <= 0) return;
+        if (!isMpv() || MpvPerformanceSetting.getOutputMode() != MpvPerformanceSetting.OUTPUT_AUTO || mpvAutoOutputEvaluated) return;
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("mpv-output", "auto size probe size=%dx%d attempts=%d", width, height, mpvAutoOutputProbeAttempts);
+        mpvAutoOutputEvaluationScheduled = false;
+        mpvOutputEvaluationSeq++;
+        if (!evaluateMpvAutoOutput()) scheduleMpvAutoOutputEvaluation();
     }
 
     private boolean retryMpvSurfaceDirectFailure(PlaybackException error) {
@@ -1052,7 +1067,7 @@ public class PlayerManager implements ParseCallback {
     private PlayerEngine buildEngine(int type, int decode) {
         return switch (type) {
             case PlayerSetting.IJK -> new IjkPlayerEngine(decode, listener);
-            case PlayerSetting.MPV -> new MpvPlayerEngine(decode, listener);
+            case PlayerSetting.MPV -> new MpvPlayerEngine(decode, listener, this::onMpvVideoSizeProbed);
             default -> new ExoPlayerEngine(decode, listener);
         };
     }
@@ -2220,7 +2235,7 @@ public class PlayerManager implements ParseCallback {
         public void onTracksChanged(@NonNull Tracks tracks) {
             if (!tracks.isEmpty() && !initTrack) {
                 playbackTrace.mark(PlaybackTrace.Stage.TRACKS, trackSummary(tracks));
-                setTrack(Track.find(getKey()));
+                restoreTrackSelection(Track.find(getKey()));
                 callback.onTracksChanged();
                 initTrack = true;
             }
