@@ -1804,6 +1804,31 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
+    public void mobileInlineFullscreenKeepsLiveVideoVisibleDuringLayoutChanges() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8).replace("\r\n", "\n");
+
+        int enter = activity.indexOf("private void enterInlineFullscreen()");
+        int exit = activity.indexOf("private void exitInlineFullscreen()");
+        int exitEnd = activity.indexOf("private void enterInlinePiPLayout()", exit);
+
+        assertTrue(activityPath + " is missing enterInlineFullscreen", enter >= 0);
+        assertTrue(activityPath + " is missing exitInlineFullscreen", exit >= 0 && exitEnd > exit);
+        String enterBody = activity.substring(enter, exit);
+        String exitBody = activity.substring(exit, exitEnd);
+        assertTrue("layout-only fullscreen entry and exit must keep the live video visible instead of covering it with a cached frame",
+                !enterBody.contains("showInlineTransitionFrame();")
+                        && !exitBody.contains("showInlineTransitionFrame();")
+                        && !enterBody.contains("scheduleInlineTransitionFrameTimeout();")
+                        && !exitBody.contains("scheduleInlineTransitionFrameTimeout();"));
+        assertTrue("the root-resident player must not retain the obsolete PixelCopy transition-frame pipeline",
+                !activity.contains("captureInlineTransitionFrame()")
+                        && !activity.contains("PixelCopy.request(")
+                        && !activity.contains("inlineTransitionBitmap")
+                        && !activity.contains("inlineTransitionFrame"));
+    }
+
+    @Test
     public void fusionPlayerSpacerOnlyAcceptsFocusOnLeanback() throws Exception {
         String layout = readLayout("activity_tmdb_detail.xml");
         String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");

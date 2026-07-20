@@ -7,7 +7,6 @@ import android.content.pm.ActivityInfo;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -23,9 +22,6 @@ import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-import android.view.PixelCopy;
-import android.view.SurfaceView;
-import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -300,9 +296,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private boolean savingTmdbPhoto;
     private boolean pendingInlineLutImport;
     private PlayerGesture inlineGestureDetector;
-    private Bitmap inlineTransitionBitmap;
-    private ImageView inlineTransitionFrame;
-    private int inlineTransitionCaptureSeq;
     private VodPlayerUiController inlinePlayerUi;
     private Clock inlineClock;
     private VodPlayerControlController inlineControlController;
@@ -311,7 +304,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private PiP inlinePiP;
     private final Runnable inlineHideControls = this::hideInlineControlsIfIdle;
     private final Runnable inlineKeySeekEnd = this::onInlineKeySeekEnd;
-    private final Runnable inlineTransitionFrameTimeout = this::hideInlineTransitionFrame;
     private Result pendingInlineResult;
     private Result currentInlineResult;
     // playerPanel 已提升到 root 层，全屏切换只调整 LayoutParams，不再 reparent
@@ -5688,7 +5680,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             inlineOsd.setSuppressed(true);
             inlineOsd.setControlsVisible(true);
         }
-        captureInlineTransitionFrame();
         focusInlineDefaultControl();
         touchInlineControls();
         updateInlineDisplayPanel();
@@ -5719,65 +5710,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         View focus = getCurrentFocus();
         if (focus != null && isDescendant(binding.playerPanel, focus)) focus.clearFocus();
         binding.playerPanel.requestFocus();
-    }
-
-    private void captureInlineTransitionFrame() {
-        if (!Util.isMobile() || binding == null || inlineTransitionFrame != null) return;
-        View output = binding.exo.getVideoSurfaceView();
-        if (output == null || output.getWidth() <= 0 || output.getHeight() <= 0) return;
-        Bitmap frame;
-        try {
-            frame = Bitmap.createBitmap(output.getWidth(), output.getHeight(), Bitmap.Config.ARGB_8888);
-        } catch (Throwable ignored) {
-            return;
-        }
-        int sequence = ++inlineTransitionCaptureSeq;
-        if (output instanceof TextureView textureView) {
-            Bitmap captured = textureView.getBitmap(frame);
-            if (captured != null) setInlineTransitionBitmap(sequence, captured);
-            else frame.recycle();
-        } else if (output instanceof SurfaceView surfaceView && output.getHandler() != null) {
-            PixelCopy.request(surfaceView, frame, result -> {
-                if (result == PixelCopy.SUCCESS) setInlineTransitionBitmap(sequence, frame);
-                else frame.recycle();
-            }, output.getHandler());
-        } else {
-            frame.recycle();
-        }
-    }
-
-    private void setInlineTransitionBitmap(int sequence, Bitmap frame) {
-        if (binding == null || sequence != inlineTransitionCaptureSeq || inlineTransitionFrame != null) {
-            frame.recycle();
-            return;
-        }
-        if (inlineTransitionBitmap != null && !inlineTransitionBitmap.isRecycled()) inlineTransitionBitmap.recycle();
-        inlineTransitionBitmap = frame;
-    }
-
-    private void showInlineTransitionFrame() {
-        if (!Util.isMobile() || binding == null || inlineTransitionBitmap == null || inlineTransitionBitmap.isRecycled()) return;
-        hideInlineTransitionFrame();
-        ImageView frame = new ImageView(this);
-        frame.setImageBitmap(inlineTransitionBitmap);
-        frame.setScaleType(ImageView.ScaleType.FIT_XY);
-        frame.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
-        int index = Math.min(binding.playerPanel.indexOfChild(binding.exo) + 1, binding.playerPanel.getChildCount());
-        binding.playerPanel.addView(frame, index, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        inlineTransitionFrame = frame;
-    }
-
-    private void hideInlineTransitionFrame() {
-        if (binding == null) return;
-        binding.playerPanel.removeCallbacks(inlineTransitionFrameTimeout);
-        if (inlineTransitionFrame != null && inlineTransitionFrame.getParent() == binding.playerPanel) binding.playerPanel.removeView(inlineTransitionFrame);
-        inlineTransitionFrame = null;
-    }
-
-    private void scheduleInlineTransitionFrameTimeout() {
-        if (binding == null || inlineTransitionFrame == null) return;
-        binding.playerPanel.removeCallbacks(inlineTransitionFrameTimeout);
-        binding.playerPanel.postDelayed(inlineTransitionFrameTimeout, 1200);
     }
 
     private void hideInlineDisplayPanel() {
@@ -7787,7 +7719,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void enterInlineFullscreen() {
         if (inlineFullscreen || inlinePiPLayout || isInPictureInPictureMode()) return;
-        showInlineTransitionFrame();
         inlineFullscreen = true;
         updateDetailThemeButtonVisibility();
         requestedOrientation = getRequestedOrientation();
@@ -7807,7 +7738,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         Util.toggleFullscreen(this, true);
         setInlineFullscreenOrientation();
         scheduleMobileInlineSideControlMarginUpdate();
-        scheduleInlineTransitionFrameTimeout();
     }
 
     private boolean shouldShowDetailFullscreenControlsOnReady() {
@@ -8044,7 +7974,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void exitInlineFullscreen() {
         if (!inlineFullscreen) return;
-        showInlineTransitionFrame();
         boolean suppressDisplay = suppressInlineDisplayForLeanbackFusionExit();
         prepareInlinePlayerTransition();
         inlineFullscreen = false;
@@ -8063,7 +7992,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         focusInlinePlayerPanel();
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
         updateDetailThemeButtonVisibility();
-        scheduleInlineTransitionFrameTimeout();
     }
 
     private void enterInlinePiPLayout() {
@@ -8627,12 +8555,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     @Override
-    protected void onFirstFrameRendered() {
-        hideInlineTransitionFrame();
-        if (binding != null) binding.playerPanel.post(this::captureInlineTransitionFrame);
-    }
-
-    @Override
     protected void onStateChanged(int state) {
         if (!isInlinePlayerMode()) return;
         if (state == Player.STATE_BUFFERING) showInlineLoading();
@@ -8772,10 +8694,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         cancelBackdropSlideRequest();
         App.removeCallbacks(inlineHideControls);
         App.removeCallbacks(inlineKeySeekEnd);
-        hideInlineTransitionFrame();
-        inlineTransitionCaptureSeq++;
-        if (inlineTransitionBitmap != null && !inlineTransitionBitmap.isRecycled()) inlineTransitionBitmap.recycle();
-        inlineTransitionBitmap = null;
         EpisodeTitlePopup.dismiss();
         saveInlineHistory();
         // 确保内嵌播放退出时停止播放，避免声音继续（与 VideoActivity 保持一致）
