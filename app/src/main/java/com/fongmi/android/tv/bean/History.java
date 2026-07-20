@@ -17,6 +17,7 @@ import com.fongmi.android.tv.db.AppDatabase;
 import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.impl.Diffable;
 import com.fongmi.android.tv.setting.PlayerSetting;
+import com.fongmi.android.tv.utils.Util;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
 
@@ -470,6 +471,17 @@ public class History implements Diffable<History> {
         return TextUtils.isEmpty(getSiteName()) ? View.GONE : View.VISIBLE;
     }
 
+    public boolean hasPlaybackTime() {
+        return getPosition() >= 0 && getDuration() > 0;
+    }
+
+    public String getPlaybackTimeText() {
+        if (!hasPlaybackTime()) return "";
+        long duration = Math.max(0, getDuration());
+        long position = Math.max(0, Math.min(getPosition(), duration));
+        return Util.timeMs(position) + " / " + Util.timeMs(duration);
+    }
+
     public int getRevPlayText() {
         return isRevPlay() ? R.string.play_backward : R.string.play_forward;
     }
@@ -639,6 +651,15 @@ public class History implements Diffable<History> {
 
     @Override
     public boolean isSameContent(History other) {
-        return getVodName().equals(other.getVodName()) && getVodPic().equals(other.getVodPic()) && getWallPic().equals(other.getWallPic()) && getCreateTime() == other.getCreateTime();
+        return other != null
+                && Objects.equals(getVodName(), other.getVodName())
+                && Objects.equals(getVodPic(), other.getVodPic())
+                && Objects.equals(getWallPic(), other.getWallPic())
+                && Objects.equals(getVodFlag(), other.getVodFlag())
+                && Objects.equals(getVodRemarks(), other.getVodRemarks())
+                && Objects.equals(getEpisodeUrl(), other.getEpisodeUrl())
+                && getPosition() == other.getPosition()
+                && getDuration() == other.getDuration()
+                && getCreateTime() == other.getCreateTime();
     }
 }
