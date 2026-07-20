@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class TmdbDetailActivityLayoutTest {
@@ -1769,6 +1770,22 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
+    public void inlinePlayerScaleSurvivesPlayerCoreRebuild() throws Exception {
+        String activity = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        int setScale = activity.indexOf("private void setInlineScale(int scale)");
+        int previewScale = activity.indexOf("private void setInlinePreviewScale(int scale)", setScale);
+
+        assertTrue("TmdbDetailActivity is missing setInlineScale", setScale >= 0);
+        assertTrue("TmdbDetailActivity is missing setInlinePreviewScale", previewScale > setScale);
+
+        String setScaleBody = activity.substring(setScale, previewScale);
+        assertTrue("inline scale must update PlaybackActivity's requested resize mode so a player-core rebuild restores the same style",
+                setScaleBody.contains("applyResizeMode(scale);"));
+        assertFalse("inline scale must not bypass PlaybackActivity's resize-mode state",
+                setScaleBody.contains("binding.exo.setResizeMode(scale);"));
+    }
+
+    @Test
     public void inlinePlayerPanelStaysInRootWithoutReparent() throws Exception {
         Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8).replace("\r\n", "\n");
@@ -1801,6 +1818,31 @@ public class TmdbDetailActivityLayoutTest {
         assertTrue("fullscreen exit must switch back to embedded LayoutParams (with translationY sync), not reparent",
                 exitBody.contains("applyInlinePlayerEmbeddedLayout();")
                         && !exitBody.contains("reattachVideoSurfaceAfterReparent"));
+    }
+
+    @Test
+    public void mobileInlineFullscreenKeepsLiveVideoVisibleDuringLayoutChanges() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8).replace("\r\n", "\n");
+
+        int enter = activity.indexOf("private void enterInlineFullscreen()");
+        int exit = activity.indexOf("private void exitInlineFullscreen()");
+        int exitEnd = activity.indexOf("private void enterInlinePiPLayout()", exit);
+
+        assertTrue(activityPath + " is missing enterInlineFullscreen", enter >= 0);
+        assertTrue(activityPath + " is missing exitInlineFullscreen", exit >= 0 && exitEnd > exit);
+        String enterBody = activity.substring(enter, exit);
+        String exitBody = activity.substring(exit, exitEnd);
+        assertTrue("layout-only fullscreen entry and exit must keep the live video visible instead of covering it with a cached frame",
+                !enterBody.contains("showInlineTransitionFrame();")
+                        && !exitBody.contains("showInlineTransitionFrame();")
+                        && !enterBody.contains("scheduleInlineTransitionFrameTimeout();")
+                        && !exitBody.contains("scheduleInlineTransitionFrameTimeout();"));
+        assertTrue("the root-resident player must not retain the obsolete PixelCopy transition-frame pipeline",
+                !activity.contains("captureInlineTransitionFrame()")
+                        && !activity.contains("PixelCopy.request(")
+                        && !activity.contains("inlineTransitionBitmap")
+                        && !activity.contains("inlineTransitionFrame"));
     }
 
     @Test
@@ -1901,6 +1943,60 @@ public class TmdbDetailActivityLayoutTest {
                 startBody.contains("inlinePlaybackEpisode = selectedEpisode;")
                         && startBody.contains("inlinePlaybackKey = getKeyText();")
                         && startBody.contains("inlinePlaybackFlag = selectedFlag == null ? \"\" : selectedFlag.getFlag();"));
+    }
+
+    @Test
+    public void inlinePlaybackSpeedUsesPersonalDefaultAndRestoresAfterHold() throws Exception {
+        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        int speedEnd = source.indexOf("public void onSpeedEnd()");
+        int onBright = source.indexOf("public void onBright(int progress)", speedEnd);
+        int initHistory = source.indexOf("private void initHistory()");
+        int helper = source.indexOf("private float getInlinePlaybackSpeed()", initHistory);
+        int updatePlayLabel = source.indexOf("private void updatePlayLabel()", helper);
+        int start = source.indexOf("private void startInlinePlayer(Result result, long resumePosition)");
+        int searchDanmaku = source.indexOf("private void searchInlineDanmaku(Result result)", start);
+        int changeSpeed = source.indexOf("private void changeInlineSpeed()");
+        int setSpeed = source.indexOf("private void setInlineSpeed(float speed)", changeSpeed);
+        int resetSpeed = source.indexOf("private boolean resetInlineSpeed()", setSpeed);
+        int refreshPlayback = source.indexOf("private void refreshInlinePlayback()", resetSpeed);
+        int normalize = source.indexOf("private float normalizeInlineSpeed(float speed)");
+        int setText = source.indexOf("private void setInlineSpeedText(CharSequence text)", normalize);
+        int prepare = source.indexOf("protected void onPrepare()");
+        int resume = source.indexOf("private long getInlineResumePosition()", prepare);
+
+        assertTrue("native enhanced speed release handler must exist", speedEnd >= 0 && onBright > speedEnd);
+        assertTrue("native enhanced speed initialization helper must exist", initHistory >= 0 && helper > initHistory && updatePlayLabel > helper);
+        assertTrue("native enhanced startInlinePlayer must exist", start >= 0 && searchDanmaku > start);
+        assertTrue("native enhanced manual speed handlers must exist", changeSpeed >= 0 && setSpeed > changeSpeed && resetSpeed > setSpeed && refreshPlayback > resetSpeed);
+        assertTrue("native enhanced normalizeInlineSpeed must exist", normalize >= 0 && setText > normalize);
+        assertTrue("native enhanced onPrepare must exist", prepare >= 0 && resume > prepare);
+        String speedEndBody = source.substring(speedEnd, onBright);
+        String initBody = source.substring(initHistory, helper);
+        String helperBody = source.substring(helper, updatePlayLabel);
+        String startBody = source.substring(start, searchDanmaku);
+        String changeSpeedBody = source.substring(changeSpeed, setSpeed);
+        String resetSpeedBody = source.substring(resetSpeed, refreshPlayback);
+        String normalizeBody = source.substring(normalize, setText);
+        String prepareBody = source.substring(prepare, resume);
+
+        assertFalse("native enhanced startup must not create a per-show speed override",
+                initBody.contains("resetInitialPlaybackSpeed()"));
+        assertTrue("native enhanced helper must preserve explicit 1.0x and otherwise use the personal default",
+                helperBody.contains("history.getPlaybackSpeed(PlayerSetting.getDefaultSpeed())"));
+        assertTrue("native enhanced playback start must apply the resolved playback speed",
+                startBody.contains("setInlineSpeed(getInlinePlaybackSpeed());"));
+        assertTrue("native enhanced prepare must reapply the resolved playback speed",
+                prepareBody.contains("setInlineSpeed(getInlinePlaybackSpeed());"));
+        assertTrue("native enhanced long-press release must restore the resolved playback speed",
+                speedEndBody.contains("history == null ? inlineGestureSpeed : getInlinePlaybackSpeed()"));
+        assertTrue("native enhanced speed cycle must save a per-show override",
+                changeSpeedBody.contains("history.setUserSpeed(player().getSpeed())"));
+        assertTrue("native enhanced speed toggle must save a per-show override",
+                resetSpeedBody.contains("history.setUserSpeed(player().getSpeed())"));
+        assertTrue("native enhanced persistent speed toggle must use the current show's effective speed",
+                resetSpeedBody.contains("player().toggleSpeed(getInlinePlaybackSpeed())"));
+        assertTrue("native enhanced invalid speed fallback must use personal default speed",
+                normalizeBody.contains("PlayerSetting.getDefaultSpeed()"));
     }
 
     @Test

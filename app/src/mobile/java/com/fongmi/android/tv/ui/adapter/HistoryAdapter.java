@@ -101,7 +101,7 @@ public class HistoryAdapter extends BaseDiffAdapter<History, HistoryAdapter.View
         holder.binding.progress.setMax(duration > 0 ? duration : 1);
         holder.binding.progress.setProgress(duration > 0 ? Math.min(progress, duration) : 0, animate);
         holder.binding.delete.setVisibility(!delete ? View.GONE : View.VISIBLE);
-        holder.binding.remark.setVisibility(delete || same ? View.INVISIBLE : View.VISIBLE);
+        holder.binding.remark.setVisibility(same ? View.INVISIBLE : View.VISIBLE);
         ImgUtil.load(item.getVodName(), item.getVodPic(), holder.binding.image);
         setClickListener(holder.binding.getRoot(), item);
     }
