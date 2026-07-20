@@ -522,6 +522,56 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void playbackSpeedInitializationUsesPersonalDefaultSpeed() throws Exception {
+        String mobile = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
+        String leanback = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"))), StandardCharsets.UTF_8);
+        String mobileControl = new String(Files.readAllBytes(findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java"))), StandardCharsets.UTF_8);
+        String leanbackControl = new String(Files.readAllBytes(findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "ControlDialog.java"))), StandardCharsets.UTF_8);
+        String playerManager = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "player", "PlayerManager.java"))), StandardCharsets.UTF_8);
+        String mobileCheckHistory = methodBody(mobile, "private void checkHistory(Vod item)", "private void enrichHistoryMeta(Vod item)");
+        String mobileSetSpeed = methodBody(mobile, "private void setSpeed()", "private void checkOrientation()");
+        String mobilePlaybackSpeed = methodBody(mobile, "private float getPlaybackSpeed()", "private void checkOrientation()");
+        String mobileSaveUserSpeed = methodBody(mobile, "private void saveUserSpeed()", "private void onReset()");
+        String mobileSpeedLong = methodBody(mobile, "private boolean onSpeedLong()", "private void saveUserSpeed()");
+        String mobileSpeedEnd = methodBody(mobile, "public void onSpeedEnd()", "public void onBright(int progress)");
+        String mobileApplySpeed = methodBody(mobileControl, "private void applySpeed(float speed)", "private void setSpeedPreset(View view)");
+        String leanbackFastHistory = methodBody(leanback, "private void prepareFastTmdbPlaybackHistory(Vod item, Flag flag, Episode episode)", "private void selectFastTmdbPlaybackEpisode(Vod item, Flag selectedFlag, Episode selectedEpisode)");
+        String leanbackCheckHistory = methodBody(leanback, "private void checkHistory(Vod item)", "private void enrichHistoryMeta(Vod item)");
+        String leanbackSetSpeed = methodBody(leanback, "private void setSpeed()", "private void checkEnded(boolean notify)");
+        String leanbackPlaybackSpeed = methodBody(leanback, "private float getPlaybackSpeed()", "private void checkEnded(boolean notify)");
+        String leanbackSaveUserSpeed = methodBody(leanback, "private void saveUserSpeed()", "private void onReset()");
+        String leanbackSpeedLong = methodBody(leanback, "private boolean onSpeedLong()", "private void saveUserSpeed()");
+        String leanbackSpeedEnd = methodBody(leanback, "public void onSpeedEnd()", "public void onKeyUp()");
+        String leanbackApplySpeed = methodBody(leanbackControl, "private void applySpeed(float speed)", "private void setSpeedPreset(View view)");
+        String defaultToggleSpeed = methodBody(playerManager, "public String toggleSpeed()", "public String toggleSpeed(float normalSpeed)");
+        String toggleSpeed = methodBody(playerManager, "public String toggleSpeed(float normalSpeed)", "private float nextPresetSpeed()");
+
+        assertTrue("mobile history speed fallback must use the default-aware helper", mobileCheckHistory.contains("float speed = getPlaybackSpeed();"));
+        assertTrue("mobile checkHistory must not fall back to hardcoded 1.0x", !mobileCheckHistory.contains(": 1f"));
+        assertFalse("mobile startup must not create a per-show speed override", mobileCheckHistory.contains("mHistory.setSpeed(player().getSpeed())"));
+        assertTrue("mobile onPrepare speed restore must apply the default-aware helper", mobileSetSpeed.contains("player().setSpeed(getPlaybackSpeed())"));
+        assertTrue("mobile speed helper must resolve explicit 1.0x separately from the personal default", mobilePlaybackSpeed.contains("mHistory.getPlaybackSpeed(PlayerSetting.getDefaultSpeed())"));
+        assertTrue("mobile in-player speed changes must be saved only for the current show", mobileSaveUserSpeed.contains("mHistory.setUserSpeed(player().getSpeed())") && !mobileSaveUserSpeed.contains("PlayerSetting.putDefaultSpeed"));
+        assertTrue("mobile persistent speed toggle must use the current show's effective speed", mobileSpeedLong.contains("player().toggleSpeed(getPlaybackSpeed())"));
+        assertTrue("mobile speed dialog must be a per-show override", mobileApplySpeed.contains("history.setUserSpeed(player.getSpeed())") && !mobileApplySpeed.contains("PlayerSetting.putDefaultSpeed"));
+        assertTrue("mobile hold release must restore the current show's effective speed", mobileSpeedEnd.contains("player().setSpeed(getPlaybackSpeed())"));
+        assertTrue("leanback fast TMDB playback must use the default-aware helper", leanbackFastHistory.contains("float speed = getPlaybackSpeed();"));
+        assertFalse("leanback fast startup must not create a per-show speed override", leanbackFastHistory.contains("mHistory.setSpeed(player().getSpeed())"));
+        assertTrue("leanback history speed fallback must use the default-aware helper", leanbackCheckHistory.contains("float speed = getPlaybackSpeed();"));
+        assertTrue("leanback checkHistory must not fall back to hardcoded 1.0x", !leanbackCheckHistory.contains(": 1f"));
+        assertFalse("leanback startup must not create a per-show speed override", leanbackCheckHistory.contains("mHistory.setSpeed(player().getSpeed())"));
+        assertTrue("leanback onPrepare speed restore must apply the default-aware helper", leanbackSetSpeed.contains("player().setSpeed(getPlaybackSpeed())"));
+        assertTrue("leanback speed helper must resolve explicit 1.0x separately from the personal default", leanbackPlaybackSpeed.contains("mHistory.getPlaybackSpeed(PlayerSetting.getDefaultSpeed())"));
+        assertTrue("leanback in-player speed changes must be saved only for the current show", leanbackSaveUserSpeed.contains("mHistory.setUserSpeed(player().getSpeed())") && !leanbackSaveUserSpeed.contains("PlayerSetting.putDefaultSpeed"));
+        assertTrue("leanback persistent speed toggle must use the current show's effective speed", leanbackSpeedLong.contains("player().toggleSpeed(getPlaybackSpeed())"));
+        assertTrue("leanback speed dialog must be a per-show override", leanbackApplySpeed.contains("history.setUserSpeed(player.getSpeed())") && !leanbackApplySpeed.contains("PlayerSetting.putDefaultSpeed"));
+        assertTrue("leanback hold release must restore the current show's effective speed", leanbackSpeedEnd.contains("player().setSpeed(getPlaybackSpeed())"));
+        assertTrue("shared speed toggle must preserve the normal 1.0x baseline for live and cast playback", defaultToggleSpeed.contains("return toggleSpeed(1.0f, 1.0f);"));
+        assertTrue("VOD speed toggle must use the personal default when a restored player has no session baseline", toggleSpeed.contains("toggleSpeed(normalSpeed, PlayerSetting.getDefaultSpeed())"));
+        assertTrue("speed toggle must resolve the target through the stable session state", toggleSpeed.contains("speedToggleState.next(getSpeed(), normalSpeed, PlayerSetting.getSpeed(), fallbackSpeed)"));
+    }
+
+    @Test
     public void refreshedPlayerKernelSwitchKeepsManualFailureSemantics() throws Exception {
         Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "player", "PlayerManager.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);

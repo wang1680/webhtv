@@ -12,6 +12,58 @@ import static org.junit.Assert.assertTrue;
 public class HistoryPlaybackTest {
 
     @Test
+    public void untouchedHistoryUsesPersonalDefaultSpeed() {
+        History history = new History();
+
+        assertFalse(history.hasUserSpeed());
+        assertEquals(3.0f, history.getPlaybackSpeed(3.0f), 0.001f);
+    }
+
+    @Test
+    public void explicitNormalSpeedOverridesPersonalDefault() {
+        History history = new History();
+
+        history.setUserSpeed(1.0f);
+
+        assertTrue(history.hasUserSpeed());
+        assertEquals(1.0f, history.getPlaybackSpeed(3.0f), 0.001f);
+    }
+
+    @Test
+    public void manualSpeedOverrideIsScopedToItsHistoryRecord() {
+        History changed = new History();
+        History untouched = new History();
+        changed.setUserSpeed(1.0f);
+
+        assertEquals(1.0f, changed.getPlaybackSpeed(3.0f), 0.001f);
+        assertEquals(4.0f, untouched.getPlaybackSpeed(4.0f), 0.001f);
+    }
+
+    @Test
+    public void copiedHistoryPreservesExplicitNormalSpeed() {
+        History history = new History();
+        history.setUserSpeed(1.0f);
+
+        History copy = history.copy();
+
+        assertTrue(copy.hasUserSpeed());
+        assertEquals(1.0f, copy.getPlaybackSpeed(3.0f), 0.001f);
+    }
+
+    @Test
+    public void legacyHistoryInfersOnlyNonNormalSpeedAsOverride() {
+        History normal = new History();
+        normal.setSpeed(1.0f);
+        History changed = new History();
+        changed.setSpeed(2.0f);
+
+        assertFalse(normal.hasUserSpeed());
+        assertEquals(3.0f, normal.getPlaybackSpeed(3.0f), 0.001f);
+        assertTrue(changed.hasUserSpeed());
+        assertEquals(2.0f, changed.getPlaybackSpeed(3.0f), 0.001f);
+    }
+
+    @Test
     public void findPlaybackCandidateCopiesSyncedProgressToRequestedKey() {
         History synced = history("site@@vod@@1", "武神主宰", "第2集", "url-2", 120_000, 300_000);
         Flag flag = flag(Episode.create("第1集", "url-1"), Episode.create("第2集", "url-2"));

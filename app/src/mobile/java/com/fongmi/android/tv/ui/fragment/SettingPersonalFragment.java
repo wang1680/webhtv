@@ -11,11 +11,15 @@ import androidx.viewbinding.ViewBinding;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.databinding.FragmentSettingPersonalBinding;
 import com.fongmi.android.tv.setting.GroupRuleConfig;
+import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.base.BaseFragment;
 import com.fongmi.android.tv.ui.dialog.GroupRuleDialog;
+import com.fongmi.android.tv.ui.dialog.SpeedSettingDialog;
 import com.fongmi.android.tv.ui.dialog.SliderNumberDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
+import java.util.Locale;
 
 public class SettingPersonalFragment extends BaseFragment {
 
@@ -48,6 +52,7 @@ public class SettingPersonalFragment extends BaseFragment {
     protected void initEvent() {
         mBinding.searchThread.setOnClickListener(this::setSearchThread);
         mBinding.playBackToDetail.setOnClickListener(this::setPlayBackToDetail);
+        mBinding.playSpeed.setOnClickListener(this::setPlaySpeed);
         mBinding.tmdbMatchMode.setOnClickListener(this::setTmdbMatchMode);
         mBinding.personalRecommendation.setOnClickListener(this::setPersonalRecommendation);
         mBinding.groupRule.setOnClickListener(this::setGroupRule);
@@ -61,6 +66,7 @@ public class SettingPersonalFragment extends BaseFragment {
     private void setText() {
         mBinding.searchThreadText.setText(String.valueOf(Setting.getSearchThread()));
         mBinding.playBackToDetailText.setText(getSwitch(Setting.isPlayBackToDetail()));
+        mBinding.playSpeedText.setText(getSpeedText(PlayerSetting.getDefaultSpeed()));
         mBinding.tmdbMatchModeText.setText((tmdbMatchMode = getResources().getStringArray(R.array.select_tmdb_match_mode))[Setting.getTmdbMatchMode()]);
         mBinding.personalRecommendationText.setText(getSwitch(Setting.isPersonalRecommendation()));
         mBinding.groupRuleText.setText(getString(R.string.setting_group_rule_summary, GroupRuleConfig.enabledCount(), GroupRuleConfig.totalCount()));
@@ -80,6 +86,10 @@ public class SettingPersonalFragment extends BaseFragment {
         return searchColumn[0];
     }
 
+    private String getSpeedText(float speed) {
+        return String.format(Locale.US, "%.2f", speed);
+    }
+
     private void setSearchThread(View view) {
         SliderNumberDialog.show(requireActivity(), R.string.setting_search_thread, Setting.getSearchThread(), 1, 100, value -> {
             Setting.putSearchThread(value);
@@ -90,6 +100,13 @@ public class SettingPersonalFragment extends BaseFragment {
     private void setPlayBackToDetail(View view) {
         Setting.putPlayBackToDetail(!Setting.isPlayBackToDetail());
         setText();
+    }
+
+    private void setPlaySpeed(View view) {
+        SpeedSettingDialog.show(requireActivity(), R.string.setting_play_speed, PlayerSetting.getDefaultSpeed(), 0.5f, 5f, 0.25f, value -> {
+            PlayerSetting.putDefaultSpeed(value);
+            setText();
+        });
     }
 
     private void setTmdbMatchMode(View view) {

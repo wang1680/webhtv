@@ -217,7 +217,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private static final int INLINE_SIDE_CONTROL_FULLSCREEN_MARGIN_DP = 48;
     private static final int STANDALONE_MOBILE_EPISODE_CARD_PAGE_MAX_SIZE = 36;
     private static final long LEANBACK_FUSION_EXIT_DISPLAY_SUPPRESS_MS = 800;
-    private static final float NORMAL_SPEED = 1.0f;
     private static final Pattern SOURCE_SEASON = Pattern.compile("(?i)(?:第\\s*([零〇一二三四五六七八九十两0-9]+)\\s*[季部]|season\\s*([0-9]{1,2})|s([0-9]{1,2})(?:[-._\\s]*e[0-9]{1,3})?)");
 
     private ActivityResultLauncher<Intent> inlineLutDir;
@@ -1301,7 +1300,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     public void onSpeedEnd() {
         binding.gestureSpeed.clearAnimation();
         if (!isInlinePlayerMode() || service() == null || player() == null || player().isEmpty()) return;
-        float speed = history == null ? inlineGestureSpeed : history.getSpeed();
+        float speed = history == null ? inlineGestureSpeed : getInlinePlaybackSpeed();
         setInlineSpeed(speed);
     }
 
@@ -4572,13 +4571,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             history.findEpisode(vod.getFlags());
         }
         if (!TextUtils.isEmpty(getMarkText())) history.setVodRemarks(getMarkText());
-        resetInitialPlaybackSpeed();
         syncDanmakuCompatHistory();
         updatePlayLabel();
     }
 
-    private void resetInitialPlaybackSpeed() {
-        if (history != null) history.setSpeed(NORMAL_SPEED);
+    private float getInlinePlaybackSpeed() {
+        return history == null ? PlayerSetting.getDefaultSpeed() : history.getPlaybackSpeed(PlayerSetting.getDefaultSpeed());
     }
 
     private void updatePlayLabel() {
@@ -5580,7 +5578,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlineStartPositionApplied = false;
         player().switchPlayer(PlayerSetting.getPlayer());
         updateInlineHistoryPlayer();
-        setInlineSpeed(history == null ? NORMAL_SPEED : history.getSpeed());
+        setInlineSpeed(getInlinePlaybackSpeed());
         updateInlineButtons(false);
         Site site = getCurrentSite();
         ensureInlineDanmakuController();
@@ -6440,7 +6438,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void changeInlineSpeed() {
         if (service() == null || player().isEmpty()) return;
         setInlineSpeedText(player().addSpeed());
-        if (history != null) history.setSpeed(player().getSpeed());
+        if (history != null) history.setUserSpeed(player().getSpeed());
     }
 
     private void setInlineSpeed(float speed) {
@@ -6449,7 +6447,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private float normalizeInlineSpeed(float speed) {
-        return speed >= 0.25f && speed <= 5.0f ? speed : 1.0f;
+        return speed >= 0.25f && speed <= 5.0f ? speed : PlayerSetting.getDefaultSpeed();
     }
 
     private void setInlineSpeedText(CharSequence text) {
@@ -6459,8 +6457,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private boolean resetInlineSpeed() {
         if (service() == null || player().isEmpty()) return false;
-        setInlineSpeedText(player().toggleSpeed());
-        if (history != null) history.setSpeed(player().getSpeed());
+        setInlineSpeedText(player().toggleSpeed(getInlinePlaybackSpeed()));
+        if (history != null) history.setUserSpeed(player().getSpeed());
         return true;
     }
 
@@ -8489,7 +8487,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (!isInlinePlayerMode() || !inlineStarted || !isOwner()) return;
         setInlineScale(getInlineScale());
         prepareInlineStartPosition();
-        if (history != null && service() != null && !player().isEmpty()) setInlineSpeed(history.getSpeed());
+        if (history != null && service() != null && !player().isEmpty()) setInlineSpeed(getInlinePlaybackSpeed());
     }
 
     private long getInlineResumePosition() {
@@ -8942,7 +8940,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         history.setVodRemarks(historyEpisodeTitle(item));
         history.setEpisodeUrl(item.getUrl());
         history.setVodPic(playbackHistoryPic());
-        history.setSpeed(normalizeInlineSpeed(history.getSpeed()));
         // 富集字段：TMDB 优先，回退源站 Vod。仅补空字段，避免匹配失败时用空值覆盖已有数据（老记录也可补齐）
         history.enrichMeta(
                 coalesce(firstGenre(), vod == null ? "" : vod.getTypeName()),
