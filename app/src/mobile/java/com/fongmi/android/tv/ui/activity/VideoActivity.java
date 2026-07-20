@@ -148,6 +148,7 @@ import com.fongmi.android.tv.ui.helper.EpisodeRangePolicy;
 import com.fongmi.android.tv.ui.helper.PipExitDecision;
 import com.fongmi.android.tv.ui.helper.PlayerControlFocusHelper;
 import com.fongmi.android.tv.ui.helper.TmdbNavigation;
+import com.fongmi.android.tv.ui.helper.VodEventGuard;
 import com.fongmi.android.tv.ui.player.VodPlayerChrome;
 import com.fongmi.android.tv.ui.player.VodPlayerUiController;
 import com.fongmi.android.tv.ui.player.VodPlayerUiHost;
@@ -968,13 +969,16 @@ private int mAudioBackgroundRandomNonce;
 
     @Override
     protected void onNewIntent(Intent intent) {
+        String oldKey = getKey();
         String oldId = getId();
         super.onNewIntent(intent);
+        String key = Objects.toString(intent.getStringExtra("key"), "");
         String id = Objects.toString(intent.getStringExtra("id"), "");
-        if (TextUtils.isEmpty(id) || id.equals(oldId)) return;
+        if (TextUtils.isEmpty(id) || id.equals(oldId) && key.equals(oldKey)) return;
         mBinding.swipeLayout.setRefreshing(true);
         saveHistory();
         getIntent().putExtras(intent);
+        if (mTmdbUIAdapter != null) mTmdbUIAdapter.beginDetailRequest();
         setOrient();
         checkId();
     }
@@ -1559,7 +1563,15 @@ private int mAudioBackgroundRandomNonce;
         // 显示加载指示器
         mBinding.progressLayout.showProgress();
 
+        prefetchDirectTmdbDetail();
         mViewModel.detailContent(getKey(), getId());
+    }
+
+    private void prefetchDirectTmdbDetail() {
+        if (mTmdbUIAdapter == null || !mTmdbUIAdapter.isReady()) return;
+        mTmdbUIAdapter.beginDetailRequest();
+        com.fongmi.android.tv.bean.TmdbItem item = getTmdbItem();
+        if (item != null) mTmdbUIAdapter.prefetch(item);
     }
 
     private void getDetail(Vod item) {
@@ -3927,7 +3939,13 @@ private int mAudioBackgroundRandomNonce;
         if (isRedirect()) return;
         if (event.getType() == RefreshEvent.Type.DETAIL) getDetail();
         else if (event.getType() == RefreshEvent.Type.PLAYER) onRefresh();
-        else if (event.getType() == RefreshEvent.Type.VOD) updateVod(event.getVod());
+        else if (event.getType() == RefreshEvent.Type.VOD) {
+            if (!isCurrentVodEvent(event.getVod())) {
+                SpiderDebug.log("tmdb-mobile", "drop stale vod event current=%s/%s event=%s/%s", getKey(), getId(), event.getVod() == null ? "" : event.getVod().getSiteKey(), event.getVod() == null ? "" : event.getVod().getId());
+                return;
+            }
+            updateVod(event.getVod());
+        }
         else if (event.getType() == RefreshEvent.Type.HISTORY) refreshPersonalRecommendationsForHistory();
         else if (event.getType() == RefreshEvent.Type.SUBTITLE) player().setSub(Sub.from(event.getPath()));
         else if (event.getType() == RefreshEvent.Type.DANMAKU) {
@@ -3935,6 +3953,11 @@ private int mAudioBackgroundRandomNonce;
             refreshDanmakuControls();
         }
     }
+
+    private boolean isCurrentVodEvent(Vod item) {
+        return VodEventGuard.matches(item, getKey(), getId());
+    }
+
 
     private void requestIntroSkipPlan() {
         if (!Setting.isIntroSkipEnabled() || player() == null) {
@@ -5411,6 +5434,7 @@ private int mAudioBackgroundRandomNonce;
         DanmakuApi.cancel();
         RefreshEvent.keep();
         App.removeCallbacks(mR1, mR2, mR3, mR4, mSeekProgressFallback, mTmdbDetailTimeout);
+        if (mTmdbUIAdapter != null) mTmdbUIAdapter.release();
         mViewModel.getResult().removeObserver(mObserveDetail);
         mViewModel.getPlayer().removeObserver(mObservePlayer);
         mViewModel.getSearch().removeObserver(mObserveSearch);

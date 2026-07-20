@@ -917,15 +917,15 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
-    public void leanbackVodEventPageSuffixStripPreservesLeadingSlashIds() throws Exception {
-        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+    public void vodEventPageSuffixStripPreservesLeadingSlashIds() throws Exception {
+        Path sourcePath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "helper", "VodEventGuard.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
-        int method = source.indexOf("private static String stripPageSuffix(String id)");
-        int nextMethod = source.indexOf("private void loadNativePersonalRecommendations", method);
+        int method = source.indexOf("static String stripPageSuffix(String id)");
+        int nextMethod = source.indexOf("private VodEventGuard()", method);
         String body = method >= 0 && nextMethod > method ? source.substring(method, nextMethod) : "";
 
         assertTrue(sourcePath + " is missing stripPageSuffix", method >= 0);
-        assertTrue("leanback VOD event ids may start with /index.php and must not be stripped to empty",
+        assertTrue("VOD event ids may start with /index.php and must not be stripped to empty",
                 body.contains("slash > 0 ? id.substring(0, slash) : id"));
         assertFalse("only real page suffixes after the first character should be stripped",
                 body.contains("slash >= 0 ? id.substring(0, slash) : id"));

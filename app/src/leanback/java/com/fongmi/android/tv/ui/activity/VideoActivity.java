@@ -118,6 +118,7 @@ import com.fongmi.android.tv.ui.helper.EpisodeDisplayPolicy;
 import com.fongmi.android.tv.ui.helper.PlayerControlFocusHelper;
 import com.fongmi.android.tv.ui.helper.TmdbEpisodeGridPolicy;
 import com.fongmi.android.tv.ui.helper.TmdbNavigation;
+import com.fongmi.android.tv.ui.helper.VodEventGuard;
 import com.fongmi.android.tv.ui.player.VodPlayerChrome;
 import com.fongmi.android.tv.ui.player.VodPlayerUiController;
 import com.fongmi.android.tv.ui.player.VodPlayerUiHost;
@@ -1729,6 +1730,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     }
 
     private void resetDetailForNewIntent() {
+        if (mTmdbUIAdapter != null) mTmdbUIAdapter.beginDetailRequest();
         detailRequested = false;
         detailHealthRecorded = false;
         playHealthRecorded = false;
@@ -1819,7 +1821,15 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         detailStartTime = System.currentTimeMillis();
         detailHealthRecorded = false;
         SpiderDebug.log("video-flow", "detail start key=%s id=%s name=%s", getKey(), getId(), getName());
+        prefetchDirectTmdbDetail();
         mViewModel.detailContent(getKey(), getId());
+    }
+
+    private void prefetchDirectTmdbDetail() {
+        if (mTmdbUIAdapter == null || !mTmdbUIAdapter.isReady()) return;
+        mTmdbUIAdapter.beginDetailRequest();
+        com.fongmi.android.tv.bean.TmdbItem item = getTmdbItem();
+        if (item != null) mTmdbUIAdapter.prefetch(item);
     }
 
     private void getDetail(Vod item) {
@@ -4226,20 +4236,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     }
 
     private boolean isCurrentVodEvent(Vod item) {
-        if (item == null) return false;
-        String id = item.getId();
-        String siteKey = item.getSiteKey();
-        // 站点 id 可能包含分页标记（如 "140036/40"），而 Vod 的 id 通常不含（如 "140036"）
-        // 需要容忍 Intent id 中的分页后缀：去掉首个 "/" 之后的后缀再比较
-        if (!TextUtils.isEmpty(id) && !TextUtils.equals(id, stripPageSuffix(getId()))) return false;
-        return TextUtils.isEmpty(siteKey) || TextUtils.equals(siteKey, getKey());
-    }
-
-    /** 去掉 id 中的分页后缀，如 "140036/40" → "140036" */
-    private static String stripPageSuffix(String id) {
-        if (TextUtils.isEmpty(id)) return id;
-        int slash = id.indexOf('/');
-        return slash > 0 ? id.substring(0, slash) : id;
+        return VodEventGuard.matches(item, getKey(), getId());
     }
 
     private void loadNativePersonalRecommendations(Vod item) {
@@ -5945,6 +5942,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         App.removeCallbacks(mPendingFastTmdbPlaybackStart);
         App.removeCallbacks(mTmdbDetailTimeout);
         resetPendingTmdbBind();
+        if (mTmdbUIAdapter != null) mTmdbUIAdapter.release();
         mViewModel.getResult().removeObserver(mObserveDetail);
         mViewModel.getPlayer().removeObserver(mObservePlayer);
         mViewModel.getSearch().removeObserver(mObserveSearch);
