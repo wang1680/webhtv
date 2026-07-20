@@ -902,6 +902,7 @@
     <string name="login_state_tree_title_count">%1$s · 已确认 %2$d · 待确认 %3$d</string>
     <string name="login_state_tree_expand">展开文件夹</string>
     <string name="login_state_tree_collapse">收起文件夹</string>
+    <string name="login_state_tree_truncated">目录项目过多已限量，请直接选择文件夹或缩小路径</string>
     <string name="login_state_state_selected">已选</string>
     <string name="login_state_state_pending">待确认</string>
     <string name="login_state_state_has_pending">含待确认</string>

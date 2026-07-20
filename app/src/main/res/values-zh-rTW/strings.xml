@@ -881,6 +881,7 @@
     <string name="login_state_tree_title_count">%1$s · 已確認 %2$d · 待確認 %3$d</string>
     <string name="login_state_tree_expand">展開資料夾</string>
     <string name="login_state_tree_collapse">收起資料夾</string>
+    <string name="login_state_tree_truncated">目錄項目過多已限量，請直接選擇資料夾或縮小路徑</string>
     <string name="login_state_state_selected">已選</string>
     <string name="login_state_state_pending">待確認</string>
     <string name="login_state_state_has_pending">含待確認</string>

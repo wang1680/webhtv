@@ -942,7 +942,6 @@ private int mAudioBackgroundRandomNonce;
     @Override
     protected void onServiceConnected() {
         player().setDanmakuController(mBinding.exo.getDanmakuController());
-        player().setDanmakuEnabled(DanmakuSetting.isShow());
         syncDesktopLyricsAudioContent();
         setPlayerKernel();
         setDecode();

@@ -921,6 +921,7 @@
     <string name="login_state_tree_title_count">%1$s · selected %2$d · pending %3$d</string>
     <string name="login_state_tree_expand">Expand folder</string>
     <string name="login_state_tree_collapse">Collapse folder</string>
+    <string name="login_state_tree_truncated">Large folder limited; select the folder directly or narrow the path</string>
     <string name="login_state_state_selected">Selected</string>
     <string name="login_state_state_pending">Pending</string>
     <string name="login_state_state_has_pending">Has pending</string>
