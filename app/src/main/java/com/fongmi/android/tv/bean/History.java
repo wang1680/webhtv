@@ -559,7 +559,7 @@ public class History implements Diffable<History> {
 
     public History save() {
         History before = find(getKey());
-        boolean notify = recommendationIdentityChanged(before, this);
+        boolean notify = recommendationSignalsChanged(before, this);
         updateTime = System.currentTimeMillis();
         AppDatabase.get().getHistoryDao().insertOrUpdate(this);
         if (notify) notifyChanged();
@@ -577,12 +577,17 @@ public class History implements Diffable<History> {
         App.post(HISTORY_REFRESH, HISTORY_REFRESH_DEBOUNCE);
     }
 
-    private static boolean recommendationIdentityChanged(History before, History after) {
+    static boolean recommendationSignalsChanged(History before, History after) {
         if (after == null || TextUtils.isEmpty(after.getVodName())) return false;
         if (before == null) return true;
         return before.getCid() != after.getCid()
-                || !TextUtils.equals(before.getKey(), after.getKey())
-                || !TextUtils.equals(before.getVodName(), after.getVodName());
+                || !Objects.equals(before.getKey(), after.getKey())
+                || !Objects.equals(before.getVodName(), after.getVodName())
+                || !Objects.equals(before.getTypeName(), after.getTypeName())
+                || !Objects.equals(before.getArea(), after.getArea())
+                || !Objects.equals(before.getActor(), after.getActor())
+                || !Objects.equals(before.getDirector(), after.getDirector())
+                || !Objects.equals(before.getYear(), after.getYear());
     }
 
     public void findEpisode(List<Flag> flags) {

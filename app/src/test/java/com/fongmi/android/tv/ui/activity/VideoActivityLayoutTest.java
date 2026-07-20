@@ -92,6 +92,18 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void mobilePortraitPlayerTouchesStatusBarWithoutExtraGap() throws Exception {
+        Path layoutFile = findMobileResPath().resolve(Path.of("layout", "activity_video.xml"));
+        Element video = findAndroidId(layoutFile.toFile(), "video");
+
+        assertTrue(layoutFile + " is missing @+id/video", video != null);
+        assertTrue("the portrait player must stay directly below the status bar inset",
+                "@+id/statusBar".equals(video.getAttribute("android:layout_below")));
+        assertFalse("the portrait player must not add a second gap below the status bar",
+                video.hasAttribute("android:layout_marginTop"));
+    }
+
+    @Test
     public void mobileVodControlLayoutExposesFullscreenTopActions() throws Exception {
         Path controlLayout = findMobileResPath().resolve(Path.of("layout", "view_control_vod.xml"));
         Set<String> ids = collectAndroidIds(controlLayout.toFile());
@@ -1947,15 +1959,24 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
-    public void mobileHistoryEntryPassesExactPlaybackSelection() throws Exception {
+    public void mobileHistoryEntryRespectsDetailModeAndPreservesExactPlaybackSelection() throws Exception {
         Path historyPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "HistoryActivity.java"));
         Path videoPath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String history = new String(Files.readAllBytes(historyPath), StandardCharsets.UTF_8);
         String video = new String(Files.readAllBytes(videoPath), StandardCharsets.UTF_8);
         String compactHistory = history.replaceAll("\\s+", " ");
+        int historyStart = video.indexOf("static void startFromHistory(Activity activity, History item)");
+        int historyStartEnd = video.indexOf("public static void startDirect(", historyStart);
+        String historyStartBody = historyStart >= 0 && historyStartEnd > historyStart ? video.substring(historyStart, historyStartEnd).replaceAll("\\s+", " ") : "";
 
-        assertTrue("history clicks must pass flag, episode title, and episode url to direct playback",
-                compactHistory.contains("VideoActivity.startDirect(this, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks(), item.getVodFlag(), item.getVodRemarks(), item.getEpisodeUrl())"));
+        assertTrue("history clicks must use the history-aware playback entry point",
+                compactHistory.contains("VideoActivity.startFromHistory(this, item)"));
+        assertTrue("history playback must respect the configured standalone detail mode",
+                historyStartBody.contains("if (shouldOpenLegacyTmdbDetail(item.getSiteKey()))"));
+        assertTrue("standalone detail mode must use the normal detail-aware start path",
+                historyStartBody.contains("start(activity, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks())"));
+        assertTrue("non-detail playback must preserve flag, episode title, and episode url",
+                historyStartBody.contains("startDirect(activity, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks(), item.getVodFlag(), item.getVodRemarks(), item.getEpisodeUrl())"));
         assertTrue("direct playback must preserve the requested episode selection in the intent",
                 video.contains("putIntentPlaybackSelection(intent, playFlag, playEpisodeName, playEpisodeUrl);"));
     }

@@ -314,10 +314,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private final Runnable inlineTransitionFrameTimeout = this::hideInlineTransitionFrame;
     private Result pendingInlineResult;
     private Result currentInlineResult;
-    private ViewGroup playerParent;
-    private ViewGroup.LayoutParams playerLayoutParams;
-    private ViewGroup inlinePiPParent;
-    private ViewGroup.LayoutParams inlinePiPLayoutParams;
+    // playerPanel 已提升到 root 层，全屏切换只调整 LayoutParams，不再 reparent
     private View detailControlRoot;
     private View detailActionRoot;
     private ViewGroup detailActionParent;
@@ -340,8 +337,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private long inlineStartPosition = C.TIME_UNSET;
     private int selectedSeasonNumber = -1;
     private int lastEpisodeMediaSeason = Integer.MIN_VALUE;
-    private int playerIndex = -1;
-    private int inlinePiPIndex = -1;
     private int requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
     private float inlinePiPTranslationZ;
     private int headerBarBasePaddingTop = -1;
@@ -998,7 +993,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerPanel.setOnFocusChangeListener((view, focused) -> updatePlayerPanelFocus());
         binding.playerPanel.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
             if (!inlinePiPSourceFrozen) updateInlinePiPSource(view);
+            syncInlinePlayerToSpacer();
         });
+        setupInlinePlayerSpacerSync();
         setupInlineControlFocus();
         setupInlineFocusNavigation();
         inlinePlayerUi.bindInlineActions();
@@ -1096,6 +1093,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void setupInlineFocusNavigation() {
         if (Util.isMobile()) return;
+        binding.playerPanelSpacer.setFocusable(true);
+        binding.playerPanelSpacer.setFocusableInTouchMode(false);
         View timeBar = inlineSeek().findViewById(R.id.timeBar);
         if (timeBar != null) {
             timeBar.setNextFocusUpId(R.id.playerFullscreenAction);
@@ -1129,6 +1128,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerChapter.setNextFocusUpId(R.id.playerChapter);
         binding.playerDisplay.setNextFocusUpId(R.id.playerDisplay);
         binding.playerRepeat.setNextFocusUpId(R.id.playerRepeat);
+
+        // playerPanelSpacer 作为焦点桥梁：获得焦点时立即转给 playerPanel
+        binding.playerPanelSpacer.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus && !inlineFullscreen) binding.playerPanel.requestFocus();
+        });
     }
 
     private void setupHorizontalFocusChain() {
@@ -5487,6 +5491,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setPlayerCard(lightTheme ? ThemeColors.light() : ThemeColors.dark());
         ensureInlineDanmakuController();
         binding.playerPanel.setVisibility(View.VISIBLE);
+        binding.playerPanelSpacer.setVisibility(View.VISIBLE); // spacer 作为焦点桥梁需要可见
         enterInlineFullscreen();
         if (!current) playInline();
     }
@@ -6273,7 +6278,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     protected boolean hasInlineCast() {
-        return hasInlineMedia() && hasClass("com.fongmi.android.tv.ui.dialog.CastDialog") && hasClass("com.fongmi.android.tv.bean.CastVideo");
+        // TV 设备不需要投屏功能（投屏是手机投给 TV 的，TV 本身就是播放设备）
+        return !Util.isLeanback() && hasInlineMedia() && hasClass("com.fongmi.android.tv.ui.dialog.CastDialog") && hasClass("com.fongmi.android.tv.bean.CastVideo");
     }
 
     protected boolean hasInlineInfo() {
@@ -7785,12 +7791,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         inlineFullscreen = true;
         updateDetailThemeButtonVisibility();
         requestedOrientation = getRequestedOrientation();
-        playerParent = (ViewGroup) binding.playerPanel.getParent();
-        playerLayoutParams = copyInlinePlayerLayoutParams(binding.playerPanel.getLayoutParams());
-        playerIndex = playerParent.indexOfChild(binding.playerPanel);
-        playerParent.removeView(binding.playerPanel);
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        binding.root.addView(binding.playerPanel, params);
+        // playerPanel 已提升到 root 层，全屏只需铺满整个 root，不做 reparent（避免 SurfaceView 销毁重建导致黑屏）。
+        applyInlinePlayerFullscreenLayout();
+        binding.playerPanel.setTranslationY(0f);
         binding.playerPanel.setTranslationZ(32f);
         binding.playerPanel.setVisibility(View.VISIBLE);
         binding.playerPanel.setRadius(0);
@@ -7804,7 +7807,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         Util.toggleFullscreen(this, true);
         setInlineFullscreenOrientation();
         scheduleMobileInlineSideControlMarginUpdate();
-        reattachVideoSurfaceAfterReparent();
         scheduleInlineTransitionFrameTimeout();
     }
 
@@ -7899,58 +7901,109 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         view.setLayoutParams(params);
     }
 
-    private ViewGroup.LayoutParams copyInlinePlayerLayoutParams(ViewGroup.LayoutParams params) {
-        if (params instanceof LinearLayout.LayoutParams layoutParams) return new LinearLayout.LayoutParams(layoutParams);
-        if (params instanceof FrameLayout.LayoutParams layoutParams) return new FrameLayout.LayoutParams(layoutParams);
-        if (params instanceof ViewGroup.MarginLayoutParams layoutParams) return new ViewGroup.MarginLayoutParams(layoutParams);
-        return params == null ? null : new ViewGroup.LayoutParams(params);
+    /**
+     * playerPanel 已提升到 root 层。spacer 在 scroll 内占位，playerPanel 通过 translationY 对齐 spacer，
+     * 从而视觉上跟随 scroll 滚动。监听 scroll 与 spacer 布局变化，实时同步位置。
+     */
+    private void setupInlinePlayerSpacerSync() {
+        if (binding == null || binding.playerPanelSpacer == null) return;
+        // playerPanel 常驻 root，进入页面即套用内嵌尺寸；全屏时才切换到铺满布局。
+        if (!inlineFullscreen && !inlinePiPLayout) applyInlinePlayerEmbeddedLayout();
+        binding.scroll.setOnScrollChangeListener((androidx.core.widget.NestedScrollView.OnScrollChangeListener)
+                (v, scrollX, scrollY, oldScrollX, oldScrollY) -> syncInlinePlayerToSpacer());
+        binding.playerPanelSpacer.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> syncInlinePlayerToSpacer());
     }
 
-    private ViewGroup.LayoutParams embeddedInlinePlayerLayoutParams(ViewGroup parent, ViewGroup.LayoutParams fallback) {
-        if (parent instanceof LinearLayout) {
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(252));
-            params.setMargins(ResUtil.dp2px(16), ResUtil.dp2px(isFusionMode() ? 22 : 14), ResUtil.dp2px(16), ResUtil.dp2px(isFusionMode() ? 20 : 16));
-            return params;
-        }
-        return copyInlinePlayerLayoutParams(fallback);
-    }
-
-    private void restoreEmbeddedInlinePlayerLayout() {
-        if (binding == null || inlineFullscreen || inlinePiPLayout) return;
-        if (!(binding.playerPanel.getParent() instanceof ViewGroup parent)) return;
-        ViewGroup.LayoutParams params = embeddedInlinePlayerLayoutParams(parent, binding.playerPanel.getLayoutParams());
+    /**
+     * playerPanel 常驻 root(FrameLayout) 层。在内嵌模式下，我们通过 spacer 占位 + translationY 让 playerPanel
+     * 视觉上跟随 scroll 滚动；全屏模式下把 LayoutParams 铺满整个 root。这样 SurfaceView 全程不被 reparent，
+     * 避免 Surface 销毁重建导致的黑屏。
+     */
+    private void applyInlinePlayerEmbeddedLayout() {
+        if (binding == null) return;
+        // 融合模式上下 margin (22dp/20dp) 比普通模式 (14dp/16dp) 略大
+        int topMarginDp = isFusionMode() ? 22 : 14;
+        int bottomMarginDp = isFusionMode() ? 20 : 16;
+        // TV 版左右贴边（margin=0），mobile 版左右留白 16dp
+        int horizontalMarginDp = Util.isLeanback() ? 0 : 16;
+        FrameLayout.LayoutParams params;
+        ViewGroup.LayoutParams current = binding.playerPanel.getLayoutParams();
+        if (current instanceof FrameLayout.LayoutParams framed) params = framed;
+        else params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(252));
         params.width = ViewGroup.LayoutParams.MATCH_PARENT;
         params.height = ResUtil.dp2px(252);
-        if (params instanceof ViewGroup.MarginLayoutParams marginParams) {
-            marginParams.setMargins(ResUtil.dp2px(16), ResUtil.dp2px(isFusionMode() ? 22 : 14), ResUtil.dp2px(16), ResUtil.dp2px(isFusionMode() ? 20 : 16));
-        }
+        params.gravity = Gravity.TOP | Gravity.START;
+        params.setMargins(ResUtil.dp2px(horizontalMarginDp), ResUtil.dp2px(topMarginDp), ResUtil.dp2px(horizontalMarginDp), ResUtil.dp2px(bottomMarginDp));
+        // XML 里的 layout_marginStart/End=16dp 在 RTL 解析时会覆盖 left/right，需显式清零
+        params.setMarginStart(ResUtil.dp2px(horizontalMarginDp));
+        params.setMarginEnd(ResUtil.dp2px(horizontalMarginDp));
         binding.playerPanel.setLayoutParams(params);
-        requestEmbeddedInlinePlayerLayout(parent);
-        layoutEmbeddedInlinePageContent(parent);
+        // 内嵌 spacer 顶部对齐时，translationY 由 syncInlinePlayerToSpacer() 依据 spacer 位置更新
+        alignInlinePlayerSpacerHeight();
+        syncInlinePlayerToSpacer();
     }
 
-    private void requestEmbeddedInlinePlayerLayout(ViewGroup parent) {
-        binding.playerPanel.forceLayout();
-        binding.exo.forceLayout();
-        binding.danmaku.forceLayout();
-        parent.forceLayout();
-        parent.requestLayout();
-        binding.pageContent.forceLayout();
-        binding.pageContent.requestLayout();
-        binding.scroll.forceLayout();
-        binding.scroll.requestLayout();
-        binding.root.requestLayout();
+    private void applyInlinePlayerFullscreenLayout() {
+        if (binding == null) return;
+        FrameLayout.LayoutParams params;
+        ViewGroup.LayoutParams current = binding.playerPanel.getLayoutParams();
+        if (current instanceof FrameLayout.LayoutParams framed) params = framed;
+        else params = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+        params.height = ViewGroup.LayoutParams.MATCH_PARENT;
+        params.gravity = Gravity.TOP | Gravity.START;
+        params.setMargins(0, 0, 0, 0);
+        // playerPanel 的 XML 用了 layout_marginStart/End=16dp，setMargins 只改 left/right，
+        // RTL 解析时 start/end 会覆盖 left/right，导致全屏左右残留 16dp 黑边，需显式清零。
+        params.setMarginStart(0);
+        params.setMarginEnd(0);
+        binding.playerPanel.setLayoutParams(params);
     }
 
-    private void layoutEmbeddedInlinePageContent(ViewGroup parent) {
-        if (parent != binding.pageContent || binding.scroll.getWidth() <= 0) return;
-        // Some TV back paths keep the old fullscreen measurement until the next traversal.
-        int width = binding.scroll.getWidth();
-        int widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY);
-        int heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
-        binding.pageContent.measure(widthSpec, heightSpec);
-        int height = Math.max(binding.pageContent.getMeasuredHeight(), binding.scroll.getHeight());
-        binding.pageContent.layout(0, 0, width, height);
+    private void alignInlinePlayerSpacerHeight() {
+        if (binding == null || binding.playerPanelSpacer == null) return;
+        ViewGroup.LayoutParams sp = binding.playerPanelSpacer.getLayoutParams();
+        if (sp == null) return;
+        int target = ResUtil.dp2px(252);
+        int topMargin = ResUtil.dp2px(isFusionMode() ? 22 : 14);
+        int bottomMargin = ResUtil.dp2px(isFusionMode() ? 20 : 16);
+        boolean changed = sp.height != target;
+        if (sp instanceof ViewGroup.MarginLayoutParams marginParams) {
+            if (marginParams.topMargin != topMargin || marginParams.bottomMargin != bottomMargin) {
+                marginParams.topMargin = topMargin;
+                marginParams.bottomMargin = bottomMargin;
+                changed = true;
+            }
+        }
+        if (changed) {
+            sp.height = target;
+            binding.playerPanelSpacer.setLayoutParams(sp);
+        }
+    }
+
+    /**
+     * 计算 spacer 顶端相对 root 的 y，把 playerPanel 的 translationY 对齐过去。全屏/PiP 时不同步。
+     */
+    private void syncInlinePlayerToSpacer() {
+        if (binding == null || inlineFullscreen || inlinePiPLayout) return;
+        if (binding.playerPanel.getVisibility() != View.VISIBLE) return;
+        View spacer = binding.playerPanelSpacer;
+        if (spacer == null || spacer.getWidth() <= 0) return;
+        int[] rootLoc = new int[2];
+        int[] spacerLoc = new int[2];
+        int[] playerLoc = new int[2];
+        binding.root.getLocationInWindow(rootLoc);
+        spacer.getLocationInWindow(spacerLoc);
+        binding.playerPanel.getLocationInWindow(playerLoc);
+        // spacer 在 root 中的 y 坐标（考虑 scroll）
+        float spacerY = spacerLoc[1] - rootLoc[1];
+        // playerPanel 当前 layout 位置（不含 translationY）在 root 中的 y
+        float playerLayoutY = playerLoc[1] - rootLoc[1] - binding.playerPanel.getTranslationY();
+        // 需要的 translationY = spacer 位置 - player layout 位置
+        float target = spacerY - playerLayoutY;
+        if (Math.abs(binding.playerPanel.getTranslationY() - target) > 0.5f) {
+            binding.playerPanel.setTranslationY(target);
+        }
     }
 
     private void restoreInlineDetailScrollAfterOverlay() {
@@ -7959,7 +8012,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void restoreInlinePlayerPanelAfterOverlay() {
-        restoreEmbeddedInlinePlayerLayout();
+        if (binding == null) return;
         restoreInlineDetailScrollAfterOverlay();
         setInlineVideoFrame(binding.exo, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         setInlineVideoFrame(binding.danmaku, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -7978,12 +8031,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private void scheduleInlinePlayerPanelRestoreAfterOverlay() {
         if (binding == null) return;
         binding.playerPanel.post(() -> {
-            restoreEmbeddedInlinePlayerLayout();
+            if (binding == null) return;
             restoreInlineDetailScrollAfterOverlay();
+            syncInlinePlayerToSpacer();
         });
         binding.root.postDelayed(() -> {
-            restoreEmbeddedInlinePlayerLayout();
+            if (binding == null) return;
             restoreInlineDetailScrollAfterOverlay();
+            syncInlinePlayerToSpacer();
         }, 180);
     }
 
@@ -7994,12 +8049,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         prepareInlinePlayerTransition();
         inlineFullscreen = false;
         setInlineLock(false);
-        ((ViewGroup) binding.playerPanel.getParent()).removeView(binding.playerPanel);
-        if (playerParent != null && playerLayoutParams != null) {
-            int index = playerIndex < 0 || playerIndex > playerParent.getChildCount() ? playerParent.getChildCount() : playerIndex;
-            playerParent.addView(binding.playerPanel, index, embeddedInlinePlayerLayoutParams(playerParent, playerLayoutParams));
-            binding.playerPanel.setLayoutParams(embeddedInlinePlayerLayoutParams(playerParent, playerLayoutParams));
-        }
+        // 恢复 root 层内嵌尺寸，不再 reparent
+        applyInlinePlayerEmbeddedLayout();
         resetInlineShortDramaMode();
         restoreInlinePlayerPanelAfterOverlay();
         setInlineFullscreenIcon();
@@ -8010,30 +8061,20 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         updateMobileInlineSideControlMargins();
         setRequestedOrientation(requestedOrientation);
         focusInlinePlayerPanel();
-        playerParent = null;
-        playerLayoutParams = null;
-        playerIndex = -1;
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
         updateDetailThemeButtonVisibility();
-        restoreEmbeddedInlinePlayerLayout();
-        restoreInlineDetailScrollAfterOverlay();
-        scheduleInlinePlayerPanelRestoreAfterOverlay();
-        reattachVideoSurfaceAfterReparent();
         scheduleInlineTransitionFrameTimeout();
     }
 
     private void enterInlinePiPLayout() {
         if (inlinePiPLayout || inlineFullscreen || binding == null) return;
-        inlinePiPParent = (ViewGroup) binding.playerPanel.getParent();
-        inlinePiPLayoutParams = copyInlinePlayerLayoutParams(binding.playerPanel.getLayoutParams());
-        inlinePiPIndex = inlinePiPParent.indexOfChild(binding.playerPanel);
         inlinePiPTranslationZ = binding.playerPanel.getTranslationZ();
         inlinePiPLayout = true;
         updateDetailThemeButtonVisibility();
         // Keep the original source rect so PiP exits back to the inline card.
         inlinePiPSourceFrozen = true;
-        inlinePiPParent.removeView(binding.playerPanel);
-        binding.root.addView(binding.playerPanel, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // 不再 reparent：playerPanel 常驻 root，PiP 时直接铺满
+        applyInlinePlayerFullscreenLayout();
         binding.playerPanel.setTranslationZ(32f);
         binding.playerPanel.setVisibility(View.VISIBLE);
         binding.playerPanel.setRadius(0);
@@ -8043,20 +8084,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void exitInlinePiPLayout() {
         if (!inlinePiPLayout || binding == null) return;
-        ((ViewGroup) binding.playerPanel.getParent()).removeView(binding.playerPanel);
-        if (inlinePiPParent != null && inlinePiPLayoutParams != null) {
-            int index = inlinePiPIndex < 0 || inlinePiPIndex > inlinePiPParent.getChildCount() ? inlinePiPParent.getChildCount() : inlinePiPIndex;
-            inlinePiPParent.addView(binding.playerPanel, index, embeddedInlinePlayerLayoutParams(inlinePiPParent, inlinePiPLayoutParams));
-            binding.playerPanel.setLayoutParams(embeddedInlinePlayerLayoutParams(inlinePiPParent, inlinePiPLayoutParams));
-        }
         inlinePiPLayout = false;
+        // 恢复 root 层内嵌尺寸，不再 reparent
+        applyInlinePlayerEmbeddedLayout();
         restoreInlinePlayerPanelAfterOverlay();
         binding.playerPanel.setTranslationZ(inlinePiPTranslationZ);
         updateInlineDisplayPanel();
         focusInlinePlayerPanel();
-        inlinePiPParent = null;
-        inlinePiPLayoutParams = null;
-        inlinePiPIndex = -1;
         inlinePiPTranslationZ = 0f;
         binding.playerPanel.post(() -> {
             if (binding == null) return;
@@ -8114,6 +8148,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.playerError.setVisibility(View.GONE);
         updateInlineDisplayPanel();
         binding.playerPanel.setVisibility(View.GONE);
+        binding.playerPanelSpacer.setVisibility(View.GONE); // 同步隐藏 spacer
         inlineStarted = false;
         detailPlayerActive = false;
         pendingInlineResult = null;

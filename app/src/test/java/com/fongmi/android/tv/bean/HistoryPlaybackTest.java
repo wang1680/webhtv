@@ -75,6 +75,24 @@ public class HistoryPlaybackTest {
     }
 
     @Test
+    public void recommendationSignalsChangedIncludesStableMetadataButIgnoresProgress() {
+        History before = history("site@@vod@@1", "爱情有烟火", "第1集", "url-1", 10_000, 300_000);
+        before.setTypeName("剧情");
+        before.setArea("中国大陆");
+        before.setActor("檀健次");
+        before.setDirector("张开宙");
+        before.setYear("2025");
+
+        History progressOnly = before.copy();
+        progressOnly.setPosition(120_000);
+        assertFalse(History.recommendationSignalsChanged(before, progressOnly));
+
+        History enriched = before.copy();
+        enriched.setDirector("张开宙,另一导演");
+        assertTrue(History.recommendationSignalsChanged(before, enriched));
+    }
+
+    @Test
     public void copiedPlaybackCandidateDoesNotMergeBackIntoSourceHistory() {
         History source = history("site@@vod@@1", "武神主宰", "第2集", "url-2", 120_000, 300_000);
         History copied = History.findPlaybackCandidate("site@@vod@@2", List.of(source), List.of(flag(Episode.create("第2集", "url-2"))));
