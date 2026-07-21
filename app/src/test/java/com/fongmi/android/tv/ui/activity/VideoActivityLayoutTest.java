@@ -239,13 +239,20 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
-    public void leanbackImmersiveAudioModeUsesAudioContentGuard() throws Exception {
+    public void leanbackImmersiveAudioRequiresExplicitSessionActivation() throws Exception {
         Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String policyBody = methodBody(source, "private boolean shouldUseImmersiveAudio()", "private void syncAudioStageSurface(boolean visible)");
 
-        assertTrue("TV immersive audio must honor the selected mode for audio-only or music-like content",
-                policyBody.contains("return PlayerSetting.isImmersiveAudioMode() && (isAudioOnly() || isMusicLike());"));
+        assertTrue("TV immersive audio must only continue after an explicit source launch or manual selection",
+                policyBody.contains("return PlayerSetting.isImmersiveAudioMode() && mImmersiveAudioRequested;"));
+        assertFalse("ordinary videos must not enter immersive audio from title or early track guesses",
+                policyBody.contains("isAudioOnly()") || policyBody.contains("isMusicLike()"));
+        assertTrue("configured audio-source launches must explicitly activate the immersive session",
+                source.contains("mImmersiveAudioRequested = true;")
+                        && source.indexOf("mImmersiveAudioRequested = true;") > source.indexOf("private void prepareImmersiveAudioPlayback("));
+        assertTrue("manual playback-style selection must explicitly update the immersive session",
+                source.contains("mImmersiveAudioRequested = PlayerSetting.isImmersiveAudioMode();"));
     }
 
     @Test
@@ -274,16 +281,22 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
-    public void leanbackAudioStageOverlayStartsHiddenWhileAutoDetectionIsDisabled() throws Exception {
+    public void leanbackAudioStageOverlayIsNotManagedAsContent() throws Exception {
         Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         String setupBody = methodBody(source, "private void setupAudioStageOverlay()", "private void setupAudioStageFocusFeedback()");
+        String progress = new String(Files.readAllBytes(findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "custom", "ProgressLayout.java"))), StandardCharsets.UTF_8);
 
-        int reattach = setupBody.indexOf("addView(mBinding.audioStage, params);");
+        int reattach = setupBody.indexOf("addOverlayView(mBinding.audioStage, params);");
         int resetState = setupBody.indexOf("mAudioStageVisible = false;");
         int hideView = setupBody.indexOf("mBinding.audioStage.setVisibility(View.GONE);");
         assertTrue("TV audio stage overlay must not become visible merely because it was reattached to the root",
                 reattach >= 0 && resetState > reattach && hideView > resetState);
+        assertTrue("ProgressLayout must support overlays that are not managed as normal content",
+                progress.contains("public void addOverlayView(View child, ViewGroup.LayoutParams params)")
+                        && progress.contains("mContentViews.remove(child);"));
+        assertTrue("audio stage must be added as an unmanaged overlay so showContent cannot reveal it",
+                setupBody.contains("mBinding.progressLayout.addOverlayView(mBinding.audioStage, params);"));
     }
 
     @Test

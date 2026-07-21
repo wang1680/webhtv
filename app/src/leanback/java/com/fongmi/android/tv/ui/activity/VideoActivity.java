@@ -398,6 +398,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     private Result mPendingDetail;
     private Result mPendingPlayer;
     private AudioPlaybackResolver.Resolved mImmersiveAudioResolved;
+    private boolean mImmersiveAudioRequested;
     private String mContextWallUrl;
     private String mContextWallLockedUrl;
     private String playHealthKey;
@@ -6154,7 +6155,7 @@ private void setupAudioStageOverlay() {
         RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
         params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
         params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
-        ((ViewGroup) mBinding.getRoot()).addView(mBinding.audioStage, params);
+        mBinding.progressLayout.addOverlayView(mBinding.audioStage, params);
         mBinding.audioStage.bringToFront();
         // TV 歌曲舞台自动判断已暂时关闭，重挂 overlay 时也必须保持隐藏。
         mAudioStageVisible = false;
@@ -7621,7 +7622,8 @@ private void setAudioStageVisible(boolean visible) {
     }
 
     private boolean shouldUseImmersiveAudio() {
-        return PlayerSetting.isImmersiveAudioMode() && (isAudioOnly() || isMusicLike());
+        // TV 端只接受音频源入口或用户手动选择，不能再根据标题和早期轨道状态猜测。
+        return PlayerSetting.isImmersiveAudioMode() && mImmersiveAudioRequested;
     }
 
 private AudioPlaybackResolver.Resolved takeImmersiveAudioLaunch() {
@@ -7645,6 +7647,7 @@ private boolean consumeImmersiveAudioLaunch() {
     }
 
 private void prepareImmersiveAudioPlayback(AudioPlaybackResolver.Resolved resolved) {
+        mImmersiveAudioRequested = true;
         mImmersiveAudioResolved = resolved;
         Vod vod = resolved.getVod();
         Result result = resolved.getResult();
@@ -9237,6 +9240,7 @@ public void onKaraokeModeChanged() {
 
 @Override
     public void onImmersiveAudioModeChanged() {
+        mImmersiveAudioRequested = PlayerSetting.isImmersiveAudioMode();
         if (PlayerSetting.isImmersiveAudioMode()) {
             ensureImmersiveAudioControllers();
             refreshLyrics();
