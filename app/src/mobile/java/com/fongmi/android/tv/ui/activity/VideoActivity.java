@@ -750,6 +750,10 @@ private int mAudioBackgroundRandomNonce;
         return Objects.toString(getIntent().getStringExtra("tmdb_vod_pic"), "");
     }
 
+    private String getTmdbVodContent() {
+        return Objects.toString(getIntent().getStringExtra("tmdb_vod_content"), "");
+    }
+
     private String getTmdbVodYear() {
         return Objects.toString(getIntent().getStringExtra("tmdb_vod_year"), "");
     }
@@ -1627,6 +1631,7 @@ private int mAudioBackgroundRandomNonce;
         mVod = item;
         item.checkPic(getPic());
         item.checkName(getName());
+        item.checkContent(getTmdbVodContent());
         item.checkContent(getContent());
         boolean tmdbMode = shouldLoadTmdbDetail();
         mTmdbFallbackToNative = false;

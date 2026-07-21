@@ -1650,6 +1650,23 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void mobileDirectTmdbPlaybackUsesCarriedSynopsisForUnmatchedFallback() throws Exception {
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int carried = source.indexOf("intent.putExtra(\"tmdb_vod_content\", vod.getContent());");
+        int getter = source.indexOf("private String getTmdbVodContent()");
+        int getterRead = source.indexOf("getIntent().getStringExtra(\"tmdb_vod_content\")", getter);
+        int setDetail = source.indexOf("private void setDetail(Vod item)");
+        int fallback = source.indexOf("item.checkContent(getTmdbVodContent());", setDetail);
+        int render = source.indexOf("setText(item);", setDetail);
+
+        assertTrue("direct colorful-detail playback must carry the source synopsis independently of TMDB matching", carried >= 0);
+        assertTrue("mobile playback must read the carried source synopsis", getter >= 0 && getterRead > getter && getterRead < setDetail);
+        assertTrue("unmatched TMDB playback must restore the carried synopsis before rendering native details",
+                fallback > setDetail && render > fallback);
+    }
+
+    @Test
     public void mobileVideoDirectTmdbCarriesDetailThemeIntoPlayback() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
