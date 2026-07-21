@@ -5681,7 +5681,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         updateInlineButtons(service() != null && player() != null && !player().isEmpty() && player().isPlaying());
         inlineControlsView().setVisibility(View.VISIBLE);
         if (inlineOsd != null) {
-            inlineOsd.setSuppressed(true);
+            inlineOsd.setSuppressed(Util.isMobile());
             inlineOsd.setControlsVisible(true);
         }
         focusInlineDefaultControl();

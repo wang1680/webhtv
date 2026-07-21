@@ -404,8 +404,8 @@ public class TmdbDetailActivityLayoutTest {
                 initOsd >= 0
                         && controller.indexOf("this.osd.setPersistentSuppressed(host.suppressPersistentOsd());", initOsd) > initOsd
                         && suppressPersistentBody.contains("return false;"));
-        assertTrue("inline controls should suppress persistent OSD only while the controls overlay is visible",
-                showControlsBody.contains("inlineOsd.setSuppressed(true);")
+        assertTrue("inline controls should suppress the shared OSD only on mobile, whose control bar renders its own title and time",
+                showControlsBody.contains("inlineOsd.setSuppressed(Util.isMobile());")
                         && hideControlsBody.contains("inlineOsd.setSuppressed(false);"));
         assertTrue("the retired legacy display panel must not render alongside the shared OSD",
                 !body.contains("binding.playerDisplay")
