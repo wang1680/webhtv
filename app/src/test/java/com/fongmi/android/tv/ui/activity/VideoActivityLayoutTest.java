@@ -2022,7 +2022,7 @@ public class VideoActivityLayoutTest {
         assertTrue("history clicks must use the history-aware playback entry point",
                 compactHistory.contains("VideoActivity.startFromHistory(this, item)"));
         assertTrue("history playback must respect the configured standalone detail mode",
-                historyStartBody.contains("if (shouldOpenLegacyTmdbDetail(item.getSiteKey()))"));
+                historyStartBody.contains("if (shouldOpenLegacyTmdbDetail(item.getSiteKey(), item.getVodId()))"));
         assertTrue("standalone detail mode must use the normal detail-aware start path",
                 historyStartBody.contains("start(activity, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks())"));
         assertTrue("non-detail playback must preserve flag, episode title, and episode url",

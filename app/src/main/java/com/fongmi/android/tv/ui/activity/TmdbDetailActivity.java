@@ -98,6 +98,7 @@ import com.fongmi.android.tv.setting.DanmakuSetting;
 import com.fongmi.android.tv.setting.PlayerButtonSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
+import com.fongmi.android.tv.setting.TmdbSitePolicy;
 import com.fongmi.android.tv.title.MediaTitleLearningExample;
 import com.fongmi.android.tv.title.MediaTitleLearningStore;
 import com.fongmi.android.tv.title.MediaTitleParser;
@@ -414,7 +415,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             VideoActivity.startDirect(activity, key, id, name, pic, mark);
             return;
         }
-        if (!TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && !isTmdbSiteEnabled(key)) {
+        if (!TextUtils.isEmpty(key) && !SiteApi.PUSH.equals(key) && !TmdbSitePolicy.isEnabled(key, id)) {
             VideoActivity.startDirect(activity, key, id, name, pic, mark);
             return;
         }
@@ -2500,10 +2501,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private boolean isTmdbAllowedForCurrentSite() {
         if (tmdbConfig == null) return false;
+        if (WebHomeInlineVodStore.KEY.equals(getKeyText())) return TmdbSitePolicy.isEnabled(tmdbConfig, getKeyText(), getIdText());
         Site site = getCurrentSite();
-        String key = site == null || site.isEmpty() ? getKeyText() : site.getKey();
-        String name = site == null || site.isEmpty() ? getKeyText() : site.getName();
-        return tmdbConfig.isSiteEnabled(key, name);
+        if (site != null && !site.isEmpty()) return tmdbConfig.isSiteEnabled(site.getKey(), site.getName());
+        return TmdbSitePolicy.isEnabled(tmdbConfig, getKeyText(), getIdText());
     }
 
     private void saveTmdbMatch(TmdbItem item) {
@@ -10187,11 +10188,6 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (site != null && !site.isEmpty()) return site;
         Site fallback = VodConfig.get().getSite(getKeyText());
         return fallback.isEmpty() ? null : fallback;
-    }
-
-    private static boolean isTmdbSiteEnabled(String key) {
-        Site site = VodConfig.get().getSite(key);
-        return Setting.isTmdbSiteEnabled(key, site == null ? "" : site.getName());
     }
 
     private static boolean isShortDramaSiteEnabled(String key) {

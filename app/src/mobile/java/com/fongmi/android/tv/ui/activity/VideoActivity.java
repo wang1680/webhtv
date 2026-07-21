@@ -107,6 +107,7 @@ import com.fongmi.android.tv.setting.PlayerButtonSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.setting.SiteHealthStore;
+import com.fongmi.android.tv.setting.TmdbSitePolicy;
 import com.fongmi.android.tv.title.MediaTitleLearningExample;
 import com.fongmi.android.tv.title.MediaTitleRequest;
 import com.fongmi.android.tv.subtitle.SubtitlePlaybackSession;
@@ -512,15 +513,10 @@ private int mAudioBackgroundRandomNonce;
         start(activity, key, id, name, pic, null, true, (TmdbItem) null, wallPic);
     }
 
-    private static boolean canOpenLegacyTmdbDetail(String key) {
+    private static boolean canOpenLegacyTmdbDetail(String key, String id) {
         if (TextUtils.isEmpty(key)) return false;
-        if (SiteApi.PUSH.equals(key)) return isTmdbSiteEnabled(key);
-        return !AudioUtil.isAudioSiteEnabled(key) && !isShortDramaSiteEnabled(key) && isTmdbSiteEnabled(key);
-    }
-
-    private static boolean isTmdbSiteEnabled(String key) {
-        Site site = VodConfig.get().getSite(key);
-        return Setting.isTmdbSiteEnabled(key, site == null ? "" : site.getName());
+        if (SiteApi.PUSH.equals(key)) return TmdbSitePolicy.isEnabled(key, id);
+        return !AudioUtil.isAudioSiteEnabled(key) && !isShortDramaSiteEnabled(key) && TmdbSitePolicy.isEnabled(key, id);
     }
 
     private static boolean isShortDramaSiteEnabled(String key) {
@@ -528,9 +524,9 @@ private int mAudioBackgroundRandomNonce;
         return Setting.isShortDramaSiteEnabled(key, site == null ? "" : site.getName());
     }
 
-    private static boolean shouldOpenLegacyTmdbDetail(String key) {
+    private static boolean shouldOpenLegacyTmdbDetail(String key, String id) {
         int mode = Setting.getDetailOpenMode();
-        return canOpenLegacyTmdbDetail(key) && Setting.isTmdbDetailPage() && Setting.isStandaloneTmdbDetailMode(mode);
+        return canOpenLegacyTmdbDetail(key, id) && Setting.isTmdbDetailPage() && Setting.isStandaloneTmdbDetailMode(mode);
     }
 
     public static void start(Activity activity, String url) {
@@ -594,7 +590,7 @@ private int mAudioBackgroundRandomNonce;
         ImgUtil.preload(activity, pic);
         if (Setting.isPlaybackArtworkWall() && !TextUtils.isEmpty(wallPic) && !TextUtils.equals(wallPic, pic)) ImgUtil.preload(activity, wallPic);
         if (dispatchToContentHandler(activity, key, id, name, pic, mark)) return;
-        if (tmdbItem == null && shouldOpenLegacyTmdbDetail(key)) {
+        if (tmdbItem == null && shouldOpenLegacyTmdbDetail(key, id)) {
             TmdbDetailActivity.start(activity, key, id, name, pic, mark, null, Setting.getDetailOpenMode());
             return;
         }
@@ -617,7 +613,7 @@ private int mAudioBackgroundRandomNonce;
     }
 
     static void startFromHistory(Activity activity, History item) {
-        if (shouldOpenLegacyTmdbDetail(item.getSiteKey())) {
+        if (shouldOpenLegacyTmdbDetail(item.getSiteKey(), item.getVodId())) {
             start(activity, item.getSiteKey(), item.getVodId(), item.getVodName(), item.getVodPic(), item.getVodRemarks());
             return;
         }
@@ -841,8 +837,7 @@ private int mAudioBackgroundRandomNonce;
         if (isTmdbMode()) return true;
         if (!Setting.isTmdbMode(Setting.getDetailOpenMode())) return false;
         if (!Setting.isTmdbEnabled()) return false;
-        Site site = getSite();
-        return Setting.isTmdbSiteEnabled(site == null ? getKey() : site.getKey(), site == null ? "" : site.getName());
+        return TmdbSitePolicy.isEnabled(getKey(), getId());
     }
 
     private boolean shouldUseTmdbEpisodeCards(List<Episode> items) {
