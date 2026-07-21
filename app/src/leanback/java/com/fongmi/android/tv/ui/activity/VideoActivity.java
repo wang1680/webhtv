@@ -9215,6 +9215,14 @@ public void onDanmakuPanel() {
         onDanmaku();
     }
 
+@Override
+public void onDisplayChanged() {
+        if (mOsd == null) return;
+        mOsd.setDiagnosticsVisible(PlayerSetting.isOsdDiagnostics());
+        setPlayParamsState();
+        mOsd.start();
+    }
+
 public void onKaraokeModeChanged() {
         mBinding.control.action.karaoke.setSelected(false);
         mBinding.audioKaraokeAction.setSelected(false);

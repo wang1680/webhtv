@@ -130,7 +130,6 @@ import com.fongmi.android.tv.ui.dialog.CastDialog;
 import com.fongmi.android.tv.ui.dialog.CodecCapabilityDialog;
 import com.fongmi.android.tv.ui.dialog.ControlDialog;
 import com.fongmi.android.tv.ui.dialog.DanmakuDialog;
-import com.fongmi.android.tv.ui.dialog.DisplayDialog;
 import com.fongmi.android.tv.ui.dialog.EpisodeGridDialog;
 import com.fongmi.android.tv.ui.dialog.EpisodeListDialog;
 import com.fongmi.android.tv.ui.dialog.InfoDialog;
@@ -1004,10 +1003,6 @@ private int mAudioBackgroundRandomNonce;
                 return getOsdTitle();
             }
 
-            @Override
-            public boolean restoreDiagnosticsOnStart() {
-                return false;
-            }
         }, VodPlayerChrome.fromVideo(mBinding, null, 12f), this);
         mClock = mPlayerUi.clock();
         mOsd = mPlayerUi.osd();
@@ -1075,7 +1070,6 @@ private int mAudioBackgroundRandomNonce;
         mBinding.control.info.setOnClickListener(guarded(this::onInfo));
         mBinding.control.keep.setOnClickListener(view -> onKeep());
         mBinding.control.nightMode.setOnClickListener(view -> toggleNightMode());
-        mBinding.control.display.setOnClickListener(view -> onDisplay());
         mBinding.control.osdDiagnostics.setOnClickListener(view -> onOsdDiagnostics());
         mBinding.control.play.setOnClickListener(guarded(this::checkPlay));
         mBinding.control.next.setOnClickListener(view -> checkNext());
@@ -2490,12 +2484,6 @@ private int mAudioBackgroundRandomNonce;
         updateTmdbKeepState();
     }
 
-    private void onDisplay() {
-        DisplayDialog.showPlayerOsd(this, () -> {
-            if (mOsd != null) mOsd.start();
-        });
-    }
-
     private void checkPlay() {
         setR1Callback();
         if (player() == null) return;
@@ -2608,6 +2596,18 @@ private int mAudioBackgroundRandomNonce;
     @Override
     public void onDanmakuPanel() {
         DanmakuDialog.create().player(player()).identity(getKey(), getId(), mHistory == null ? "" : mHistory.getVodName(), getEpisode().getName()).show(this);
+    }
+
+    @Override
+    public void onDisplayChanged() {
+        if (mOsd != null) {
+            mOsd.setDiagnosticsVisible(PlayerSetting.isOsdDiagnostics());
+            mOsd.start();
+        }
+        setPlayParamsState();
+        if (service() == null || player() == null) return;
+        mBinding.control.osdDiagnostics.setVisibility(PlayerSetting.isOsdDiagnostics() && !player().isEmpty() ? View.VISIBLE : View.GONE);
+        mBinding.control.osdDiagnostics.setAlpha(mOsd != null && mOsd.isDiagnosticsVisible() ? 1f : 0.72f);
     }
 
     @Override
@@ -3149,7 +3149,6 @@ private int mAudioBackgroundRandomNonce;
         mBinding.control.right.lock.setVisibility(isFullscreen() ? View.VISIBLE : View.GONE);
         mBinding.control.info.setVisibility(player().isEmpty() ? View.GONE : View.VISIBLE);
         mBinding.control.cast.setVisibility(isFullscreen() && mHistory != null && !player().isEmpty() ? View.VISIBLE : View.GONE);
-        mBinding.control.display.setVisibility(isFullscreen() ? View.VISIBLE : View.GONE);
         mBinding.control.center.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.bottom.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);

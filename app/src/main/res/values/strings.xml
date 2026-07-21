@@ -1530,6 +1530,14 @@
         <item>Playback params</item>
     </string-array>
 
+    <string-array name="select_live_player_osd">
+        <item>@string/display_time</item>
+        <item>@string/display_traffic</item>
+        <item>@string/display_size</item>
+        <item>@string/display_title</item>
+        <item>@string/play_params</item>
+    </string-array>
+
     <string-array name="select_track">
         <item>Select audio track</item>
         <item>Select video track</item>

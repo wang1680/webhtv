@@ -37,7 +37,7 @@ public class VideoActivityLayoutTest {
     private static final List<String> REQUIRED_FULLSCREEN_CONTROL_IDS = Arrays.asList(
             "cast",
             "keep",
-            "display",
+            "osdDiagnostics",
             "info"
     );
 
@@ -604,11 +604,8 @@ public class VideoActivityLayoutTest {
                 host.contains("default boolean restoreDiagnosticsOnStart()") && host.contains("return true;"));
         assertTrue("shared controller should only restore diagnostics visibility when the host opts in",
                 controller.contains("if (host.restoreDiagnosticsOnStart()) osd.setDiagnosticsVisible(PlayerSetting.isOsdDiagnostics());"));
-        int mobileRestore = mobile.indexOf("public boolean restoreDiagnosticsOnStart()");
-        int mobileRestoreEnd = mobile.indexOf("}", mobileRestore);
-        String mobileRestoreBody = mobileRestore >= 0 && mobileRestoreEnd > mobileRestore ? mobile.substring(mobileRestore, mobileRestoreEnd) : "";
-        assertTrue("mobile VideoActivity must keep diagnostics as a manual transient overlay",
-                mobileRestoreBody.contains("return false;"));
+        assertTrue("mobile VideoActivity should restore persistent diagnostics via the host default",
+                !mobile.contains("public boolean restoreDiagnosticsOnStart()"));
         assertTrue("leanback VideoActivity should keep persistent diagnostics restore via the host default",
                 !leanback.contains("public boolean restoreDiagnosticsOnStart()"));
     }

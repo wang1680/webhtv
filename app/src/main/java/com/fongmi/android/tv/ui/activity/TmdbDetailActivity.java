@@ -6175,10 +6175,17 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         showInlineDanmaku();
     }
 
+    public void inlineControlDialogDisplayChanged() {
+        if (inlineOsd != null) {
+            inlineOsd.setDiagnosticsVisible(PlayerSetting.isOsdDiagnostics());
+            inlineOsd.start();
+        }
+        updateInlineButtons(service() != null && player() != null && !player().isEmpty() && player().isPlaying());
+    }
+
     private void showInlineDisplay() {
-        DisplayDialog.show(this, () -> {
-            updateInlineButtons(service() != null && player() != null && !player().isEmpty() && player().isPlaying());
-            updateInlineDisplayPanel();
+        DisplayDialog.showPlayerOsd(this, () -> {
+            inlineControlDialogDisplayChanged();
         });
     }
 
