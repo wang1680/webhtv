@@ -85,6 +85,7 @@ import com.fongmi.android.tv.ui.detail.FusionDetailController;
 import com.fongmi.android.tv.ui.detail.PlayerDetailController;
 import com.fongmi.android.tv.ui.detail.TmdbDetailModeController;
 import com.fongmi.android.tv.ui.host.TmdbDetailHost;
+import com.fongmi.android.tv.playback.PlaybackEventCollector;
 import com.fongmi.android.tv.playback.PlaybackOrientation;
 import com.fongmi.android.tv.player.IntroSkipPlayback;
 import com.fongmi.android.tv.player.PlayerManager;
@@ -6994,10 +6995,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void finishPlaybackToHome() {
+        if (isPlaybackExiting()) return;
         prepareInlinePlayerTransition();
         saveInlineHistory();
-        startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
-        finish();
+        stopInlinePlaybackSync();
+        inlineStarted = false;
+        if (isTaskRoot()) startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        finishPlayback();
     }
 
     private void openInlineExternal() {
@@ -8147,6 +8151,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void closeDetailFullscreenPlayer() {
         saveInlineHistory();
+        stopInlinePlaybackSync();
         inlinePlaybackGeneration++;
         inlinePlaybackLoading = false;
         inlinePlayerSwitchLoading = false;
@@ -8781,6 +8786,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         App.removeCallbacks(inlineKeySeekEnd);
         EpisodeTitlePopup.dismiss();
         saveInlineHistory();
+        stopInlinePlaybackSync();
         // 确保内嵌播放退出时停止播放，避免声音继续（与 VideoActivity 保持一致）
         if (inlineStarted && isOwner() && !isPlaybackExiting()) {
             stopPlayback();
@@ -8880,6 +8886,12 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         }
     }
 
+    private void stopInlinePlaybackSync() {
+        if (!inlineStarted || !isOwner() || history == null || service() == null || player() == null || player().isReleased()) return;
+        PlaybackEventCollector.get().updateHistory(history);
+        PlaybackEventCollector.get().onStop(player());
+    }
+
     private void syncInlineHistory() {
         updateInlineHistoryProgress();
         if (history != null && !Setting.isIncognito()) Task.execute(() -> history.save());
@@ -8954,6 +8966,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             history.setCreateTime(time);
             updateInlineHistoryPlayer();
         }
+        if (canUpdateProgress) PlaybackEventCollector.get().onProgress(history, player());
         if (canUpdateProgress && history.canSave() && history.canSync()) syncInlineHistory();
         if (canUpdateProgress && applyAutoIntroSkip()) return;
         if (canUpdateProgress && history.getEnding() > 0 && duration > 0 && history.getEnding() + position >= duration) checkInlineEnded(false);
@@ -8974,7 +8987,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
         @Override
         public void onStop() {
-            saveInlineHistory();
+            finishPlaybackToHome();
         }
 
         @Override
@@ -8991,9 +9004,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             history.setKey(getHistoryKey());
             history.setCid(VodConfig.getCid());
         }
-        boolean same = isHistoryEpisode(item, history);
+        boolean sameEpisode = isHistoryEpisode(item, history);
+        boolean sameFlag = TextUtils.equals(history.getVodFlag(), selectedFlag.getFlag());
+        if (inlineStarted && (!sameEpisode || !sameFlag)) stopInlinePlaybackSync();
 
-        if (!same) {
+        if (!sameEpisode) {
             // 保存当前集的播放位置到缓存
             if (!TextUtils.isEmpty(history.getVodRemarks()) && service() != null && player() != null && !player().isReleased()) {
                 EpisodePositionCache.get().put(
@@ -9034,6 +9049,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 coalesce(castNames(), vod == null ? "" : vod.getActor()),
                 coalesce(firstCrew("Director"), vod == null ? "" : vod.getDirector()),
                 yearLabel());
+        if (isFusionMode() || isPlayerMode()) PlaybackEventCollector.get().updateHistory(history);
         syncDanmakuCompatHistory();
     }
 

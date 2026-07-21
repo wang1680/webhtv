@@ -216,6 +216,47 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
+    public void inlinePlaybackPublishesViewingRecordLifecycle() throws Exception {
+        String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
+        int update = source.indexOf("private void updateInlineHistory(Episode item)");
+        int updateEnd = source.indexOf("private ", update + 1);
+        String updateBody = source.substring(update, updateEnd);
+        int progress = source.indexOf("public void onTimeChanged(long time)");
+        int progressEnd = source.indexOf("private final PlaybackService.NavigationCallback", progress);
+        String progressBody = source.substring(progress, progressEnd);
+        int stop = source.indexOf("private void stopInlinePlaybackSync()");
+        assertTrue("TmdbDetailActivity is missing inline playback sync finalization", stop >= 0);
+        int stopEnd = source.indexOf("private ", stop + 1);
+        String stopBody = source.substring(stop, stopEnd);
+        int close = source.indexOf("private void closeDetailFullscreenPlayer()");
+        int closeEnd = source.indexOf("private ", close + 1);
+        String closeBody = source.substring(close, closeEnd);
+        int destroy = source.indexOf("protected void onDestroy()");
+        int destroyEnd = source.indexOf("private ", destroy + 1);
+        String destroyBody = source.substring(destroy, destroyEnd);
+        int navigation = source.indexOf("private final PlaybackService.NavigationCallback mNavigationCallback");
+        int navigationEnd = source.indexOf("private void updateInlineHistory(Episode item)", navigation);
+        String navigationBody = source.substring(navigation, navigationEnd);
+        int finish = source.indexOf("private void finishPlaybackToHome()");
+        int finishEnd = source.indexOf("private ", finish + 1);
+        String finishBody = source.substring(finish, finishEnd);
+
+        assertTrue("inline playback must publish the selected history before player state callbacks", updateBody.contains("PlaybackEventCollector.get().updateHistory(history);"));
+        assertTrue("inline playback must publish periodic progress for webhook and current-playback API", progressBody.contains("PlaybackEventCollector.get().onProgress(history, player());"));
+        assertTrue("inline playback finalization must refresh history before sending stop", stopBody.contains("PlaybackEventCollector.get().updateHistory(history);")
+                && stopBody.contains("PlaybackEventCollector.get().onStop(player());"));
+        assertTrue("switching episode or flag must finalize the previous viewing record",
+                updateBody.contains("if (inlineStarted && (!sameEpisode || !sameFlag)) stopInlinePlaybackSync();"));
+        assertTrue("media-session stop must run the complete inline playback exit path", navigationBody.contains("finishPlaybackToHome();"));
+        assertTrue("the media-session stop path must save, publish stop, and stop the player",
+                finishBody.indexOf("saveInlineHistory();") >= 0
+                        && finishBody.indexOf("stopInlinePlaybackSync();") > finishBody.indexOf("saveInlineHistory();")
+                        && finishBody.indexOf("finishPlayback();") > finishBody.indexOf("stopInlinePlaybackSync();"));
+        assertTrue("closing the detail player must send a final viewing-record event", closeBody.contains("stopInlinePlaybackSync();"));
+        assertTrue("destroying an active inline player must send a final viewing-record event", destroyBody.contains("stopInlinePlaybackSync();"));
+    }
+
+    @Test
     public void playbackPageHidesThemeActionsWhileEnhancedDetailKeepsThem() throws Exception {
         String source = readJava("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java");
         int method = source.indexOf("private void updateDetailThemeButtonVisibility()");
