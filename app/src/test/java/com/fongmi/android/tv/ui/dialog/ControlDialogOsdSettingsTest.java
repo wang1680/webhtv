@@ -140,12 +140,23 @@ public class ControlDialogOsdSettingsTest {
         String layout = read(root.resolve(Path.of("src", "leanback", "res", "layout", "view_control_live_action.xml")));
         String activity = read(root.resolve(Path.of("src", "leanback", "java", "com", "fongmi", "android", "tv", "ui", "activity", "LiveActivity.java")));
 
-        assertTrue("leanback live controls must expose an OSD settings action", layout.contains("@+id/osd"));
+        assertTrue("leanback live controls must expose an OSD settings action", layout.contains("android:id=\"@+id/osdSettings\""));
         assertTrue("leanback live controls must label the action as player OSD settings", layout.contains("android:text=\"@string/player_osd\""));
-        assertMethodContains(activity, "protected void initEvent()", "mBinding.control.action.osd.setOnClickListener(view -> onOsd());");
+        assertMethodContains(activity, "protected void initEvent()", "mBinding.control.action.osdSettings.setOnClickListener(view -> onOsd());");
         assertMethodContains(activity, "private void onOsd()",
                 "R.array.select_live_player_osd", "PlayerOsdDialog.show", "PlayerSetting.getLiveDisplayChecked()", "PlayerSetting.putLiveDisplayChecked(checked)",
                 "mOsd.setDiagnosticsVisible(PlayerSetting.isOsdDiagnostics());", "mOsd.start();");
+    }
+
+    @Test
+    public void leanbackLiveControlsDoNotShadowPlayerOsdContainer() throws Exception {
+        Path root = moduleRoot();
+        String activityLayout = read(root.resolve(Path.of("src", "leanback", "res", "layout", "activity_live.xml")));
+        String actionLayout = read(root.resolve(Path.of("src", "leanback", "res", "layout", "view_control_live_action.xml")));
+
+        assertTrue("leanback live activity must keep the player OSD container ID", activityLayout.contains("android:id=\"@+id/osd\""));
+        assertFalse("leanback live controls must not shadow the player OSD container ID", actionLayout.contains("android:id=\"@+id/osd\""));
+        assertTrue("leanback live controls must use a distinct OSD settings ID", actionLayout.contains("android:id=\"@+id/osdSettings\""));
     }
 
     @Test
