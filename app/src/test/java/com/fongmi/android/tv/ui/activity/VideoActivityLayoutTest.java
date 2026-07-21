@@ -193,7 +193,7 @@ public class VideoActivityLayoutTest {
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int method = source.indexOf("private void setPlayer(Result result)");
         int setUseParse = source.indexOf("setUseParse(result.shouldUseParse());", method);
-        int guardedParseRow = source.indexOf("mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() ? View.VISIBLE : View.GONE);", setUseParse);
+        int guardedParseRow = source.indexOf("mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() && PlayerButtonSetting.isVisible(PlayerButtonSetting.PARSE) ? View.VISIBLE : View.GONE);", setUseParse);
         int startPlayer = source.indexOf("startPlayer(getHistoryKey(), result, isUseParse()", setUseParse);
 
         assertTrue(sourcePath + " is missing setPlayer", method >= 0);

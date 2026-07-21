@@ -1343,7 +1343,9 @@ private int mAudioBackgroundRandomNonce;
         addActionButton(PlayerButtonSetting.CODEC_CAPABILITY, mBinding.control.action.codecCapability);
         addActionButton(PlayerButtonSetting.SPEED, mBinding.control.action.speed);
         addActionButton(PlayerButtonSetting.SCALE, mBinding.control.action.scale);
+        addActionButton(PlayerButtonSetting.QUALITY, mBinding.control.action.actionQuality);
         addActionButton(PlayerButtonSetting.LUT, mBinding.control.action.lut);
+        addActionButton(PlayerButtonSetting.KARAOKE, mBinding.control.action.karaoke);
         addActionButton(PlayerButtonSetting.RESET, mBinding.control.action.reset);
         addActionButton(PlayerButtonSetting.REPEAT, mBinding.control.action.repeat);
         addActionButton(PlayerButtonSetting.TEXT, mBinding.control.action.text);
@@ -1352,6 +1354,7 @@ private int mAudioBackgroundRandomNonce;
         addActionButton(PlayerButtonSetting.OPENING, mBinding.control.action.opening);
         addActionButton(PlayerButtonSetting.ENDING, mBinding.control.action.ending);
         addActionButton(PlayerButtonSetting.DANMAKU, mBinding.control.action.danmaku);
+        addActionButton(PlayerButtonSetting.AD_FEEDBACK, mBinding.control.action.adFeedback);
         addActionButton(PlayerButtonSetting.TITLE, mBinding.control.action.title);
         addActionButton(PlayerButtonSetting.PREV, mBinding.control.action.prev);
         addActionButton(PlayerButtonSetting.NEXT, mBinding.control.action.next);
@@ -1931,7 +1934,7 @@ private int mAudioBackgroundRandomNonce;
             setPlaybackLyrics(result.getDesc());
         }
         applyAudioQueueMetadata(getPlaybackEpisode());
-        mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() ? View.VISIBLE : View.GONE);
+        mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() && PlayerButtonSetting.isVisible(PlayerButtonSetting.PARSE) ? View.VISIBLE : View.GONE);
         if (redirectToAudioIfNeeded(result)) return;
         List<Danmaku> siteDanmakus = result.getDanmaku();
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
@@ -2049,8 +2052,8 @@ private int mAudioBackgroundRandomNonce;
         mBinding.control.action.next.setVisibility(size < 2 ? View.GONE : View.VISIBLE);
         mBinding.control.action.prev.setVisibility(size < 2 ? View.GONE : View.VISIBLE);
         applyActionButtonVisibility();
-        mBinding.control.next.setVisibility(size < 2 ? View.GONE : View.VISIBLE);
-        mBinding.control.prev.setVisibility(size < 2 ? View.GONE : View.VISIBLE);
+        mBinding.control.next.setVisibility(size < 2 || !PlayerButtonSetting.isVisible(PlayerButtonSetting.NEXT) ? View.GONE : View.VISIBLE);
+        mBinding.control.prev.setVisibility(size < 2 || !PlayerButtonSetting.isVisible(PlayerButtonSetting.PREV) ? View.GONE : View.VISIBLE);
         mBinding.reverse.setVisibility(size < 2 ? View.GONE : View.VISIBLE);
         if (shouldUseUpstreamNativeEpisodeModule()) {
             setUpstreamNativeEpisodeItems(items);
@@ -2262,6 +2265,7 @@ private int mAudioBackgroundRandomNonce;
         mBinding.qualityText.setVisibility(visible ? View.VISIBLE : View.GONE);
         mBinding.quality.setVisibility(visible ? View.VISIBLE : View.GONE);
         mBinding.control.action.actionQuality.setVisibility(visible ? View.VISIBLE : View.GONE);
+        applyActionButtonVisibility();
         updateActionQuality(mViewModel.getPlayer().getValue());
     }
 
@@ -3120,7 +3124,7 @@ private int mAudioBackgroundRandomNonce;
         mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
         mBinding.control.action.adFeedback.setVisibility(isAdFeedbackEnabled() ? View.VISIBLE : View.GONE);
         applyActionButtonVisibility();
-        if (mBinding.control.getRoot().getVisibility() == View.VISIBLE) mBinding.control.danmaku.setVisibility(isLock() || !player().haveDanmaku() ? View.GONE : View.VISIBLE);
+        if (mBinding.control.getRoot().getVisibility() == View.VISIBLE) mBinding.control.danmaku.setVisibility(isLock() || !player().haveDanmaku() || !PlayerButtonSetting.isVisible(PlayerButtonSetting.DANMAKU) ? View.GONE : View.VISIBLE);
     }
 
     private void showControl() {
@@ -3129,17 +3133,17 @@ private int mAudioBackgroundRandomNonce;
         boolean shortDrama = isShortDramaSource();
         boolean showPiP = canShowPiP(shortDrama);
         hideWidgetOverlay();
-        mBinding.control.danmaku.setVisibility(isLock() || !player().haveDanmaku() ? View.GONE : View.VISIBLE);
+        mBinding.control.danmaku.setVisibility(isLock() || !player().haveDanmaku() || !PlayerButtonSetting.isVisible(PlayerButtonSetting.DANMAKU) ? View.GONE : View.VISIBLE);
         mBinding.control.setting.setVisibility(mHistory == null || (isFullscreen() && !shortDrama) ? View.GONE : View.VISIBLE);
         mBinding.control.right.getRoot().setVisibility(isFullscreen() || showPiP ? View.VISIBLE : View.GONE);
         mBinding.control.right.rotate.setVisibility(isFullscreen() && !isLock() ? View.VISIBLE : View.GONE);
         mBinding.control.right.pip.setVisibility(showPiP ? View.VISIBLE : View.GONE);
-        mBinding.control.fullscreen.setVisibility(isLock() || shortDrama ? View.GONE : View.VISIBLE);
+        mBinding.control.fullscreen.setVisibility(isLock() || shortDrama || !PlayerButtonSetting.isVisible(PlayerButtonSetting.FULLSCREEN) ? View.GONE : View.VISIBLE);
         mBinding.control.keep.setVisibility(mHistory == null ? View.GONE : View.VISIBLE);
         mBinding.control.nightMode.setVisibility(mHistory == null ? View.GONE : View.VISIBLE);
         mBinding.control.osdDiagnostics.setVisibility(PlayerSetting.isOsdDiagnostics() && !player().isEmpty() ? View.VISIBLE : View.GONE);
         mBinding.control.osdDiagnostics.setAlpha(mOsd != null && mOsd.isDiagnosticsVisible() ? 1f : 0.72f);
-        mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() ? View.VISIBLE : View.GONE);
+        mBinding.control.parse.setVisibility(isFullscreen() && isUseParse() && PlayerButtonSetting.isVisible(PlayerButtonSetting.PARSE) ? View.VISIBLE : View.GONE);
         // 竖屏模式下隐藏底部控制栏（EXO、硬解等选项），避免界面拥挤。
         // 判定去耦：以视频方向（player().isPortrait()，即 App 期望的全屏方向）为主判据，
         // 不再依赖系统 Configuration 何时真正旋转完成——否则慢机型会在 300ms 自动唤出时踩空、
@@ -3148,7 +3152,7 @@ private int mAudioBackgroundRandomNonce;
         mBinding.control.action.getRoot().setVisibility(isLandscapeFullscreen || isFusionPlayerActionsDocked() ? View.VISIBLE : View.GONE);
         mBinding.control.right.lock.setVisibility(isFullscreen() ? View.VISIBLE : View.GONE);
         mBinding.control.info.setVisibility(player().isEmpty() ? View.GONE : View.VISIBLE);
-        mBinding.control.cast.setVisibility(isFullscreen() && mHistory != null && !player().isEmpty() ? View.VISIBLE : View.GONE);
+        mBinding.control.cast.setVisibility(isFullscreen() && mHistory != null && !player().isEmpty() && PlayerButtonSetting.isVisible(PlayerButtonSetting.CAST) ? View.VISIBLE : View.GONE);
         mBinding.control.center.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.bottom.setVisibility(isLock() ? View.GONE : View.VISIBLE);
         mBinding.control.back.setVisibility(isLock() ? View.GONE : View.VISIBLE);
@@ -5492,6 +5496,7 @@ private int mAudioBackgroundRandomNonce;
 
     private void setAdFeedbackVisible() {
         mBinding.control.action.adFeedback.setVisibility(isAdFeedbackEnabled() ? View.VISIBLE : View.GONE);
+        applyActionButtonVisibility();
     }
 
     private void submitAdFeedback() {

@@ -937,7 +937,7 @@
     <string name="player_default">Default player</string>
     <string name="player_render">Render</string>
     <string name="player_button_config">Player buttons</string>
-    <string name="player_button_config_summary">%1$d/%2$d shown</string>
+    <string name="player_button_config_summary">Globally enabled %1$d/%2$d; availability varies by player mode</string>
     <string name="player_pad_live">Tablet live</string>
     <string name="player_button_up">Up</string>
     <string name="player_button_down">Down</string>

@@ -1217,27 +1217,33 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         addActionButton(PlayerButtonSetting.PREV, mBinding.control.action.prev);
         addActionButton(PlayerButtonSetting.EPISODES, mBinding.control.action.episodes);
         addActionButton(PlayerButtonSetting.RESET, mBinding.control.action.reset);
-        addActionButton("SEARCH", mBinding.control.action.search);
+        addActionButton(PlayerButtonSetting.SEARCH, mBinding.control.action.search);
         addActionButton(PlayerButtonSetting.CHANGE, mBinding.control.action.change2);
         addActionButton(PlayerButtonSetting.FULLSCREEN, mBinding.control.action.fullscreen);
         addActionButton(PlayerButtonSetting.PLAYER, mBinding.control.action.player);
         addActionButton(PlayerButtonSetting.DECODE, mBinding.control.action.decode);
         addActionButton(PlayerButtonSetting.PLAY_PARAMS, mBinding.control.action.playParams);
+        addActionButton(PlayerButtonSetting.PAN_DIAGNOSTIC, mBinding.control.action.panDiagnostic);
         addActionButton(PlayerButtonSetting.CODEC_CAPABILITY, mBinding.control.action.codecCapability);
         addActionButton(PlayerButtonSetting.SPEED, mBinding.control.action.speed);
         addActionButton(PlayerButtonSetting.SCALE, mBinding.control.action.scale);
+        addActionButton(PlayerButtonSetting.QUALITY, mBinding.control.action.actionQuality);
         addActionButton(PlayerButtonSetting.LUT, mBinding.control.action.lut);
+        addActionButton(PlayerButtonSetting.KARAOKE, mBinding.control.action.karaoke);
+        addActionButton(PlayerButtonSetting.IMMERSIVE_AUDIO, mBinding.control.action.immersiveAudio);
         addActionButton(PlayerButtonSetting.TEXT, mBinding.control.action.text);
         addActionButton(PlayerButtonSetting.AUDIO, mBinding.control.action.audio);
         addActionButton(PlayerButtonSetting.VIDEO, mBinding.control.action.video);
         addActionButton(PlayerButtonSetting.OPENING, mBinding.control.action.opening);
         addActionButton(PlayerButtonSetting.ENDING, mBinding.control.action.ending);
         addActionButton(PlayerButtonSetting.DANMAKU, mBinding.control.action.danmaku);
+        addActionButton(PlayerButtonSetting.AD_FEEDBACK, mBinding.control.action.adFeedback);
         addActionButton(PlayerButtonSetting.TITLE, mBinding.control.action.title);
+        addActionButton(PlayerButtonSetting.CAST, mBinding.control.action.cast);
+        addActionButton(PlayerButtonSetting.TIMER, mBinding.control.action.timer);
         addActionButton(PlayerButtonSetting.REPEAT, mBinding.control.action.repeat);
         PlayerButtonSetting.applyOrder(mBinding.control.action.container, mActionButtons);
-        placePanDiagnosticAction();
-        updatePanDiagnosticAction();
+        applyActionButtonVisibility();
     }
 
     private void addActionButton(String id, View view) {
@@ -1245,18 +1251,9 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     }
 
     private void applyActionButtonVisibility() {
-        if (mActionButtons != null) PlayerButtonSetting.applyVisibility(mActionButtons);
         updateImmersiveAudioAction();
         updatePanDiagnosticAction();
-    }
-
-    private void placePanDiagnosticAction() {
-        ViewGroup container = mBinding.control.action.container;
-        View diagnostic = mBinding.control.action.panDiagnostic;
-        View anchor = mBinding.control.action.playParams;
-        if (diagnostic.getParent() != container || anchor.getParent() != container) return;
-        container.removeView(diagnostic);
-        container.addView(diagnostic, Math.min(container.getChildCount(), container.indexOfChild(anchor) + 1));
+        if (mActionButtons != null) PlayerButtonSetting.applyVisibility(mActionButtons);
     }
 
     private void updatePanDiagnosticAction() {
@@ -2181,7 +2178,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         }
         applyAudioQueueMetadata(getPlaybackEpisode());
         if (result.hasPosition()) mHistory.setPosition(result.getPosition());
-        mBinding.control.parse.setVisibility(isUseParse() ? View.VISIBLE : View.GONE);
+        mBinding.control.parse.setVisibility(isUseParse() && PlayerButtonSetting.isVisible(PlayerButtonSetting.PARSE) ? View.VISIBLE : View.GONE);
         if (redirectToContentHandler(result)) return;
         List<Danmaku> siteDanmakus = result.getDanmaku();
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
@@ -2262,6 +2259,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
         boolean useTmdbCards = EpisodeDisplayPolicy.shouldUseTmdbEpisodeCards(tmdbMode, items);
         mBinding.episodeContainer.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
         mBinding.control.action.episodes.setVisibility(items.size() < 2 ? View.GONE : View.VISIBLE);
+        applyActionButtonVisibility();
 
         if (shouldUseUpstreamNativeEpisodeModule()) {
             setUpstreamNativeEpisodeItems(items, scrollToCurrent);
@@ -2397,6 +2395,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
     private void setQualityVisible(boolean visible) {
         mBinding.quality.setVisibility(visible ? View.VISIBLE : View.GONE);
         mBinding.control.action.actionQuality.setVisibility(visible ? View.VISIBLE : View.GONE);
+        applyActionButtonVisibility();
         updateActionQuality(mViewModel.getPlayer().getValue());
         updateFocus();
         updateEpisodeWindow();
@@ -3416,6 +3415,7 @@ private long mInitialPlaybackPosition = C.TIME_UNSET;
 
     private void setAdFeedbackVisible() {
         mBinding.control.action.adFeedback.setVisibility(isAdFeedbackEnabled() ? View.VISIBLE : View.GONE);
+        applyActionButtonVisibility();
     }
 
     private void submitAdFeedback() {
