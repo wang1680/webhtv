@@ -1367,6 +1367,13 @@
     <string name="search_result_all">Search results for %1$s</string>
     <string name="search_result_current">Current site search: %1$s</string>
     <string name="search_result_group">%1$s search: %2$s</string>
+    <string name="search_filter_precise">Precise</string>
+    <string name="search_filter_precise_checked">Precise ✓</string>
+    <string name="search_filter_precise_on">Precise filtering enabled</string>
+    <string name="search_filter_precise_off">Precise filtering disabled</string>
+    <string name="search_filter_precise_hint">Show only closely matching titles</string>
+    <string name="search_filter_keyword_too_short">Keyword is too short for precise filtering</string>
+    <string name="search_filter_empty">No closely matching results. Disable precise filtering to view all results.</string>
     <string name="detail_site_not_searchable">Current site does not support search</string>
 
     <string-array name="select_player">

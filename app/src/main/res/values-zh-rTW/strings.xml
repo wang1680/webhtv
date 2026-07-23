@@ -2100,6 +2100,13 @@
     <string name="search_result_all">%1$s 的搜索結果</string>
     <string name="search_result_current">當前站搜索：%1$s</string>
     <string name="search_result_group">%1$s 搜索：%2$s</string>
+    <string name="search_filter_precise">精準</string>
+    <string name="search_filter_precise_checked">精準 ✓</string>
+    <string name="search_filter_precise_on">精準篩選已開啟</string>
+    <string name="search_filter_precise_off">精準篩選已關閉</string>
+    <string name="search_filter_precise_hint">僅顯示標題高度匹配的結果</string>
+    <string name="search_filter_keyword_too_short">關鍵詞過短，無法進行精準篩選</string>
+    <string name="search_filter_empty">暫無高度匹配的結果，可關閉精準篩選查看全部</string>
     <string name="detail_site_not_searchable">當前站源不支持搜索</string>
     <string name="viewing_report_refreshing">刷新報告中...</string>
     <string name="setting_ai_ad_detection">AI 智能去廣</string>

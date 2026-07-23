@@ -1354,6 +1354,13 @@
     <string name="search_result_all">%1$s 的搜索结果</string>
     <string name="search_result_current">当前站搜索：%1$s</string>
     <string name="search_result_group">%1$s 搜索：%2$s</string>
+    <string name="search_filter_precise">精准</string>
+    <string name="search_filter_precise_checked">精准 ✓</string>
+    <string name="search_filter_precise_on">精准过滤已开启</string>
+    <string name="search_filter_precise_off">精准过滤已关闭</string>
+    <string name="search_filter_precise_hint">只显示标题高度匹配的结果</string>
+    <string name="search_filter_keyword_too_short">关键词过短，无法精准过滤</string>
+    <string name="search_filter_empty">暂无高匹配结果，可关闭精准过滤查看全部</string>
     <string name="detail_site_not_searchable">当前站源不支持搜索</string>
 
     <string-array name="select_player">
