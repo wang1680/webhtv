@@ -1711,8 +1711,8 @@ public class VideoActivityLayoutTest {
                             && body.contains("if (keyChanged) mHistory.replace(nextKey)"));
             assertFalse(sourcePath + " must not unconditionally replace history on every id update",
                     body.contains("if (id) mHistory.replace(getHistoryKey())"));
-            assertTrue(sourcePath + " must sync history after key migration even without pic/name",
-                    body.contains("if (keyChanged || pic || name) syncHistory()"));
+            assertTrue(sourcePath + " must sync history after key migration or an async episode-title refresh",
+                    body.contains("if (keyChanged || pic || name || episodeTitleChanged) syncHistory()"));
         }
     }
 
